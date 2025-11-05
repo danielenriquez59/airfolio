@@ -10,10 +10,7 @@ useHead({
 
 <template>
   <div>
-    <LandingFeatureTwoColumn />
+    <LandingFeaturedAirfoils />
 
-    <LandingFeatureGrid />
-
-    <LandingCta />
   </div>
 </template>

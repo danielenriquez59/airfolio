@@ -1,4 +1,6 @@
 export default defineNuxtConfig({
+  ssr: false, // Disable SSR - run as SPA (client-side only)
+  
   modules: [
     '@nuxt/content',
     '@nuxt/icon',
@@ -42,6 +44,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       gaId: '',
+      backendUrl: process.env.BACKEND_URL || 'http://localhost:8000',
     },
   },
   googleFonts: {
@@ -66,10 +69,19 @@ export default defineNuxtConfig({
         propsDestructure: true,
       },
     },
+    optimizeDeps: {
+      include: ['cookie-es'],
+    },
   },
 
   supabase: {
     redirect: false,
+    clientOptions: {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    },
   },
 
   devtools: {

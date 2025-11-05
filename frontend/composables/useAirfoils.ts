@@ -86,38 +86,45 @@ export const useAirfoils = () => {
 
   /**
    * Get random airfoils (for featured section)
+   * Uses RPC function get_random_airfoils
    */
   const fetchRandomAirfoils = async (count = 3): Promise<Airfoil[]> => {
-    // First, get total count
-    const { count: totalCount, error: countError } = await supabase
-      .from('airfoils')
-      .select('*', { count: 'exact', head: true })
+    try {
+      // Type assertion needed because RPC function not in generated types
+      const { data, error } = await (supabase.rpc as any)('get_random_airfoils', { 
+        limit_count: count 
+      })
 
-    if (countError || !totalCount || totalCount === 0) {
-      console.error('Error fetching airfoil count:', countError)
-      return []
+      if (error) {
+        console.error('[fetchRandomAirfoils] RPC Error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        throw new Error(`Failed to fetch random airfoils: ${error.message || 'Unknown error'}`)
+      }
+
+      if (!data) {
+        console.warn('[fetchRandomAirfoils] No data returned from get_random_airfoils')
+        return []
+      }
+
+      // Ensure we have an array of airfoils
+      if (!Array.isArray(data)) {
+        console.error('[fetchRandomAirfoils] Expected array but got:', typeof data, data)
+        return []
+      }
+
+      if (data.length === 0) {
+        console.warn('[fetchRandomAirfoils] Empty array returned - database might be empty')
+      }
+
+      return data as Airfoil[]
+    } catch (err: any) {
+      console.error('[fetchRandomAirfoils] Exception:', err)
+      throw err
     }
-
-    // Generate random offsets
-    const randomOffsets = Array.from({ length: count }, () =>
-      Math.floor(Math.random() * totalCount)
-    )
-
-    // Fetch random airfoils
-    const promises = randomOffsets.map(offset =>
-      supabase
-        .from('airfoils')
-        .select('*')
-        .range(offset, offset)
-        .single()
-    )
-
-    const results = await Promise.all(promises)
-    const airfoils = results
-      .filter(result => result.data && !result.error)
-      .map(result => result.data!)
-
-    return airfoils
   }
 
   return {

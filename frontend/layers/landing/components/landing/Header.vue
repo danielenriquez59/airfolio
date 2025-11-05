@@ -8,9 +8,6 @@ defineProps<{
 
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
-  { title: 'Store', to: '/store' },
-  { title: 'Blog', to: '/blog' },
-  { title: 'Components', to: '/docs/components/autocomplete' },
   {
     title: 'Examples',
     children: [
