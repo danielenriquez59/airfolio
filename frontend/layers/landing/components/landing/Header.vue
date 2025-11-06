@@ -9,6 +9,7 @@ defineProps<{
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
   { title: 'Airfoils', to: '/search' },
+  { title: 'Performance', to: '/performance' },
   {
     title: 'Contact',
     to: '/contact',
