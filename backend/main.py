@@ -91,12 +91,8 @@ async def analyze(request: AnalysisRequest):
     try:
         num_airfoils = len(request.airfoil_ids)
         
-        # for debugging purposes, set the number of airfoils to 1
-        num_airfoils = 1
-        # Single airfoil analysis - check cache first
-        airfoil_id = request.airfoil_ids[0]
-
         if num_airfoils == 1:
+            airfoil_id = request.airfoil_ids[0]
             cond_hash = generate_condition_hash(request.conditions, airfoil_id)
 
             # TODO: Check performance_cache table for existing results
@@ -164,24 +160,82 @@ async def analyze(request: AnalysisRequest):
         
         else:
             # Multiple airfoils - comparison analysis
-            # Note: Comparisons typically don't use cache, so no hash needed
-            job_id = str(uuid.uuid4())
+            # Fetch all airfoils and run analysis for each
+            if not supabase:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in environment variables."
+                )
             
-            # TODO: Insert job into batch_jobs table with:
-            # - scope: 'compare'
-            # - airfoil_ids: request.airfoil_ids
-            # - inputs: request.conditions.model_dump()
-            # - status: 'queued'
-            # TODO: Queue job in Redis for processing
-            
-            # For comparison, we return a job response format
-            # Note: AnalysisResponse can still be used, but typically comparisons
-            # won't be cached and will always return a job_id
-            return AnalysisResponse(
-                job_id=job_id,
-                cached=False,
-                results=None
-            )
+            try:
+                # Fetch all airfoil coordinates from database
+                response = supabase.table('airfoils').select(
+                    'id, name, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
+                ).in_('id', request.airfoil_ids).execute()
+                
+                if not response.data:
+                    raise HTTPException(status_code=404, detail="No airfoils found with the provided IDs")
+                
+                airfoil_data_list = response.data
+                
+                # Check if we got all requested airfoils
+                fetched_ids = {airfoil['id'] for airfoil in airfoil_data_list}
+                requested_ids = set(request.airfoil_ids)
+                missing_ids = requested_ids - fetched_ids
+                
+                if missing_ids:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Airfoils with IDs {list(missing_ids)} not found"
+                    )
+                
+                # Create a map of airfoil_id -> airfoil_data for easy lookup
+                airfoil_map = {airfoil['id']: airfoil for airfoil in airfoil_data_list}
+                
+                # Run analysis for each airfoil and collect results
+                comparison_results = {}
+                n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
+                
+                for airfoil_id in request.airfoil_ids:
+                    airfoil_data = airfoil_map[airfoil_id]
+                    
+                    # Extract coordinates
+                    upper_x_coords = airfoil_data['upper_x_coordinates']
+                    upper_y_coords = airfoil_data['upper_y_coordinates']
+                    lower_x_coords = airfoil_data['lower_x_coordinates']
+                    lower_y_coords = airfoil_data['lower_y_coordinates']
+                    airfoil_name = airfoil_data.get('name', f'Airfoil_{airfoil_id[:8]}')
+                    
+                    # Run analysis for this airfoil
+                    analysis_results = analyze_airfoil(
+                        upper_x_coords=upper_x_coords,
+                        upper_y_coords=upper_y_coords,
+                        lower_x_coords=lower_x_coords,
+                        lower_y_coords=lower_y_coords,
+                        reynolds_number=request.conditions.Re,
+                        mach_number=request.conditions.Mach,
+                        alpha_range=request.conditions.alpha_range,
+                        n_crit=n_crit,
+                        airfoil_name=airfoil_name
+                    )
+                    
+                    # Store results keyed by airfoil name
+                    comparison_results[airfoil_name] = analysis_results
+                
+                # Return combined results immediately
+                return AnalysisResponse(
+                    job_id=None,
+                    cached=False,
+                    results=comparison_results
+                )
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error running comparison analysis: {str(e)}"
+                )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error submitting analysis: {str(e)}")
