@@ -27,6 +27,27 @@ export const useAirfoils = () => {
   }
 
   /**
+   * Fetch a single airfoil by name (slug) with full details
+   */
+  const fetchAirfoilByName = async (name: string): Promise<Airfoil | null> => {
+    // Decode the slug (name) from URL format
+    const decodedName = decodeURIComponent(name)
+    
+    const { data, error } = await supabase
+      .from('airfoils')
+      .select('*')
+      .eq('name', decodedName)
+      .single()
+
+    if (error) {
+      console.error('Error fetching airfoil by name:', error)
+      throw error
+    }
+
+    return data
+  }
+
+  /**
    * Fetch airfoil geometry points only (for visualization)
    * Returns coordinate arrays for upper and lower surfaces
    */
@@ -129,6 +150,7 @@ export const useAirfoils = () => {
 
   return {
     fetchAirfoil,
+    fetchAirfoilByName,
     fetchAirfoilGeometry,
     fetchAirfoilMetadata,
     fetchAirfoils,

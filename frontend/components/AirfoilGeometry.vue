@@ -123,7 +123,7 @@ const chartOptions = computed(() => {
     plugins: {
       title: {
         display: !!props.name,
-        text: props.name ? `${props.name} Airfoil Profile` : '',
+        text: props.name ? `Airfoil Profile` : '',
         font: {
           size: 16,
           weight: 'bold' as const,
@@ -153,7 +153,7 @@ const chartOptions = computed(() => {
         max: ranges.xMax,
         title: {
           display: true,
-          text: 'Chord Position (%)',
+          text: 'Chord Position (x/c)',
           font: {
             size: 12,
           },
@@ -168,11 +168,11 @@ const chartOptions = computed(() => {
       },
       y: {
         type: 'linear' as const,
-        min: ranges.yMin,
-        max: ranges.yMax,
+        min: ranges.yMin - 0.001,
+        max: ranges.yMax + 0.001,
         title: {
           display: true,
-          text: 'Thickness (%)',
+          text: 'Thickness (y/c)',
           font: {
             size: 12,
           },

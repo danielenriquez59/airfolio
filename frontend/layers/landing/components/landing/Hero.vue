@@ -1,19 +1,95 @@
 <script setup lang="ts">
+import type { Database } from '~/types/database.types'
+import { useDebounceFn, onClickOutside } from '@vueuse/core'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
+
+const { searchAirfoilsByPrefix } = useAirfoilAutocomplete()
+
 const searchQuery = ref('')
+const suggestions = ref<Airfoil[]>([])
+const showSuggestions = ref(false)
+const isLoading = ref(false)
+const selectedIndex = ref(-1)
+const searchContainerRef = ref<HTMLElement | null>(null)
+
+// Debounced search function with 300ms delay
+const debouncedSearch = useDebounceFn(async (query: string) => {
+  if (query.length < 2) {
+    suggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const results = await searchAirfoilsByPrefix(query, 15)
+    suggestions.value = results
+    showSuggestions.value = true
+    selectedIndex.value = -1
+  } catch (error) {
+    console.error('Error fetching autocomplete suggestions:', error)
+    suggestions.value = []
+  } finally {
+    isLoading.value = false
+  }
+}, 300)
+
+// Watch search query and trigger debounced search
+watch(searchQuery, (newQuery) => {
+  if (newQuery.length >= 2) {
+    debouncedSearch(newQuery)
+  } else {
+    suggestions.value = []
+    showSuggestions.value = false
+    selectedIndex.value = -1
+  }
+})
 
 const handleSearch = () => {
-  // TODO: Implement search functionality
   // Navigate to browse page with search query
   if (searchQuery.value.trim()) {
+    showSuggestions.value = false
     navigateTo(`/browse?search=${encodeURIComponent(searchQuery.value)}`)
   }
 }
 
+const handleSuggestionClick = (airfoil: Airfoil) => {
+  const slug = encodeURIComponent(airfoil.name)
+  navigateTo(`/airfoils/${slug}`)
+  showSuggestions.value = false
+  searchQuery.value = ''
+}
+
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter') {
-    handleSearch()
+    if (showSuggestions.value && selectedIndex.value >= 0 && suggestions.value[selectedIndex.value]) {
+      // Select highlighted suggestion
+      handleSuggestionClick(suggestions.value[selectedIndex.value])
+    } else {
+      // Perform regular search
+      handleSearch()
+    }
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    if (showSuggestions.value && suggestions.value.length > 0) {
+      selectedIndex.value = Math.min(selectedIndex.value + 1, suggestions.value.length - 1)
+    }
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    if (showSuggestions.value) {
+      selectedIndex.value = Math.max(selectedIndex.value - 1, -1)
+    }
+  } else if (event.key === 'Escape') {
+    showSuggestions.value = false
+    selectedIndex.value = -1
   }
 }
+
+// Close suggestions when clicking outside
+onClickOutside(searchContainerRef, () => {
+  showSuggestions.value = false
+})
 </script>
 
 <template>
@@ -26,7 +102,7 @@ const handleKeydown = (event: KeyboardEvent) => {
           </h1>
           
           <div class="mt-10 flex items-center justify-center">
-            <div class="w-full max-w-lg">
+            <div ref="searchContainerRef" class="relative w-full max-w-lg">
               <VInput
                 v-model="searchQuery"
                 placeholder="Search for an airfoil..."
@@ -34,6 +110,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                 prepend-icon="heroicons:magnifying-glass"
                 wrapper-class="w-full"
                 @keydown="handleKeydown"
+                @focus="showSuggestions = searchQuery.length >= 2 && suggestions.length > 0"
               >
                 <template #append>
                   <button
@@ -45,6 +122,61 @@ const handleKeydown = (event: KeyboardEvent) => {
                   </button>
                 </template>
               </VInput>
+
+              <!-- Loading State -->
+              <Transition
+                enter-active-class="transition ease-out duration-100"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition ease-in duration-75"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <div
+                  v-if="isLoading && searchQuery.length >= 2"
+                  class="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg border border-gray-200"
+                  @click.stop
+                >
+                  <div class="px-4 py-3 text-center text-gray-500">
+                    <div class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                    <span class="ml-2">Searching...</span>
+                  </div>
+                </div>
+              </Transition>
+
+              <!-- Autocomplete Dropdown -->
+              <Transition
+                enter-active-class="transition ease-out duration-100"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition ease-in duration-75"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <div
+                  v-if="showSuggestions && !isLoading && suggestions.length > 0"
+                  class="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto"
+                  @click.stop
+                >
+                  <!-- Suggestions List -->
+                  <button
+                    v-for="(airfoil, index) in suggestions"
+                    :key="airfoil.id"
+                    type="button"
+                    :class="[
+                      'w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none transition-colors',
+                      selectedIndex === index ? 'bg-indigo-50' : ''
+                    ]"
+                    @click="handleSuggestionClick(airfoil)"
+                    @mouseenter="selectedIndex = index"
+                  >
+                    <div class="font-medium text-gray-900 uppercase">{{ airfoil.name }}</div>
+                    <div v-if="airfoil.description" class="text-sm text-gray-500 truncate">
+                      {{ airfoil.description }}
+                    </div>
+                  </button>
+                </div>
+              </Transition>
             </div>
           </div>
         </div>

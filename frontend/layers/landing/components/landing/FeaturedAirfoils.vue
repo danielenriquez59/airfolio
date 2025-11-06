@@ -49,7 +49,7 @@ onMounted(() => {
       <div class="text-center mb-12">
         <h2 class="text-3xl font-bold text-gray-900">Featured Airfoils</h2>
         <p class="mt-4 text-lg text-gray-600">
-          Discover some of our most popular airfoil designs
+          Discover some new airfoil designs
         </p>
       </div>
 

@@ -39,20 +39,15 @@ onMounted(async () => {
 // Format percentage values
 const formatPercent = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return 'N/A'
-  return `${value.toFixed(2)}%`
-}
-
-// Format location percentage
-const formatLocation = (value: number | null | undefined): string => {
-  if (value === null || value === undefined) return 'N/A'
-  return `${value.toFixed(1)}%`
+  return `${(value * 100).toFixed(0)}%`
 }
 
 const handleClick = () => {
   if (props.onClick) {
     props.onClick()
-  } else {
-    navigateTo(`/airfoils/${props.airfoilId}`)
+  } else if (airfoil.value?.name) {
+    const slug = encodeURIComponent(airfoil.value.name)
+    navigateTo(`/airfoils/${slug}`)
   }
 }
 </script>
@@ -66,11 +61,11 @@ const handleClick = () => {
     @click="handleClick"
   >
     <template #header>
-      <div class="px-4 py-3 border-b border-gray-200">
+      <div class="px-4 py-1">
         <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
-          {{ airfoil?.name || 'Loading...' }}
+          {{ airfoil?.name.toUpperCase() || 'Loading...' }}
         </h3>
-        <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-1 line-clamp-2">
+        <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
           {{ airfoil.description }}
         </p>
       </div>
@@ -78,7 +73,7 @@ const handleClick = () => {
 
     <VCardBody>
       <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
+      <div v-if="loading" class="flex items-center justify-center py-8">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
 
@@ -93,35 +88,39 @@ const handleClick = () => {
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span class="text-gray-500 block mb-1">Thickness</span>
-            <span class="font-semibold text-gray-900">
-              {{ formatPercent(airfoil.thickness_pct) }}
-            </span>
-            <span v-if="airfoil.thickness_loc_pct" class="text-gray-500 text-xs block mt-0.5">
-              @ {{ formatLocation(airfoil.thickness_loc_pct) }}
-            </span>
+            <div class="flex flex-row">
+              <span class="font-semibold text-gray-900">
+                {{ formatPercent(airfoil.thickness_pct) }}
+              </span>
+              <span v-if="airfoil.thickness_loc_pct" class="text-gray-500 text-xs block mt-0.5 ml-1">
+                @ {{ formatPercent(airfoil.thickness_loc_pct) }} x/c
+              </span>
+            </div>
           </div>
 
           <div>
             <span class="text-gray-500 block mb-1">Camber</span>
-            <span class="font-semibold text-gray-900">
-              {{ formatPercent(airfoil.camber_pct) }}
-            </span>
-            <span v-if="airfoil.camber_loc_pct" class="text-gray-500 text-xs block mt-0.5">
-              @ {{ formatLocation(airfoil.camber_loc_pct) }}
-            </span>
+            <div class="flex flex-row">
+              <span class="font-semibold text-gray-900">
+                {{ formatPercent(airfoil.camber_pct) }}
+              </span>
+            <span v-if="airfoil.camber_loc_pct" class="text-gray-500 text-xs block mt-0.5 ml-1">
+                @ {{ formatPercent(airfoil.camber_loc_pct) }} x/c
+              </span>
+            </div>
           </div>
 
           <div v-if="airfoil.le_radius">
             <span class="text-gray-500 block mb-1">LE Radius</span>
             <span class="font-semibold text-gray-900">
-              {{ formatPercent(airfoil.le_radius) }}
+              {{ airfoil.le_radius.toFixed(2) }}
             </span>
           </div>
 
           <div v-if="airfoil.te_thickness">
             <span class="text-gray-500 block mb-1">TE Thickness</span>
             <span class="font-semibold text-gray-900">
-              {{ formatPercent(airfoil.te_thickness) }}
+              {{ airfoil.te_thickness.toFixed(3) }}
             </span>
           </div>
         </div>

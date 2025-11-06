@@ -11,7 +11,7 @@ const props = withDefaults(
 </script>
 
 <template>
-  <h3 class="font-semibold text-lg text-gray-700 px-4 py-3 border-b">
+  <h3 class="font-semibold text-lg text-gray-700 px-4 py-3">
     <slot>
       {{ title }}
     </slot>
