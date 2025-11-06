@@ -13,7 +13,7 @@ export interface AnalysisConditions {
 }
 
 export interface AnalysisResponse {
-  job_id: string
+  job_id: string | null
   cached: boolean
   results?: {
     alpha: number[]
@@ -35,32 +35,14 @@ export const useAnalysis = () => {
   const backendUrl = config.public.backendUrl || 'http://localhost:8000'
 
   /**
-   * Submit single airfoil analysis job
+   * Submit analysis job for single or multiple airfoils
+   * Uses the unified /api/analyze endpoint
    */
   const submitAnalysis = async (
-    airfoilId: string,
+    airfoilIds: string[],
     conditions: AnalysisConditions
   ): Promise<AnalysisResponse> => {
     const response = await $fetch<AnalysisResponse>('/api/analyze', {
-      method: 'POST',
-      baseURL: backendUrl,
-      body: {
-        airfoil_id: airfoilId,
-        conditions,
-      },
-    })
-
-    return response
-  }
-
-  /**
-   * Submit comparison analysis for multiple airfoils
-   */
-  const submitComparisonAnalysis = async (
-    airfoilIds: string[],
-    conditions: AnalysisConditions
-  ): Promise<{ job_id: string; status: string; created_at: string }> => {
-    const response = await $fetch('/api/analyze/compare', {
       method: 'POST',
       baseURL: backendUrl,
       body: {
@@ -70,6 +52,17 @@ export const useAnalysis = () => {
     })
 
     return response
+  }
+
+  /**
+   * Submit comparison analysis for multiple airfoils
+   * Alias for submitAnalysis with multiple airfoils
+   */
+  const submitComparisonAnalysis = async (
+    airfoilIds: string[],
+    conditions: AnalysisConditions
+  ): Promise<AnalysisResponse> => {
+    return submitAnalysis(airfoilIds, conditions)
   }
 
   /**
