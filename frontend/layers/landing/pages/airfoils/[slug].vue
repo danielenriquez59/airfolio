@@ -4,7 +4,7 @@ import type { Database } from '~/types/database.types'
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 definePageMeta({
-  layout: false, // No layout - just white background
+  layout: 'detail',
 })
 
 const route = useRoute()
@@ -55,8 +55,7 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen bg-white">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div>
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -204,19 +203,7 @@ useHead({
             </dl>
           </div>
         </div>
-
-        <!-- Back Button -->
-        <div class="text-center">
-          <NuxtLink
-            to="/"
-            class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            <Icon name="heroicons:arrow-left" class="h-5 w-5" />
-            Back to Home
-          </NuxtLink>
-        </div>
       </div>
-    </div>
   </div>
 </template>
 

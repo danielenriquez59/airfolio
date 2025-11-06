@@ -8,18 +8,10 @@ defineProps<{
 
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
+  { title: 'Airfoils', to: '/search' },
   {
-    title: 'Examples',
-    children: [
-      {
-        title: 'Forms',
-        to: '/docs/forms',
-      },
-      {
-        title: 'Swiper',
-        to: '/docs/swiper',
-      },
-    ],
+    title: 'Contact',
+    to: '/contact',
   },
 ]
 </script>

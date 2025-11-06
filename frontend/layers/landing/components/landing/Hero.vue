@@ -48,9 +48,11 @@ watch(searchQuery, (newQuery) => {
 
 const handleSearch = () => {
   // Navigate to search page with search query
+  showSuggestions.value = false
   if (searchQuery.value.trim()) {
-    showSuggestions.value = false
     navigateTo(`/search?q=${encodeURIComponent(searchQuery.value)}`)
+  } else {
+    navigateTo('/search')
   }
 }
 

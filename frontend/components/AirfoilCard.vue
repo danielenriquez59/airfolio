@@ -135,7 +135,7 @@ const handleClick = () => {
             :lower-y="airfoil.lower_y_coordinates"
             :name="thumbnail ? undefined : airfoil.name"
             :height="thumbnail ? 200 : 300"
-            :aspect-ratio="thumbnail ? 2 : 2.5"
+            :aspect-ratio="null"
             :show-grid="!thumbnail"
             :show-legend="false"
           />

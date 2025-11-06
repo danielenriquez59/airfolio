@@ -18,7 +18,7 @@ const loadFeaturedAirfoils = async () => {
     featuredAirfoils.value = []
     
     console.log('[FeaturedAirfoils] Calling fetchRandomAirfoils...')
-    const airfoils = await fetchRandomAirfoils(3)
+    const airfoils = await fetchRandomAirfoils(4)
     console.log('[FeaturedAirfoils] Received airfoils:', airfoils)
     
     if (airfoils && airfoils.length > 0) {
@@ -72,13 +72,12 @@ onMounted(() => {
       <!-- Airfoils Grid -->
       <div
         v-else-if="featuredAirfoils.length > 0"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        class="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <AirfoilCard
           v-for="airfoil in featuredAirfoils"
           :key="airfoil.id"
           :airfoil-id="airfoil.id"
-          thumbnail
         />
       </div>
 
