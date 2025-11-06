@@ -95,8 +95,10 @@ useHead({
             :lower-y="airfoil.lower_y_coordinates"
             :name="airfoil.name"
             :height="400"
-            :aspect-ratio="2.5"
+            :aspect-ratio="null"
             :show-grid="true"
+            :zoomable="true"
+            :show-points-on-hover="true"
           />
           <div v-else class="text-center py-8 text-gray-400">
             Geometry data not available
@@ -111,18 +113,18 @@ useHead({
               <div v-if="airfoil.thickness_pct">
                 <dt class="text-sm text-gray-500">Thickness</dt>
                 <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.thickness_pct.toFixed(2) }}%
+                  {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
                   <span v-if="airfoil.thickness_loc_pct" class="text-sm text-gray-600 font-normal">
-                    @ {{ airfoil.thickness_loc_pct.toFixed(1) }}%
+                    @ {{ (airfoil.thickness_loc_pct * 100).toFixed(1) }}% x/c
                   </span>
                 </dd>
               </div>
               <div v-if="airfoil.camber_pct">
                 <dt class="text-sm text-gray-500">Camber</dt>
                 <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.camber_pct.toFixed(2) }}%
+                  {{ (airfoil.camber_pct * 100).toFixed(2) }}%
                   <span v-if="airfoil.camber_loc_pct" class="text-sm text-gray-600 font-normal">
-                    @ {{ airfoil.camber_loc_pct.toFixed(1) }}%
+                    @ {{ (airfoil.camber_loc_pct * 100).toFixed(1) }}% x/c
                   </span>
                 </dd>
               </div>
