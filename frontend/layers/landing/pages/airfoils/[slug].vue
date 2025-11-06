@@ -9,6 +9,7 @@ definePageMeta({
 
 const route = useRoute()
 const { fetchAirfoilByName } = useAirfoils()
+const { downloadLednicer, downloadSelig } = useAirfoilDownload()
 
 const airfoil = ref<Airfoil | null>(null)
 const loading = ref(true)
@@ -137,6 +138,18 @@ useHead({
                   {{ airfoil.te_thickness.toFixed(4) }}
                 </dd>
               </div>
+              <div v-if="airfoil.upper_surface_nodes !== null">
+                <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
+                <dd class="text-lg font-semibold text-gray-900">
+                  {{ airfoil.upper_surface_nodes }}
+                </dd>
+              </div>
+              <div v-if="airfoil.lower_surface_nodes !== null">
+                <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
+                <dd class="text-lg font-semibold text-gray-900">
+                  {{ airfoil.lower_surface_nodes }}
+                </dd>
+              </div>
             </dl>
           </div>
 
@@ -161,6 +174,29 @@ useHead({
                 <dt class="text-sm text-gray-500">Added</dt>
                 <dd class="text-gray-900">
                   {{ new Date(airfoil.created_at).toLocaleDateString() }}
+                </dd>
+              </div>
+              <div
+                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
+              >
+                <dt class="text-sm text-gray-500">Download</dt>
+                <dd class="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    @click="() => downloadLednicer(airfoil!)"
+                    class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    Download Lednicer Format
+                    <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    @click="() => downloadSelig(airfoil!)"
+                    class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    Download Selig Format
+                    <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+                  </button>
                 </dd>
               </div>
             </dl>

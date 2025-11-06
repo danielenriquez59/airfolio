@@ -30,7 +30,7 @@ const isOpen = ref(modelValue.value)
 
 watch(modelValue, (value) => {
   isOpen.value = value
-})
+}, { immediate: true })
 
 function closeModal() {
   isOpen.value = false
