@@ -121,6 +121,7 @@ const nCritValid = computed(() => {
 })
 
 const canRunAnalysis = computed(() => {
+  // Button is disabled if: invalid parameters OR no airfoils match geometry filters
   return reynoldsValid.value && machValid.value && alphaValid.value && nCritValid.value && matchedCount.value > 0
 })
 

@@ -21,6 +21,7 @@ const {
   getSelectedAirfoilsData,
   getSummaryData,
   resetFilters,
+  getFilterRanges,
 } = useCompare()
 
 // Active tab: 'plots' or 'table'
@@ -97,17 +98,11 @@ const updateURL = () => {
   if (state.filters.minCLMax !== null) {
     query.minCLMax = state.filters.minCLMax.toString()
   }
-  if (state.filters.minCLAtZero !== null) {
-    query.minCLAtZero = state.filters.minCLAtZero.toString()
-  }
   if (state.filters.targetCL !== null) {
     query.targetCL = state.filters.targetCL.toString()
   }
   if (state.filters.targetAOA !== null) {
     query.targetAOA = state.filters.targetAOA.toString()
-  }
-  if (state.filters.manualExclusions.length > 0) {
-    query.exclusions = state.filters.manualExclusions.join(',')
   }
 
   // Serialize selection
@@ -137,22 +132,11 @@ const loadStateFromURL = () => {
   if (query.minCLMax) {
     updateFilter('minCLMax', parseFloat(query.minCLMax as string))
   }
-  if (query.minCLAtZero) {
-    updateFilter('minCLAtZero', parseFloat(query.minCLAtZero as string))
-  }
   if (query.targetCL) {
     updateFilter('targetCL', parseFloat(query.targetCL as string))
   }
   if (query.targetAOA) {
     updateFilter('targetAOA', parseFloat(query.targetAOA as string))
-  }
-  if (query.exclusions) {
-    const exclusions = (query.exclusions as string).split(',').filter(Boolean)
-    updateFilter('manualExclusions', exclusions)
-  }
-  if (query.selected) {
-    const selected = (query.selected as string).split(',').filter(Boolean)
-    setSelectedAirfoils(selected)
   }
 }
 
@@ -216,11 +200,12 @@ useHead({
         <!-- Sidebar: Filters & Selection -->
         <div class="lg:col-span-1">
           <CompareSidebar
-            :filters="{ ...state.filters, manualExclusions: [...state.filters.manualExclusions] }"
+            :filters="state.filters"
             :filtered-airfoils="[...state.filteredAirfoils]"
             :selected-airfoils="[...state.selectedAirfoils]"
             :total-count="state.allAirfoils.size"
             :data-context="dataContext"
+            :filter-ranges="getFilterRanges"
             @update-filter="updateFilter"
             @set-selected="setSelectedAirfoils"
             @toggle-selection="toggleAirfoilSelection"

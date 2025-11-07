@@ -11,6 +11,12 @@ interface Props {
     Mach?: number
     source?: string
   }
+  filterRanges?: {
+    smoothness_CM: { min: number; max: number }
+    cmAtZero: { min: number; max: number }
+    maxLD: { min: number; max: number }
+    clMax: { min: number; max: number }
+  }
 }
 
 const props = defineProps<Props>()
@@ -29,10 +35,29 @@ const maxCMRoughness = ref(props.filters.maxCMRoughness)
 const minCMAtZero = ref(props.filters.minCMAtZero)
 const minMaxLD = ref(props.filters.minMaxLD)
 const minCLMax = ref(props.filters.minCLMax)
-const minCLAtZero = ref(props.filters.minCLAtZero)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
-const manualExclusions = ref<string>('')
+
+// Computed properties for range sliders (handle null values)
+const maxCMRoughnessSlider = computed({
+  get: () => maxCMRoughness.value ?? (props.filterRanges?.smoothness_CM.max ?? 0),
+  set: (val) => { maxCMRoughness.value = val }
+})
+
+const minCMAtZeroSlider = computed({
+  get: () => minCMAtZero.value ?? (props.filterRanges?.cmAtZero.min ?? 0),
+  set: (val) => { minCMAtZero.value = val }
+})
+
+const minMaxLDSlider = computed({
+  get: () => minMaxLD.value ?? (props.filterRanges?.maxLD.min ?? 0),
+  set: (val) => { minMaxLD.value = val }
+})
+
+const minCLMaxSlider = computed({
+  get: () => minCLMax.value ?? (props.filterRanges?.clMax.min ?? 0),
+  set: (val) => { minCLMax.value = val }
+})
 
 // Watch filter changes from parent
 watch(
@@ -42,10 +67,8 @@ watch(
     minCMAtZero.value = newFilters.minCMAtZero
     minMaxLD.value = newFilters.minMaxLD
     minCLMax.value = newFilters.minCLMax
-    minCLAtZero.value = newFilters.minCLAtZero
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
-    manualExclusions.value = newFilters.manualExclusions.join(', ')
   },
   { deep: true }
 )
@@ -63,22 +86,11 @@ watch(minMaxLD, (val) => {
 watch(minCLMax, (val) => {
   emit('update-filter', 'minCLMax', val || null)
 })
-watch(minCLAtZero, (val) => {
-  emit('update-filter', 'minCLAtZero', val || null)
-})
 watch(targetCL, (val) => {
   emit('update-filter', 'targetCL', val || null)
 })
 watch(targetAOA, (val) => {
   emit('update-filter', 'targetAOA', val || null)
-})
-
-watch(manualExclusions, (val) => {
-  const exclusions = val
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  emit('update-filter', 'manualExclusions', exclusions)
 })
 
 const handleSelectAll = () => {
@@ -144,38 +156,63 @@ const handleResetFilters = () => {
       </div>
 
       <div class="space-y-4">
-        <!-- Max CM Roughness -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Max CM Roughness (smoothness_CM ≤)
-          </label>
-          <VInput
-            v-model.number="maxCMRoughness"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-          />
-        </div>
+        <!-- Target CL and Target AOA -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Target CL -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
+            <VInput
+              v-model.number="targetCL"
+              type="number"
+              step="0.01"
+              placeholder="No target"
+              size="sm"
+              wrapper-class="w-full"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Tolerance: ±0.1
+            </p>
+          </div>
 
-        <!-- Min CM at α = 0° -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Min CM at α = 0°
-          </label>
-          <VInput
-            v-model.number="minCMAtZero"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-          />
+          <!-- Target AOA -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Design AOA (deg)</label>
+            <VInput
+              v-model.number="targetAOA"
+              type="number"
+              step="0.5"
+              placeholder="No target"
+              size="sm"
+              wrapper-class="w-full"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Tolerance: ±0.5°
+            </p>
+          </div>
         </div>
 
         <!-- Min Max L/D -->
-        <div>
+        <div v-if="filterRanges">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium text-gray-700">Min Max L/D</label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ minMaxLD !== null && minMaxLD !== undefined ? minMaxLD.toFixed(2) : 'No limit' }}
+            </span>
+          </div>
+          <input
+            v-model.number="minMaxLDSlider"
+            type="range"
+            :min="filterRanges.maxLD.min"
+            :max="filterRanges.maxLD.max"
+            step="0.1"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(2) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div v-else>
           <label class="block text-sm font-medium text-gray-700 mb-1">Min Max L/D</label>
           <VInput
             v-model.number="minMaxLD"
@@ -188,7 +225,27 @@ const handleResetFilters = () => {
         </div>
 
         <!-- Min CL Max -->
-        <div>
+        <div v-if="filterRanges">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium text-gray-700">Min CL Max</label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ minCLMax !== null && minCLMax !== undefined ? minCLMax.toFixed(3) : 'No limit' }}
+            </span>
+          </div>
+          <input
+            v-model.number="minCLMaxSlider"
+            type="range"
+            :min="filterRanges.clMax.min"
+            :max="filterRanges.clMax.max"
+            step="0.01"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(3) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(3) }}</span>
+          </div>
+        </div>
+        <div v-else>
           <label class="block text-sm font-medium text-gray-700 mb-1">Min CL Max</label>
           <VInput
             v-model.number="minCLMax"
@@ -200,63 +257,84 @@ const handleResetFilters = () => {
           />
         </div>
 
-        <!-- Min CL at α = 0° -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Min CL at α = 0°</label>
+        <!-- Max CM Roughness -->
+        <div v-if="filterRanges">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium text-gray-700">
+              Max CM Roughness (smoothness_CM ≤)
+            </label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
+            </span>
+          </div>
+          <input
+            v-model.number="maxCMRoughnessSlider"
+            type="range"
+            :min="filterRanges.smoothness_CM.min"
+            :max="filterRanges.smoothness_CM.max"
+            step="0.01"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            Lower values = smoother moment curve
+          </p>
+        </div>
+        <div v-else>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Max CM Roughness (smoothness_CM ≤)
+          </label>
           <VInput
-            v-model.number="minCLAtZero"
+            v-model.number="maxCMRoughness"
             type="number"
             step="0.01"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
           />
-        </div>
-
-        <!-- Target CL -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Target CL</label>
-          <VInput
-            v-model.number="targetCL"
-            type="number"
-            step="0.01"
-            placeholder="No target"
-            size="sm"
-            wrapper-class="w-full"
-          />
-        </div>
-
-        <!-- Target AOA -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Target AOA (deg)</label>
-          <VInput
-            v-model.number="targetAOA"
-            type="number"
-            step="0.5"
-            placeholder="No target"
-            size="sm"
-            wrapper-class="w-full"
-          />
           <p class="mt-1 text-xs text-gray-500">
-            Tolerance: ±0.5° (AOA), ±0.1 (CL)
+            Lower values = smoother moment curve
           </p>
         </div>
 
-        <!-- Manual Exclusions -->
-        <div>
+        <!-- Min CM at α = 0° -->
+        <div v-if="filterRanges">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium text-gray-700">
+              Min CM at α = 0°
+            </label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ minCMAtZero !== null && minCMAtZero !== undefined ? minCMAtZero.toFixed(3) : 'No limit' }}
+            </span>
+          </div>
+          <input
+            v-model.number="minCMAtZeroSlider"
+            type="range"
+            :min="filterRanges.cmAtZero.min"
+            :max="filterRanges.cmAtZero.max"
+            step="0.01"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
+          </div>
+        </div>
+        <div v-else>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Manual Exclusions
+            Min CM at α = 0°
           </label>
           <VInput
-            v-model="manualExclusions"
-            type="text"
-            placeholder="Comma-separated airfoil names"
+            v-model.number="minCMAtZero"
+            type="number"
+            step="0.01"
+            placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
           />
-          <p class="mt-1 text-xs text-gray-500">
-            Enter airfoil names separated by commas
-          </p>
         </div>
       </div>
     </div>

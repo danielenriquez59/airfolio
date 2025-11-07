@@ -23,12 +23,10 @@ export interface FilterState {
   minCMAtZero: number | null // Min CM at α = 0°
   minMaxLD: number | null // Min Max L/D
   minCLMax: number | null // Min CL Max
-  minCLAtZero: number | null // Min CL at α = 0°
   targetCL: number | null
   targetAOA: number | null
   targetCLTolerance: number // Default ±0.1
   targetAOATolerance: number // Default ±0.5°
-  manualExclusions: string[] // Airfoil names to exclude
 }
 
 export interface CompareState {
@@ -43,12 +41,10 @@ const DEFAULT_FILTERS: FilterState = {
   minCMAtZero: null,
   minMaxLD: null,
   minCLMax: null,
-  minCLAtZero: null,
   targetCL: null,
   targetAOA: null,
   targetCLTolerance: 0.1,
   targetAOATolerance: 0.5,
-  manualExclusions: [],
 }
 
 /**
@@ -137,11 +133,6 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
 function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean {
   const { alpha, CL, CD, CM } = airfoil
   
-  // Manual exclusions
-  if (filters.manualExclusions.includes(airfoil.name)) {
-    return false
-  }
-  
   // Max CM Roughness (smoothness_CM ≤)
   if (filters.maxCMRoughness !== null) {
     const smoothness = airfoil.smoothness_CM
@@ -172,15 +163,6 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
   if (filters.minCLMax !== null) {
     const clMax = Math.max(...CL.filter(v => isFinite(v)))
     if (!isFinite(clMax) || clMax < filters.minCLMax) {
-      return false
-    }
-  }
-  
-  // Min CL at α = 0°
-  if (filters.minCLAtZero !== null) {
-    const zeroAlphaIdx = findZeroAlphaIndex(alpha)
-    const clAtZero = CL[zeroAlphaIdx]
-    if (!isFinite(clAtZero) || clAtZero < filters.minCLAtZero) {
       return false
     }
   }
@@ -357,6 +339,69 @@ export const useCompare = () => {
   })
 
   /**
+   * Get filter value ranges from all airfoils
+   */
+  const getFilterRanges = computed(() => {
+    if (state.allAirfoils.size === 0) {
+      return {
+        smoothness_CM: { min: 0, max: 0 },
+        cmAtZero: { min: 0, max: 0 },
+        maxLD: { min: 0, max: 0 },
+        clMax: { min: 0, max: 0 },
+      }
+    }
+
+    const smoothnessValues: number[] = []
+    const cmAtZeroValues: number[] = []
+    const maxLDValues: number[] = []
+    const clMaxValues: number[] = []
+
+    state.allAirfoils.forEach((airfoil) => {
+      const { alpha, CL, CD, CM } = airfoil
+      
+      if (airfoil.smoothness_CM !== undefined) {
+        smoothnessValues.push(airfoil.smoothness_CM)
+      }
+      
+      const zeroAlphaIdx = findZeroAlphaIndex(alpha)
+      const cmAtZero = CM[zeroAlphaIdx]
+      if (isFinite(cmAtZero)) {
+        cmAtZeroValues.push(cmAtZero)
+      }
+      
+      const LD = calculateLD(CL, CD)
+      const maxLD = Math.max(...LD.filter(v => isFinite(v)))
+      if (isFinite(maxLD)) {
+        maxLDValues.push(maxLD)
+      }
+      
+      const clMax = Math.max(...CL.filter(v => isFinite(v)))
+      if (isFinite(clMax)) {
+        clMaxValues.push(clMax)
+      }
+    })
+
+    return {
+      smoothness_CM: {
+        min: smoothnessValues.length > 0 ? Math.min(...smoothnessValues) : 0,
+        max: smoothnessValues.length > 0 ? Math.max(...smoothnessValues) : 0,
+      },
+      cmAtZero: {
+        min: cmAtZeroValues.length > 0 ? Math.min(...cmAtZeroValues) : 0,
+        max: cmAtZeroValues.length > 0 ? Math.max(...cmAtZeroValues) : 0,
+      },
+      maxLD: {
+        min: maxLDValues.length > 0 ? Math.min(...maxLDValues) : 0,
+        max: maxLDValues.length > 0 ? Math.max(...maxLDValues) : 0,
+      },
+      clMax: {
+        min: clMaxValues.length > 0 ? Math.min(...clMaxValues) : 0,
+        max: clMaxValues.length > 0 ? Math.max(...clMaxValues) : 0,
+      },
+    }
+  })
+
+  /**
    * Reset filters to defaults
    */
   const resetFilters = () => {
@@ -376,6 +421,7 @@ export const useCompare = () => {
     getSummaryData,
     resetFilters,
     applyFilters,
+    getFilterRanges,
   }
 }
 
