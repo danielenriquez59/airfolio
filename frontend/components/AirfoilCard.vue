@@ -61,7 +61,7 @@ const handleClick = () => {
     @click="handleClick"
   >
     <template #header>
-      <div class="px-4 py-1">
+      <div class="px-4 py-3">
         <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
           {{ airfoil?.name.toUpperCase() || 'Loading...' }}
         </h3>
@@ -134,8 +134,7 @@ const handleClick = () => {
             :lower-x="airfoil.lower_x_coordinates"
             :lower-y="airfoil.lower_y_coordinates"
             :name="thumbnail ? undefined : airfoil.name"
-            :height="thumbnail ? 200 : 300"
-            :aspect-ratio="null"
+            :aspect-ratio="3"
             :show-grid="!thumbnail"
             :show-legend="false"
           />

@@ -52,7 +52,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   showGrid: true,
   showLegend: false,
-  height: 400,
   aspectRatio: 2.5,
   zoomable: false,
   showPointsOnHover: false,
@@ -152,7 +151,7 @@ const chartOptions = computed(() => {
 
   return {
     responsive: true,
-    maintainAspectRatio: false,
+    maintainAspectRatio: true,
     aspectRatio: calculatedAspectRatio.value,
     plugins: {
       title: {
