@@ -3,6 +3,11 @@
  * Handles filtering, selection, and data normalization for the compare page
  */
 
+import { useAirfoils } from './useAirfoils'
+import type { Database } from '~/types/database.types'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
+
 export interface AirfoilPolarData {
   name: string
   alpha: number[]
@@ -195,13 +200,16 @@ export const useCompare = () => {
   /**
    * Normalize analysis results into airfoil data map
    * Expects results from backend analysis response
+   * Fetches geometry data from database and merges it
    */
-  const normalizeAnalysisResults = (
+  const normalizeAnalysisResults = async (
     results: Record<string, any>,
     airfoilNames: string[]
   ) => {
     const airfoils = new Map<string, AirfoilPolarData>()
+    const { fetchAirfoilByName } = useAirfoils()
     
+    // First, normalize the analysis results
     // Handle single airfoil result
     if (results.alpha && results.CL && results.CD) {
       // Single airfoil - use first name or generate one
@@ -233,6 +241,39 @@ export const useCompare = () => {
         }
       })
     }
+    
+    // Fetch geometry data for all airfoils and merge it
+    const geometryPromises = Array.from(airfoils.keys()).map(async (name) => {
+      try {
+        const airfoilData = await fetchAirfoilByName(name)
+        return { name, airfoilData }
+      } catch (error) {
+        console.warn(`Failed to fetch geometry for ${name}:`, error)
+        return { name, airfoilData: null }
+      }
+    })
+    
+    const geometryResults = await Promise.all(geometryPromises)
+    
+    // Merge geometry data into airfoil polar data
+    geometryResults.forEach(({ name, airfoilData }) => {
+      const polarData = airfoils.get(name)
+      if (polarData && airfoilData) {
+        // Convert from decimal (0.12) to percentage (12)
+        polarData.thickness = airfoilData.thickness_pct !== null && airfoilData.thickness_pct !== undefined
+          ? airfoilData.thickness_pct * 100
+          : undefined
+        polarData.thickness_location = airfoilData.thickness_loc_pct !== null && airfoilData.thickness_loc_pct !== undefined
+          ? airfoilData.thickness_loc_pct * 100
+          : undefined
+        polarData.camber = airfoilData.camber_pct !== null && airfoilData.camber_pct !== undefined
+          ? airfoilData.camber_pct * 100
+          : undefined
+        polarData.camber_location = airfoilData.camber_loc_pct !== null && airfoilData.camber_loc_pct !== undefined
+          ? airfoilData.camber_loc_pct * 100
+          : undefined
+      }
+    })
     
     state.allAirfoils = airfoils
     applyFilters()

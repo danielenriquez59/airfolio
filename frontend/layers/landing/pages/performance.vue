@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { SearchParams } from '~/composables/useAirfoilSearch'
 import { useDebounceFn } from '@vueuse/core'
-import { usePerformanceStore } from '~/stores/performance'
 
 definePageMeta({
   layout: 'detail',
@@ -101,28 +100,34 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
   updateAirfoilCount()
 }, { immediate: true })
 
-// Validation computed properties
-const reynoldsValid = computed(() => {
-  return reynoldsNumber.value >= 80 && reynoldsNumber.value <= 5000
-})
+// Validation state from AnalysisParametersForm
+const paramsValid = ref(false)
 
-const alphaValid = computed(() => {
-  return alphaMin.value >= -25 && alphaMin.value <= 90 &&
-         alphaMax.value >= -25 && alphaMax.value <= 90 &&
-         alphaMin.value < alphaMax.value
-})
+// Handler for analysis params submit from form component
+const onAnalysisParamsSubmit = (params: {
+  reynoldsNumber: number
+  machNumber: number
+  alphaMin: number
+  alphaMax: number
+  nCrit: number
+}) => {
+  reynoldsNumber.value = params.reynoldsNumber
+  machNumber.value = params.machNumber
+  alphaMin.value = params.alphaMin
+  alphaMax.value = params.alphaMax
+  nCrit.value = params.nCrit
+  // Trigger analysis
+  handleRunAnalysis()
+}
 
-const machValid = computed(() => {
-  return machNumber.value >= 0 && machNumber.value <= 0.8
-})
-
-const nCritValid = computed(() => {
-  return Number.isInteger(nCrit.value) && nCrit.value >= 5 && nCrit.value <= 9
-})
+// Handler for validity changes from form component
+const onValidChange = (isValid: boolean) => {
+  paramsValid.value = isValid
+}
 
 const canRunAnalysis = computed(() => {
   // Button is disabled if: invalid parameters OR no airfoils match geometry filters
-  return reynoldsValid.value && machValid.value && alphaValid.value && nCritValid.value && matchedCount.value > 0
+  return paramsValid.value && matchedCount.value > 0
 })
 
 // Handler for run button - submits analysis request
@@ -169,49 +174,55 @@ const handleRunAnalysis = async () => {
       Mach: machNumber.value,
       alpha_range: [alphaMin.value, alphaMax.value, 0.5] as [number, number, number],
       n_crit: nCrit.value,
+      control_surface_fraction: 0,
+      control_surface_deflection: 0,
     }
 
     // Submit analysis request
     const response = await submitAnalysis(airfoilIds, conditions)
     analysisResponse.value = response
 
-    if (response.cached && response.results) {
-      console.log('Analysis results returned from cache:', response.results)
-      // Store results in performance store
-      const performanceStore = usePerformanceStore()
-      performanceStore.setLatestData({
-        results: response.results,
-        airfoilNames: result.data.map((a: { id: string; name: string }) => a.name),
-        conditions: {
-          Re: reynoldsNumber.value * 1000,
-          Mach: machNumber.value,
-          alpha_range: [alphaMin.value, alphaMax.value, 0.5] as [number, number, number],
-          n_crit: nCrit.value,
-        },
-      })
-      // Auto-redirect to compare page
-      await navigateTo('/compare')
-    } else if (response.job_id) {
-      console.log('Analysis job submitted:', response.job_id)
-      // TODO: Poll for job completion and redirect when done
-    } else if (response.results) {
-      // Results returned immediately (non-cached)
-      console.log('Analysis results returned immediately:', response.results)
-      // Store results in performance store
-      const performanceStore = usePerformanceStore()
-      performanceStore.setLatestData({
-        results: response.results,
-        airfoilNames: result.data.map((a: { id: string; name: string }) => a.name),
-        conditions: {
-          Re: reynoldsNumber.value * 1000,
-          Mach: machNumber.value,
-          alpha_range: [alphaMin.value, alphaMax.value, 0.5] as [number, number, number],
-          n_crit: nCrit.value,
-        },
-      })
-      // Auto-redirect to compare page
-      await navigateTo('/compare')
+    // Build URL with geometry filters and flow conditions
+    const queryParams: Record<string, string> = {}
+    
+    // Geometry filters
+    if (includeName.value.trim()) {
+      queryParams.includeName = includeName.value.trim()
     }
+    if (excludeName.value.trim()) {
+      queryParams.excludeName = excludeName.value.trim()
+    }
+    if (thicknessEnabled.value) {
+      if (thicknessMin.value !== undefined) {
+        queryParams.thicknessMin = thicknessMin.value.toString()
+      }
+      if (thicknessMax.value !== undefined) {
+        queryParams.thicknessMax = thicknessMax.value.toString()
+      }
+      queryParams.thicknessEnabled = 'true'
+    }
+    if (camberEnabled.value) {
+      if (camberMin.value !== undefined) {
+        queryParams.camberMin = camberMin.value.toString()
+      }
+      if (camberMax.value !== undefined) {
+        queryParams.camberMax = camberMax.value.toString()
+      }
+      queryParams.camberEnabled = 'true'
+    }
+    
+    // Flow conditions
+    queryParams.Re = (reynoldsNumber.value * 1000).toString()
+    queryParams.Mach = machNumber.value.toString()
+    queryParams.alphaMin = alphaMin.value.toString()
+    queryParams.alphaMax = alphaMax.value.toString()
+    queryParams.nCrit = nCrit.value.toString()
+
+    // Redirect to compare page with query params
+    await navigateTo({
+      path: '/compare',
+      query: queryParams,
+    })
   } catch (error: any) {
     console.error('Error submitting analysis:', error)
     analysisError.value = error.message || 'Failed to submit analysis request. Please try again.'
@@ -230,7 +241,14 @@ useHead({
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Analysis</h1>
       <p class="text-lg text-gray-600">
-        Configure geometry filters and analysis parameters to run performance analysis on airfoils.
+        Configure geometry filters and flow conditions to run a
+        <a
+          href="https://github.com/peterdsharpe/NeuralFoil"
+          target="_blank"
+          rel="noopener"
+          class="text-indigo-600 underline hover:text-indigo-800"
+        >NeuralFoil</a>
+        powered aerodynamic analysis!
       </p>
     </div>
 
@@ -390,115 +408,15 @@ useHead({
         Configure the flow conditions for the performance analysis.
       </p>
 
-      <div class="space-y-6">
-        <!-- Reynolds Number -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Reynolds Number (thousands)
-          </label>
-          <VInput
-            v-model.number="reynoldsNumber"
-            type="number"
-            step="1"
-            min="80"
-            max="5000"
-            placeholder="1000"
-            size="lg"
-            wrapper-class="max-w-xs"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Range: 80k - 5000k
-          </p>
-          <p v-if="!reynoldsValid" class="mt-1 text-xs text-red-600">
-            Reynolds number must be between 80 and 5000.
-          </p>
-        </div>
-
-        <!-- Mach Number -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Mach Number
-          </label>
-          <VInput
-            v-model.number="machNumber"
-            type="number"
-            step="0.05"
-            min="0"
-            max="0.8"
-            placeholder="0.0"
-            size="lg"
-            wrapper-class="max-w-xs"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Range: 0 - 0.8, Step size: 0.05
-          </p>
-          <p v-if="!machValid" class="mt-1 text-xs text-red-600">
-            Mach number must be between 0 and 0.8.
-          </p>
-        </div>
-
-        <!-- Alpha Range -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Alpha Range (degrees)
-          </label>
-          <div class="flex items-center gap-4 flex-wrap">
-            <div class="flex-1 min-w-[200px]">
-              <label class="block text-xs text-gray-600 mb-1">Min</label>
-              <VInput
-                v-model.number="alphaMin"
-                type="number"
-                step="0.5"
-                min="-25"
-                max="90"
-                placeholder="-10"
-                size="lg"
-              />
-            </div>
-            <div class="flex-1 min-w-[200px]">
-              <label class="block text-xs text-gray-600 mb-1">Max</label>
-              <VInput
-                v-model.number="alphaMax"
-                type="number"
-                step="0.5"
-                min="-25"
-                max="90"
-                placeholder="20"
-                size="lg"
-              />
-            </div>
-          </div>
-          <p class="mt-1 text-xs text-gray-500">
-            Range: -25° to 90°, Step size: 0.5°
-          </p>
-          <p v-if="!alphaValid" class="mt-1 text-xs text-red-600">
-            Alpha range must be between -25° and 90°, and min must be less than max.
-          </p>
-        </div>
-
-        <!-- N_crit -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            N_crit
-          </label>
-          <VInput
-            v-model.number="nCrit"
-            type="number"
-            step="1"
-            min="5"
-            max="9"
-            placeholder="7"
-            size="lg"
-            wrapper-class="max-w-xs"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Range: 5 - 9 (integer only)
-          </p>
-          <p v-if="!nCritValid" class="mt-1 text-xs text-red-600">
-            N_crit must be an integer between 5 and 9.
-          </p>
-        </div>
-      </div>
+      <AnalysisParametersForm
+        :initial-reynolds="reynoldsNumber"
+        :initial-mach="machNumber"
+        :initial-alpha-min="alphaMin"
+        :initial-alpha-max="alphaMax"
+        :initial-ncrit="nCrit"
+        @submit="onAnalysisParamsSubmit"
+        @valid-change="onValidChange"
+      />
     </div>
 
     <!-- Run Button -->
@@ -519,7 +437,7 @@ useHead({
       </button>
       <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
         <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
-        <span v-else-if="!reynoldsValid || !machValid || !alphaValid || !nCritValid">Please fill in all analysis parameters with valid values.</span>
+        <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
       </p>
       
       <!-- Error Message -->

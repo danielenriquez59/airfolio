@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-
+import type { AnalysisConditions } from '~/composables/useAnalysis'
+import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
+import AirfoilPerformanceCache from '~/layers/landing/components/airfoils/AirfoilPerformanceCache.vue'
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
+type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 
 definePageMeta({
   layout: 'detail',
@@ -10,16 +13,147 @@ definePageMeta({
 const route = useRoute()
 const { fetchAirfoilByName } = useAirfoils()
 const { downloadLednicer, downloadSelig } = useAirfoilDownload()
+const { submitAnalysis } = useAnalysis()
 
 const airfoil = ref<Airfoil | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Modal state
+const showAnalysisModal = ref(false)
+const isRunningAnalysis = ref(false)
+const analysisError = ref<string | null>(null)
+const analysisParamsFormRef = ref<{ submit: () => void; isValid: boolean } | null>(null)
+
+// Cache and plotting state
+const cacheRefreshKey = ref(0)
+const cacheRef = ref<{ refresh: () => Promise<void> } | null>(null)
+const selectedCacheEntries = ref<PerformanceCache[]>([])
+const performanceDataForPlots = ref<Array<{
+  name: string
+  alpha: number[]
+  CL: number[]
+  CD: number[]
+  CM: number[]
+}>>([])
 
 const airfoilSlug = computed(() => route.params.slug as string)
 
 // Helper function to create URL-friendly slug from airfoil name
 const createSlug = (name: string): string => {
   return encodeURIComponent(name)
+}
+
+/**
+ * Format condition inputs into readable string (same as in AirfoilPerformanceCache)
+ */
+const formatCondition = (inputs: any): string => {
+  if (!inputs || typeof inputs !== 'object') return 'Unknown conditions'
+  
+  const parts: string[] = []
+  
+  if (inputs.Re !== undefined && inputs.Re !== null) {
+    const re = inputs.Re
+    if (re >= 1000) {
+      parts.push(`Re ${(re / 1000).toFixed(0)}k`)
+    } else {
+      parts.push(`Re ${re.toFixed(0)}`)
+    }
+  }
+  
+  if (inputs.Mach !== undefined && inputs.Mach !== null) {
+    parts.push(`Mach ${inputs.Mach.toFixed(1)}`)
+  }
+  
+  if (inputs.n_crit !== undefined && inputs.n_crit !== null) {
+    parts.push(`Ncrit ${inputs.n_crit.toFixed(0)}`)
+  }
+  
+  // Alpha range - format as "AoA Range [start, end]"
+  if (inputs.alpha_range && Array.isArray(inputs.alpha_range) && inputs.alpha_range.length === 3) {
+    const [start, end] = inputs.alpha_range
+    parts.push(`AoA Range [${start.toFixed(0)}, ${end.toFixed(0)}]`)
+  }
+  
+  // Control surface fraction - only show if not 0
+  const csFrac = inputs.control_surface_fraction ?? 0
+  if (csFrac !== 0) {
+    parts.push(`Control Fraction ${csFrac.toFixed(1)}`)
+  }
+  
+  // Control surface deflection - only show if not 0
+  const csDef = inputs.control_surface_deflection ?? 0
+  if (csDef !== 0) {
+    parts.push(`Control Deflection ${csDef.toFixed(1)}`)
+  }
+  
+  return parts.join(', ')
+}
+
+/**
+ * Handle analysis params submit from form
+ */
+const handleModalSubmit = async (params: {
+  reynoldsNumber: number
+  machNumber: number
+  alphaMin: number
+  alphaMax: number
+  nCrit: number
+}) => {
+  if (!airfoil.value?.id) return
+  
+  isRunningAnalysis.value = true
+  analysisError.value = null
+  
+  try {
+    const conditions: AnalysisConditions = {
+      Re: params.reynoldsNumber * 1000,
+      Mach: params.machNumber,
+      alpha_range: [params.alphaMin, params.alphaMax, 0.5],
+      n_crit: params.nCrit,
+      control_surface_fraction: 0,
+      control_surface_deflection: 0,
+    }
+    
+    const response = await submitAnalysis([airfoil.value.id], conditions)
+    
+    // Refresh cache list by incrementing key to force component re-render
+    cacheRefreshKey.value++
+    
+    // Also try calling refresh method if available
+    await nextTick()
+    if (cacheRef.value && typeof cacheRef.value.refresh === 'function') {
+      await cacheRef.value.refresh()
+    }
+    
+    // Close modal
+    showAnalysisModal.value = false
+  } catch (err: any) {
+    console.error('Error running analysis:', err)
+    analysisError.value = err.message || 'Analysis failed'
+  } finally {
+    isRunningAnalysis.value = false
+  }
+}
+
+/**
+ * Handle selection change from cache component
+ */
+const handleSelectionChange = async (entries: PerformanceCache[]) => {
+  selectedCacheEntries.value = entries
+  
+  // Transform cache entries to plot format
+  performanceDataForPlots.value = entries.map(entry => {
+    const outputs = entry.outputs as any
+    console.log(outputs)
+    return {
+      name: formatCondition(entry.inputs),
+      alpha: outputs?.alpha || [],
+      CL: outputs?.CL || [],
+      CD: outputs?.CD || [],
+      CM: outputs?.CM || [],
+    }
+  })
 }
 
 // Fetch airfoil data by name (slug)
@@ -203,7 +337,89 @@ useHead({
             </dl>
           </div>
         </div>
+        <!-- Performance Cache Data -->
+        <div v-if="airfoil.id" class="mb-8">
+          <AirfoilPerformanceCache 
+            :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
+            ref="cacheRef"
+            :airfoil-id="airfoil.id"
+            @selection-change="handleSelectionChange"
+          />
+        </div>
+
+        <!-- Run Performance Analysis Button -->
+        <div v-if="airfoil.id" class="mb-8">
+          <button
+            type="button"
+            @click="showAnalysisModal = true"
+            class="w-full px-6 py-3 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center gap-2"
+          >
+            <Icon name="heroicons:play" class="h-5 w-5" />
+            Run Performance Analysis
+          </button>
+        </div>
+
+
+        <!-- Performance Plots -->
+        <div v-if="airfoil.id" class="mb-8">
+          <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Plots</h2>
+            <AirfoilPolarPlots :performance-data="performanceDataForPlots" />
+          </div>
+        </div>
       </div>
+
+      <!-- Analysis Modal -->
+      <VModal v-model="showAnalysisModal">
+        <VModalHeader dismissable>
+          Run Performance Analysis
+        </VModalHeader>
+        <VModalBody>
+          <div class="space-y-4">
+            <p class="text-sm text-gray-600">
+              Configure the flow conditions for the performance analysis.
+            </p>
+            
+            <AnalysisParametersForm
+              ref="analysisParamsFormRef"
+              @submit="handleModalSubmit"
+            />
+
+            <!-- Error Message -->
+            <div v-if="analysisError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <p class="text-sm text-red-800">{{ analysisError }}</p>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="isRunningAnalysis" class="flex items-center justify-center py-4">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <span class="ml-3 text-sm text-gray-600">Running analysis...</span>
+            </div>
+          </div>
+        </VModalBody>
+        <VModalFooter>
+          <button
+            type="button"
+            @click="showAnalysisModal = false"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            :disabled="isRunningAnalysis"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="analysisParamsFormRef?.submit()"
+            :disabled="!analysisParamsFormRef?.isValid || isRunningAnalysis"
+            :class="[
+              'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+              analysisParamsFormRef?.isValid && !isRunningAnalysis
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            ]"
+          >
+            Run Analysis
+          </button>
+        </VModalFooter>
+      </VModal>
   </div>
 </template>
-

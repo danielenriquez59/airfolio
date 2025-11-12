@@ -42,8 +42,8 @@ class AnalysisConditions(BaseModel):
     Mach: float = Field(default=0.0, description="Mach number")
     alpha_range: List[float] = Field(..., description="Alpha range: [start, end, step]")
     n_crit: Optional[float] = Field(default=None, description="Critical N factor")
-    has_control_surface: Optional[bool] = Field(default=False, description="Has control surface")
-    control_surface_percent: Optional[float] = Field(default=None, description="Control surface percentage")
+    control_surface_fraction: Optional[float] = Field(default=0.0, description="Control surface fraction")
+    control_surface_deflection: Optional[float] = Field(default=0.0, description="Control surface deflection")
 
 
 class AnalysisRequest(BaseModel):
@@ -95,22 +95,28 @@ async def analyze(request: AnalysisRequest):
             airfoil_id = request.airfoil_ids[0]
             cond_hash = generate_condition_hash(request.conditions, airfoil_id)
 
-            # TODO: Check performance_cache table for existing results
-            # SELECT * FROM performance_cache 
-            # WHERE airfoil_id = airfoil_id AND cond_hash = cond_hash
-            # If found, return cached results immediately:
-            # return AnalysisResponse(
-            #     job_id=None,
-            #     cached=True,
-            #     results=cached_results['outputs']
-            # )
-            
-            # Fetch airfoil coordinates from database
+            # Check performance_cache for existing results
             if not supabase:
                 raise HTTPException(
                     status_code=500,
                     detail="Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in environment variables."
                 )
+            
+            try:
+                cache_response = supabase.table('performance_cache').select('*').eq(
+                    'airfoil_id', airfoil_id
+                ).eq('cond_hash', cond_hash).single().execute()
+                
+                if cache_response.data:
+                    # Return cached results
+                    return AnalysisResponse(
+                        job_id=None,
+                        cached=True,
+                        results=cache_response.data['outputs']
+                    )
+            except Exception as cache_error:
+                # Cache miss or error, continue to run analysis
+                print(f"Cache lookup failed or miss: {cache_error}")
             
             try:
                 # Query airfoil coordinates
@@ -142,6 +148,19 @@ async def analyze(request: AnalysisRequest):
                     n_crit=request.conditions.n_crit if request.conditions.n_crit is not None else 9.0,
                     airfoil_name=airfoil_name
                 )
+
+                # Store results in performance_cache
+                try:
+                    cache_data = {
+                        'airfoil_id': airfoil_id,
+                        'cond_hash': cond_hash,
+                        'inputs': request.conditions.model_dump(),
+                        'outputs': analysis_results
+                    }
+                    supabase.table('performance_cache').insert(cache_data).execute()
+                except Exception as cache_error:
+                    # Log but don't fail if cache storage fails
+                    print(f"Failed to cache results: {cache_error}")
 
                 # Return results immediately (no job queuing for now)
                 return AnalysisResponse(
@@ -198,29 +217,58 @@ async def analyze(request: AnalysisRequest):
                 
                 for airfoil_id in request.airfoil_ids:
                     airfoil_data = airfoil_map[airfoil_id]
-                    
-                    # Extract coordinates
-                    upper_x_coords = airfoil_data['upper_x_coordinates']
-                    upper_y_coords = airfoil_data['upper_y_coordinates']
-                    lower_x_coords = airfoil_data['lower_x_coordinates']
-                    lower_y_coords = airfoil_data['lower_y_coordinates']
                     airfoil_name = airfoil_data.get('name', f'Airfoil_{airfoil_id[:8]}')
                     
-                    # Run analysis for this airfoil
-                    analysis_results = analyze_airfoil(
-                        upper_x_coords=upper_x_coords,
-                        upper_y_coords=upper_y_coords,
-                        lower_x_coords=lower_x_coords,
-                        lower_y_coords=lower_y_coords,
-                        reynolds_number=request.conditions.Re,
-                        mach_number=request.conditions.Mach,
-                        alpha_range=request.conditions.alpha_range,
-                        n_crit=n_crit,
-                        airfoil_name=airfoil_name
-                    )
+                    # Generate hash for this specific airfoil
+                    cond_hash = generate_condition_hash(request.conditions, airfoil_id)
                     
-                    # Store results keyed by airfoil name
-                    comparison_results[airfoil_name] = analysis_results
+                    # Check cache
+                    cached_result = None
+                    try:
+                        cache_response = supabase.table('performance_cache').select('*').eq(
+                            'airfoil_id', airfoil_id
+                        ).eq('cond_hash', cond_hash).single().execute()
+                        
+                        if cache_response.data:
+                            cached_result = cache_response.data['outputs']
+                    except:
+                        pass
+                    
+                    if cached_result:
+                        comparison_results[airfoil_name] = cached_result
+                    else:
+                        # Extract coordinates
+                        upper_x_coords = airfoil_data['upper_x_coordinates']
+                        upper_y_coords = airfoil_data['upper_y_coordinates']
+                        lower_x_coords = airfoil_data['lower_x_coordinates']
+                        lower_y_coords = airfoil_data['lower_y_coordinates']
+                        
+                        # Run analysis for this airfoil
+                        analysis_results = analyze_airfoil(
+                            upper_x_coords=upper_x_coords,
+                            upper_y_coords=upper_y_coords,
+                            lower_x_coords=lower_x_coords,
+                            lower_y_coords=lower_y_coords,
+                            reynolds_number=request.conditions.Re,
+                            mach_number=request.conditions.Mach,
+                            alpha_range=request.conditions.alpha_range,
+                            n_crit=n_crit,
+                            airfoil_name=airfoil_name
+                        )
+                        
+                        comparison_results[airfoil_name] = analysis_results
+                        
+                        # Store in cache
+                        try:
+                            cache_data = {
+                                'airfoil_id': airfoil_id,
+                                'cond_hash': cond_hash,
+                                'inputs': request.conditions.model_dump(),
+                                'outputs': analysis_results
+                            }
+                            supabase.table('performance_cache').insert(cache_data).execute()
+                        except Exception as e:
+                            print(f"Failed to cache {airfoil_name}: {e}")
                 
                 # Return combined results immediately
                 return AnalysisResponse(

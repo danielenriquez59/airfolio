@@ -46,7 +46,7 @@ const exportToCSV = () => {
     'CM @ α=0°',
     'L/D @ α=0°',
     'Smoothness CM',
-    'Avg Confidence',
+    'NN Confidence',
     'Thickness (%)',
     'Thickness Location (%)',
     'Camber (%)',
@@ -142,7 +142,7 @@ const exportToCSV = () => {
               Smoothness CM
             </th>
             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Avg Confidence
+              NN Confidence
             </th>
             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               t/c (%)

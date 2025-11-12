@@ -8,8 +8,8 @@ export interface AnalysisConditions {
   Mach?: number
   alpha_range: [number, number, number] // [start, end, step]
   n_crit?: number
-  has_control_surface?: boolean
-  control_surface_percent?: number
+  control_surface_fraction?: number
+  control_surface_deflection?: number
 }
 
 export interface AnalysisResponse {
