@@ -38,6 +38,16 @@ const minCLMax = ref(props.filters.minCLMax)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
 
+// Track which filters are enabled
+const filterEnabled = reactive({
+  maxCMRoughness: props.filters.maxCMRoughness !== null,
+  minCMAtZero: props.filters.minCMAtZero !== null,
+  minMaxLD: props.filters.minMaxLD !== null,
+  minCLMax: props.filters.minCLMax !== null,
+  // Design CL and AOA are paired - use single enabled state
+  targetDesign: props.filters.targetCL !== null && props.filters.targetAOA !== null,
+})
+
 // Computed properties for range sliders (handle null values)
 const maxCMRoughnessSlider = computed({
   get: () => maxCMRoughness.value ?? (props.filterRanges?.smoothness_CM.max ?? 0),
@@ -69,28 +79,55 @@ watch(
     minCLMax.value = newFilters.minCLMax
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
+    
+    // Update enabled state based on filter values
+    filterEnabled.maxCMRoughness = newFilters.maxCMRoughness !== null
+    filterEnabled.minCMAtZero = newFilters.minCMAtZero !== null
+    filterEnabled.minMaxLD = newFilters.minMaxLD !== null
+    filterEnabled.minCLMax = newFilters.minCLMax !== null
+    // Design CL and AOA are paired
+    filterEnabled.targetDesign = newFilters.targetCL !== null && newFilters.targetAOA !== null
   },
   { deep: true }
 )
 
-// Emit filter updates
+// Emit filter updates (only when enabled)
 watch(maxCMRoughness, (val) => {
-  emit('update-filter', 'maxCMRoughness', val || null)
+  emit('update-filter', 'maxCMRoughness', filterEnabled.maxCMRoughness ? val : null)
 })
 watch(minCMAtZero, (val) => {
-  emit('update-filter', 'minCMAtZero', val || null)
+  emit('update-filter', 'minCMAtZero', filterEnabled.minCMAtZero ? val : null)
 })
 watch(minMaxLD, (val) => {
-  emit('update-filter', 'minMaxLD', val || null)
+  emit('update-filter', 'minMaxLD', filterEnabled.minMaxLD ? val : null)
 })
 watch(minCLMax, (val) => {
-  emit('update-filter', 'minCLMax', val || null)
+  emit('update-filter', 'minCLMax', filterEnabled.minCLMax ? val : null)
 })
 watch(targetCL, (val) => {
-  emit('update-filter', 'targetCL', val || null)
+  emit('update-filter', 'targetCL', filterEnabled.targetDesign ? val : null)
 })
 watch(targetAOA, (val) => {
-  emit('update-filter', 'targetAOA', val || null)
+  emit('update-filter', 'targetAOA', filterEnabled.targetDesign ? val : null)
+})
+
+// Watch enabled state changes
+watch(() => filterEnabled.maxCMRoughness, (enabled) => {
+  emit('update-filter', 'maxCMRoughness', enabled ? maxCMRoughness.value : null)
+})
+watch(() => filterEnabled.minCMAtZero, (enabled) => {
+  emit('update-filter', 'minCMAtZero', enabled ? minCMAtZero.value : null)
+})
+watch(() => filterEnabled.minMaxLD, (enabled) => {
+  emit('update-filter', 'minMaxLD', enabled ? minMaxLD.value : null)
+})
+watch(() => filterEnabled.minCLMax, (enabled) => {
+  emit('update-filter', 'minCLMax', enabled ? minCLMax.value : null)
+})
+// Design CL and AOA are paired - update both together
+watch(() => filterEnabled.targetDesign, (enabled) => {
+  emit('update-filter', 'targetCL', enabled ? targetCL.value : null)
+  emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
 })
 
 const handleSelectAll = () => {
@@ -156,45 +193,66 @@ const handleResetFilters = () => {
       </div>
 
       <div class="space-y-4">
-        <!-- Target CL and Target AOA -->
-        <div class="grid grid-cols-2 gap-4">
-          <!-- Target CL -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
-            <VInput
-              v-model.number="targetCL"
-              type="number"
-              step="0.01"
-              placeholder="No target"
-              size="sm"
-              wrapper-class="w-full"
+        <!-- Target CL and Target AOA (Paired Filter) -->
+        <div>
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.targetDesign"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            <p class="mt-1 text-xs text-gray-500">
-              Tolerance: ±0.1
-            </p>
-          </div>
+            Design CL & AOA
+          </label>
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Target CL -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
+              <VInput
+                :model-value="targetCL ?? undefined"
+                @update:model-value="targetCL = $event as number | null"
+                type="number"
+                step="0.01"
+                placeholder="No target"
+                size="sm"
+                wrapper-class="w-full"
+                :disabled="!filterEnabled.targetDesign"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                Tolerance: ±0.1
+              </p>
+            </div>
 
-          <!-- Target AOA -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Design AOA (deg)</label>
-            <VInput
-              v-model.number="targetAOA"
-              type="number"
-              step="0.5"
-              placeholder="No target"
-              size="sm"
-              wrapper-class="w-full"
-            />
-            <p class="mt-1 text-xs text-gray-500">
-              Tolerance: ±0.5°
-            </p>
+            <!-- Target AOA -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design AOA (deg)</label>
+              <VInput
+                :model-value="targetAOA ?? undefined"
+                @update:model-value="targetAOA = $event as number | null"
+                type="number"
+                step="0.5"
+                placeholder="No target"
+                size="sm"
+                wrapper-class="w-full"
+                :disabled="!filterEnabled.targetDesign"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                Tolerance: ±0.5°
+              </p>
+            </div>
           </div>
         </div>
 
         <!-- Min Max L/D -->
         <div v-if="filterRanges">
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-medium text-gray-700">Min Max L/D</label>
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.minMaxLD"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              Min Max L/D
+            </label>
             <span class="text-sm font-semibold text-indigo-600">
               {{ minMaxLD !== null && minMaxLD !== undefined ? minMaxLD.toFixed(2) : 'No limit' }}
             </span>
@@ -205,7 +263,8 @@ const handleResetFilters = () => {
             :min="filterRanges.maxLD.min"
             :max="filterRanges.maxLD.max"
             step="0.1"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            :disabled="!filterEnabled.minMaxLD"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
             <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(2) }}</span>
@@ -213,21 +272,37 @@ const handleResetFilters = () => {
           </div>
         </div>
         <div v-else>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Min Max L/D</label>
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.minMaxLD"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            Min Max L/D
+          </label>
           <VInput
-            v-model.number="minMaxLD"
+            :model-value="minMaxLD ?? undefined"
+            @update:model-value="minMaxLD = $event as number | null"
             type="number"
             step="0.1"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
+            :disabled="!filterEnabled.minMaxLD"
           />
         </div>
 
         <!-- Min CL Max -->
         <div v-if="filterRanges">
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-medium text-gray-700">Min CL Max</label>
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.minCLMax"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              Min CL Max
+            </label>
             <span class="text-sm font-semibold text-indigo-600">
               {{ minCLMax !== null && minCLMax !== undefined ? minCLMax.toFixed(3) : 'No limit' }}
             </span>
@@ -238,7 +313,8 @@ const handleResetFilters = () => {
             :min="filterRanges.clMax.min"
             :max="filterRanges.clMax.max"
             step="0.01"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            :disabled="!filterEnabled.minCLMax"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
             <span class="text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(3) }}</span>
@@ -246,21 +322,35 @@ const handleResetFilters = () => {
           </div>
         </div>
         <div v-else>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Min CL Max</label>
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.minCLMax"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            Min CL Max
+          </label>
           <VInput
-            v-model.number="minCLMax"
+            :model-value="minCLMax ?? undefined"
+            @update:model-value="minCLMax = $event as number | null"
             type="number"
             step="0.01"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
+            :disabled="!filterEnabled.minCLMax"
           />
         </div>
 
         <!-- Max CM Roughness -->
         <div v-if="filterRanges">
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.maxCMRoughness"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
               Max CM Roughness (smoothness_CM ≤)
             </label>
             <span class="text-sm font-semibold text-indigo-600">
@@ -273,7 +363,8 @@ const handleResetFilters = () => {
             :min="filterRanges.smoothness_CM.min"
             :max="filterRanges.smoothness_CM.max"
             step="0.01"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            :disabled="!filterEnabled.maxCMRoughness"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
             <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
@@ -284,16 +375,23 @@ const handleResetFilters = () => {
           </p>
         </div>
         <div v-else>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.maxCMRoughness"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
             Max CM Roughness (smoothness_CM ≤)
           </label>
           <VInput
-            v-model.number="maxCMRoughness"
+            :model-value="maxCMRoughness ?? undefined"
+            @update:model-value="maxCMRoughness = $event as number | null"
             type="number"
             step="0.01"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
+            :disabled="!filterEnabled.maxCMRoughness"
           />
           <p class="mt-1 text-xs text-gray-500">
             Lower values = smoother moment curve
@@ -303,7 +401,12 @@ const handleResetFilters = () => {
         <!-- Min CM at α = 0° -->
         <div v-if="filterRanges">
           <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-medium text-gray-700">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.minCMAtZero"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
               Min CM at α = 0°
             </label>
             <span class="text-sm font-semibold text-indigo-600">
@@ -316,7 +419,8 @@ const handleResetFilters = () => {
             :min="filterRanges.cmAtZero.min"
             :max="filterRanges.cmAtZero.max"
             step="0.01"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            :disabled="!filterEnabled.minCMAtZero"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
             <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
@@ -324,16 +428,23 @@ const handleResetFilters = () => {
           </div>
         </div>
         <div v-else>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.minCMAtZero"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
             Min CM at α = 0°
           </label>
           <VInput
-            v-model.number="minCMAtZero"
+            :model-value="minCMAtZero ?? undefined"
+            @update:model-value="minCMAtZero = $event as number | null"
             type="number"
             step="0.01"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
+            :disabled="!filterEnabled.minCMAtZero"
           />
         </div>
       </div>

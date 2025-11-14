@@ -248,7 +248,7 @@ useHead({
           rel="noopener"
           class="text-indigo-600 underline hover:text-indigo-800"
         >NeuralFoil</a>
-        powered aerodynamic analysis!
+        powered aerodynamic airfoil comparison!
       </p>
     </div>
 
