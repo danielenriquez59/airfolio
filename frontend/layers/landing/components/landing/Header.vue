@@ -11,10 +11,7 @@ const navigation: NavigationItem[] = [
   { title: 'Airfoils', to: '/search' },
   { title: 'Compare', to: '/performance' },
   { title: 'Upload', to: '/upload' },
-  {
-    title: 'Contact',
-    to: '/contact',
-  },
+  { title: 'About', to: '/about' },
 ]
 </script>
 

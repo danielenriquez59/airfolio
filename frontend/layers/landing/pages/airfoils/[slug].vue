@@ -184,7 +184,17 @@ onMounted(async () => {
 })
 
 useHead({
-  title: airfoil.value ? `${airfoil.value.name} - Airfolio` : 'Airfoil Details - Airfolio',
+  title: airfoil.value 
+    ? `${airfoil.value.name} - Airfoil Details | Airfolio` 
+    : 'Airfoil Details - Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: airfoil.value 
+        ? `View geometry, performance data, and analysis results for ${airfoil.value.name}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
+        : 'View detailed airfoil geometry, performance data, and analysis results.'
+    }
+  ]
 })
 </script>
 

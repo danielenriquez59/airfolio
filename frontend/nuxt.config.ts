@@ -24,18 +24,18 @@ export default defineNuxtConfig({
       locale: 'en',
       messages: {
         en: {
-          app_name: 'Nuxt Tailwind Kit',
+          app_name: 'Airfolio',
           app_description:
-        'Quick Boilerplate built on top of Nuxt 3 and Tailwind CSS',
+        'Airfoil search and analysis tool',
           menu_home: 'Home',
           menu_store: 'Store',
           menu_blog: 'Blog',
           menu_dashboard: 'Dashboard',
         },
         id: {
-          app_name: 'Nuxt Tailwind Kit',
+          app_name: 'Airfolio',
           app_description:
-        'Boilerplate cepat yang dibangun dari Nuxt 3 and Tailwind CSS',
+        'Alat pencarian dan analisis airfoil',
           menu_home: 'Beranda',
           menu_store: 'Toko',
           menu_blog: 'Blog',
@@ -49,6 +49,7 @@ export default defineNuxtConfig({
     public: {
       gaId: '',
       backendUrl: process.env.BACKEND_URL || 'http://localhost:8000',
+      supportEmail: process.env.NUXT_PUBLIC_SUPPORT_EMAIL || 'deenriquez92@gmail.com',
     },
   },
   googleFonts: {

@@ -119,8 +119,14 @@ useInfiniteScroll(
 
 useHead({
   title: searchQuery.value 
-    ? `Search: ${searchQuery.value} - Airfolio` 
+    ? `${searchQuery.value} - Search Airfoils | Airfolio` 
     : 'Search Airfoils - Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Browse and filter airfoils by name, thickness, and camber. Find the perfect airfoil for your aerodynamic design project.'
+    }
+  ]
 })
 </script>
 

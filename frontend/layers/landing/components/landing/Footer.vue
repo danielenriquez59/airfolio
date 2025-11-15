@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear()
+const config = useRuntimeConfig()
+const supportEmail = config.public.supportEmail
 
 const navigation = {
   product: [
@@ -10,7 +12,6 @@ const navigation = {
   ],
   resources: [
     { name: 'Documentation', href: '/docs' },
-    { name: 'Support', href: '/contact' },
   ],
   // legal: [
   //   { name: 'Privacy Policy', href: '/privacy' },
@@ -62,6 +63,14 @@ const navigation = {
                   >
                     {{ item.name }}
                   </NuxtLink>
+                </li>
+                <li>
+                  <a
+                    :href="`mailto:${supportEmail}`"
+                    class="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                  >
+                    Support
+                  </a>
                 </li>
               </ul>
             </div>

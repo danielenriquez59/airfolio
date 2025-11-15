@@ -232,7 +232,13 @@ const handleRunAnalysis = async () => {
 }
 
 useHead({
-  title: 'Performance Analysis - Airfolio',
+  title: 'Performance Analysis - NeuralFoil Powered | Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Run AI-powered aerodynamic analysis on multiple airfoils using NeuralFoil. Configure Reynolds number, Mach number, and angle of attack ranges for detailed performance insights.'
+    }
+  ]
 })
 </script>
 

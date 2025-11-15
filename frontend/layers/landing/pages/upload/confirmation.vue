@@ -4,7 +4,13 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Confirm Airfoil',
+  title: 'Confirm Airfoil Upload - Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Review calculated airfoil properties before submitting to the database.'
+    }
+  ]
 })
 
 const route = useRoute()

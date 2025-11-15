@@ -4,7 +4,13 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Home',
+  title: 'Airfolio - Airfoil Analysis and Comparison Tool',
+  meta: [
+    {
+      name: 'description',
+      content: 'Search, analyze, and compare airfoil performance with AI-powered NeuralFoil analysis. Access a comprehensive database of airfoils with advanced filtering and visualization.'
+    }
+  ]
 })
 
 </script>

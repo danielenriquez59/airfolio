@@ -412,7 +412,13 @@ onMounted(() => {
 })
 
 useHead({
-  title: 'Compare Airfoils - Airfolio',
+  title: 'Compare Airfoils - Performance Analysis | Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Compare multiple airfoils side-by-side with polar plots (CL, CD, CM, L/D vs α) and performance metrics. Filter and analyze aerodynamic characteristics.'
+    }
+  ]
 })
 </script>
 

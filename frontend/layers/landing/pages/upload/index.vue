@@ -6,7 +6,13 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Upload Airfoil',
+  title: 'Upload Airfoil - Share Your Design | Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Upload custom airfoil coordinates to share with the community. Support for manual entry and CSV upload formats.'
+    }
+  ]
 })
 
 interface CoordinatePair {

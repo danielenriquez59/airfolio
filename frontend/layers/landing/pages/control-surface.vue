@@ -11,7 +11,13 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Control Surface Analysis',
+  title: 'Control Surface Analysis - Airfolio',
+  meta: [
+    {
+      name: 'description',
+      content: 'Analyze airfoil performance with control surface deflections. Compare multiple flap configurations and visualize geometry changes.'
+    }
+  ]
 })
 
 const route = useRoute()
