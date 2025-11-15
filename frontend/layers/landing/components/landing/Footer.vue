@@ -5,6 +5,7 @@ const navigation = {
   product: [
     { name: 'Browse Airfoils', href: '/search' },
     { name: 'Compare', href: '/performance' },
+    { name: 'Upload Airfoil', href: '/upload' },
     { name: 'About', href: '/about' },
   ],
   resources: [

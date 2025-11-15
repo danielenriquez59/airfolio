@@ -11,7 +11,12 @@ from datetime import datetime
 from supabase import create_client, Client
 
 from config import settings
-from utils import generate_condition_hash
+from utils import (
+    generate_condition_hash,
+    validate_monotonic,
+    extract_coordinates,
+    calculate_properties,
+)
 from airfoil_analysis import analyze_airfoil
 
 app = FastAPI(
@@ -64,6 +69,45 @@ class AnalysisResponse(BaseModel):
     job_id: Optional[str] = None
     cached: bool
     results: Optional[Dict[str, Any]] = None
+
+
+# Airfoil Upload Models
+
+class CoordinatePair(BaseModel):
+    """A single x, y coordinate pair"""
+    x: float = Field(..., description="X coordinate")
+    y: float = Field(..., description="Y coordinate")
+
+
+class AirfoilValidationRequest(BaseModel):
+    """Request to validate airfoil coordinates"""
+    name: str = Field(..., min_length=1, description="Airfoil name")
+    upper_surface: List[CoordinatePair] = Field(..., description="Upper surface coordinates")
+    lower_surface: List[CoordinatePair] = Field(..., description="Lower surface coordinates")
+
+
+class AirfoilValidationResponse(BaseModel):
+    """Response containing validation status and calculated properties"""
+    valid: bool
+    errors: Optional[List[str]] = None
+    calculated_properties: Optional[Dict[str, Any]] = None
+
+
+class AirfoilCreateRequest(BaseModel):
+    """Request to create a new airfoil"""
+    name: str = Field(..., min_length=1, description="Airfoil name")
+    description: Optional[str] = None
+    upper_surface: List[CoordinatePair] = Field(..., description="Upper surface coordinates")
+    lower_surface: List[CoordinatePair] = Field(..., description="Lower surface coordinates")
+    source_url: Optional[str] = None
+
+
+class AirfoilCreateResponse(BaseModel):
+    """Response from airfoil creation"""
+    success: bool
+    airfoil_id: Optional[str] = None
+    slug: Optional[str] = None
+    error: Optional[str] = None
 
 
 @app.get("/")
@@ -289,20 +333,171 @@ async def analyze(request: AnalysisRequest):
         raise HTTPException(status_code=500, detail=f"Error submitting analysis: {str(e)}")
 
 
-@app.get("/api/jobs/{job_id}")
-async def get_job_status(job_id: str):
+# Airfoil Upload Helper Functions
+
+def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surface: List[CoordinatePair]) -> Dict[str, Any]:
     """
-    Get the status of an analysis job.
-    """
-    # TODO: Query batch_jobs table for job status
-    # TODO: If done, include result_location
+    Helper function to calculate and extract airfoil geometric properties.
     
-    return {
-        "job_id": job_id,
-        "status": "queued",  # TODO: Get actual status from DB
-        "progress": 0,  # TODO: Get actual progress from DB
-        "result_location": None  # TODO: Get from DB if status is 'done'
+    Args:
+        upper_surface: List of CoordinatePair objects or dicts with x, y keys
+        lower_surface: List of CoordinatePair objects or dicts with x, y keys
+    
+    Returns:
+        Dictionary containing calculated properties and extracted coordinates
+    """
+    # Convert to tuples (handle both CoordinatePair objects and dicts)
+    upper = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in upper_surface]
+    lower = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in lower_surface]
+    
+    # Extract coordinates
+    coords = extract_coordinates(upper, lower)
+    
+    # Combine upper and lower surfaces into single x, y arrays
+    all_x = [p[0] for p in upper] + [p[0] for p in lower]
+    all_y = [p[1] for p in upper] + [p[1] for p in lower]
+    
+    # Calculate geometric properties using AeroSandbox
+    properties = calculate_properties(all_x, all_y)
+    
+    # Build calculated properties dictionary
+    calculated_properties = {
+        'thickness_pct': properties['max_thickness'],
+        'thickness_loc_pct': properties['max_thickness_location'],
+        'camber_pct': properties['max_camber'],
+        'camber_loc_pct': properties['max_camber_location'],
+        'le_radius': properties['le_radius'],
+        'te_thickness': properties['te_thickness'],
+        'te_angle': properties['te_angle'],
+        'upper_surface_nodes': len(upper),
+        'lower_surface_nodes': len(lower),
+        **coords,
     }
+    
+    return calculated_properties
+
+
+# Airfoil Upload Endpoints
+
+@app.post("/api/airfoils/validate", response_model=AirfoilValidationResponse)
+async def validate_airfoil(request: AirfoilValidationRequest):
+    """
+    Validate airfoil coordinates and calculate geometric properties.
+    """
+    try:
+        errors = []
+        # Check name uniqueness
+        if supabase:
+            try:
+                name_check = supabase.table('airfoils').select('id').eq('name', request.name).execute()
+                if name_check.data and len(name_check.data) > 0:
+                    errors.append(f"Airfoil name '{request.name}' already exists")
+            except Exception as e:
+                # Log error but don't fail - proceed with validation
+                print(f"Name uniqueness check failed: {e}")
+                pass
+        
+        # Validate point counts
+        if len(request.upper_surface) == 0:
+            errors.append("Upper surface requires at least 1 coordinate pair")
+        if len(request.lower_surface) == 0:
+            errors.append("Lower surface requires at least 1 coordinate pair")
+        
+        # Validate monotonic x-coordinates
+        upper = [tuple(p) for p in request.upper_surface]
+        lower = [tuple(p) for p in request.lower_surface]
+        
+        if len(upper) > 0:
+            upper_x = [p[0] for p in upper]
+            is_valid, msg = validate_monotonic(upper_x)
+            if not is_valid:
+                errors.append(f"Upper surface: {msg}")
+        
+        if len(lower) > 0:
+            lower_x = [p[0] for p in lower]
+            is_valid, msg = validate_monotonic(lower_x)
+            if not is_valid:
+                errors.append(f"Lower surface: {msg}")
+        
+        if errors:
+            return AirfoilValidationResponse(valid=False, errors=errors)
+        
+        # Calculate geometric properties using helper function
+        calculated_properties = calculate_airfoil_properties(request.upper_surface, request.lower_surface)
+        
+        return AirfoilValidationResponse(valid=True, calculated_properties=calculated_properties)
+        
+    except Exception as e:
+        return AirfoilValidationResponse(
+            valid=False,
+            errors=[f"Validation error: {str(e)}"]
+        )
+
+
+@app.post("/api/airfoils/create", response_model=AirfoilCreateResponse)
+async def create_airfoil(request: AirfoilCreateRequest):
+    """
+    Create a new airfoil in the database.
+    """
+    try:
+        if not supabase:
+            return AirfoilCreateResponse(
+                success=False,
+                error="Database connection not available"
+            )
+        
+        # Validate first
+        validation_request = AirfoilValidationRequest(
+            name=request.name,
+            upper_surface=request.upper_surface,
+            lower_surface=request.lower_surface,
+        )
+        validation = await validate_airfoil(validation_request)
+        if not validation.valid:
+            return AirfoilCreateResponse(
+                success=False,
+                error="; ".join(validation.errors or ["Validation failed"])
+            )
+        
+        print("Airfoil validation successful")
+        # Calculate geometric properties using helper function
+        calculated_properties = calculate_airfoil_properties(request.upper_surface, request.lower_surface)
+        
+        # Prepare data for insertion
+        airfoil_id = str(uuid.uuid4())
+        file_path = f"airfoils/{request.name.replace(' ', '_')}.dat"
+        
+        airfoil_data = {
+            'id': airfoil_id,
+            'name': request.name,
+            'description': request.description,
+            'source_url': request.source_url,
+            'file_path': file_path,
+            **calculated_properties,
+        }
+        
+        # Insert into database
+        response = supabase.table('airfoils').insert(airfoil_data).execute()
+        print("Airfoil created successfully")
+        if response.data:
+            # Use the actual name as the slug (will be URL-encoded by frontend)
+            slug = request.name
+            return AirfoilCreateResponse(
+                success=True,
+                airfoil_id=airfoil_id,
+                slug=slug
+            )
+        else:
+            return AirfoilCreateResponse(
+                success=False,
+                error="Failed to insert airfoil into database"
+            )
+        
+    except Exception as e:
+        return AirfoilCreateResponse(
+            success=False,
+            error=f"Error creating airfoil: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

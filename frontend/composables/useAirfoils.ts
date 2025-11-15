@@ -37,7 +37,7 @@ export const useAirfoils = () => {
       .from('airfoils')
       .select('*')
       .eq('name', decodedName)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Error fetching airfoil by name:', error)
