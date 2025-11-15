@@ -62,29 +62,38 @@ const sanitizeNameInput = (value: string): string => {
   return value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)
 }
 
+// Helper function to build search params with default geometry filters when none are enabled
+const buildSearchParams = (page: number = 1, limit: number = 1): SearchParams => {
+  // If geometry filters are not enabled, use default filters (0-100% for both thickness and camber)
+  // This ensures the backend always receives geometry filter values
+  
+  return {
+    includeName: includeName.value.trim() || undefined,
+    excludeName: excludeName.value.trim() || undefined,
+    // Thickness: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
+    thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
+      ? percentageToDecimal(thicknessMin.value)
+      : 0, // Default to 0% (0.0) if filter not enabled
+    thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
+      ? percentageToDecimal(thicknessMax.value)
+      : 1, // Default to 100% (1.0) if filter not enabled
+    // Camber: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
+    camberMin: camberEnabled.value && camberMin.value !== undefined
+      ? percentageToDecimal(camberMin.value)
+      : 0, // Default to 0% (0.0) if filter not enabled
+    camberMax: camberEnabled.value && camberMax.value !== undefined
+      ? percentageToDecimal(camberMax.value)
+      : 1, // Default to 100% (1.0) if filter not enabled
+    page,
+    limit,
+  }
+}
+
 // Debounced function to update airfoil count
 const updateAirfoilCount = useDebounceFn(async () => {
   isLoadingCount.value = true
   try {
-    const params: SearchParams = {
-      includeName: includeName.value.trim() || undefined,
-      excludeName: excludeName.value.trim() || undefined,
-      thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
-        ? percentageToDecimal(thicknessMin.value)
-        : undefined,
-      thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
-        ? percentageToDecimal(thicknessMax.value)
-        : undefined,
-      camberMin: camberEnabled.value && camberMin.value !== undefined
-        ? percentageToDecimal(camberMin.value)
-        : undefined,
-      camberMax: camberEnabled.value && camberMax.value !== undefined
-        ? percentageToDecimal(camberMax.value)
-        : undefined,
-      page: 1,
-      limit: 1, // We only need count
-    }
-
+    const params = buildSearchParams(1, 1)
     const result = await searchAirfoils(params)
     matchedCount.value = result.count
   } catch (error) {
@@ -140,24 +149,7 @@ const handleRunAnalysis = async () => {
 
   try {
     // First, fetch all matching airfoil IDs
-    const searchParams: SearchParams = {
-      includeName: includeName.value.trim() || undefined,
-      excludeName: excludeName.value.trim() || undefined,
-      thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
-        ? percentageToDecimal(thicknessMin.value)
-        : undefined,
-      thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
-        ? percentageToDecimal(thicknessMax.value)
-        : undefined,
-      camberMin: camberEnabled.value && camberMin.value !== undefined
-        ? percentageToDecimal(camberMin.value)
-        : undefined,
-      camberMax: camberEnabled.value && camberMax.value !== undefined
-        ? percentageToDecimal(camberMax.value)
-        : undefined,
-      page: 1,
-      limit: 10000, // Get all matching airfoils (adjust if needed)
-    }
+    const searchParams = buildSearchParams(1, 10000) // Get all matching airfoils
 
     const result = await searchAirfoils(searchParams)
     searchResult.value = result
