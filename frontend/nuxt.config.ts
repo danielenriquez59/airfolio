@@ -1,6 +1,10 @@
 export default defineNuxtConfig({
   ssr: false, // Disable SSR - run as SPA (client-side only)
   
+  alias: {
+    '@': './',
+  },
+  
   modules: [
     '@nuxt/content',
     '@nuxt/icon',

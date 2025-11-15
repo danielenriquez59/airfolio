@@ -55,13 +55,13 @@ const handleClick = () => {
 <template>
   <VCard
     :class="[
-      'hover:shadow-lg transition-shadow cursor-pointer',
+      'hover:shadow-lg transition-shadow cursor-pointer pt-3',
       { 'hover:scale-[1.02] transition-transform': onClick || true }
     ]"
     @click="handleClick"
   >
     <template #header>
-      <div class="px-4 py-3">
+      <div class="px-4">
         <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
           {{ airfoil?.name.toUpperCase() || 'Loading...' }}
         </h3>
