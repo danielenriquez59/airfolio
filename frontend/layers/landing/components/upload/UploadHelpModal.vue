@@ -35,20 +35,10 @@ defineEmits<{
           <!-- Content -->
           <div class="px-6 py-6 space-y-6">
             <!-- Method 1 -->
-            <div>
-              <h3 class="text-base font-semibold text-gray-900 mb-2">Method 1: Manual Entry</h3>
-              <ol class="list-decimal ml-5 text-sm text-gray-700 space-y-2">
-                <li>Use the <strong>Manual Table</strong> tab</li>
-                <li>Enter X and Y values for upper surface (minimum 10 points)</li>
-                <li>Continue adding rows for lower surface (minimum 10 points)</li>
-                <li>X values must be monotonic (all increasing or all decreasing)</li>
-                <li>Click <strong>Add Row</strong> to add more coordinate pairs</li>
-              </ol>
-            </div>
-
+            
             <!-- Method 2 -->
             <div>
-              <h3 class="text-base font-semibold text-gray-900 mb-2">Method 2: File Upload</h3>
+              <h3 class="text-base font-semibold text-gray-900 mb-2">Method 1: File Upload (Preferred)</h3>
               <p class="text-sm text-gray-700 mb-3">
                 Upload a file (.csv, .txt, or .dat) with the following structure:
               </p>
@@ -73,7 +63,17 @@ defineEmits<{
                 <li>Supported file formats: .csv, .txt, .dat</li>
               </ul>
             </div>
-
+            
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 mb-2">Method 2: Manual Entry</h3>
+              <ol class="list-decimal ml-5 text-sm text-gray-700 space-y-2">
+                <li>Use the <strong>Manual Table</strong> tab</li>
+                <li>Enter X and Y values for upper surface (minimum 10 points)</li>
+                <li>Continue adding rows for lower surface (minimum 10 points)</li>
+                <li>X values must be monotonic (all increasing or all decreasing)</li>
+                <li>Click <strong>Add Row</strong> to add more coordinate pairs</li>
+              </ol>
+            </div>
             <!-- Important Notes -->
             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <h3 class="text-sm font-semibold text-yellow-900 mb-2">Important Rules:</h3>
