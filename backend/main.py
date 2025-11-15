@@ -16,6 +16,7 @@ from utils import (
     validate_monotonic,
     extract_coordinates,
     calculate_properties,
+    deflect_trailing_edge_flap,
 )
 from airfoil_analysis import analyze_airfoil
 
@@ -108,6 +109,35 @@ class AirfoilCreateResponse(BaseModel):
     airfoil_id: Optional[str] = None
     slug: Optional[str] = None
     error: Optional[str] = None
+
+
+# Control Surface Analysis Models
+
+class FlapConfiguration(BaseModel):
+    """Configuration for a trailing edge flap"""
+    deflection: float = Field(..., description="Deflection angle in degrees (downwards-positive)")
+    hinge_point: float = Field(default=0.75, ge=0.5, le=0.9, description="Hinge location as fraction of chord")
+
+
+class ControlSurfaceAnalysisRequest(BaseModel):
+    """Request for control surface analysis"""
+    airfoil_id: str = Field(..., description="Airfoil UUID")
+    conditions: AnalysisConditions
+    flap_configs: List[FlapConfiguration] = Field(..., min_items=1, max_items=3, description="List of flap configurations (1-3)")
+
+
+class ControlSurfaceResult(BaseModel):
+    """Result for a single flap configuration"""
+    deflection: float
+    hinge_point: float
+    geometry: Dict[str, Any] = Field(..., description="Deflected coordinates (x, y arrays)")
+    performance: Dict[str, Any] = Field(..., description="Performance data (alpha, CL, CD, CM arrays)")
+
+
+class ControlSurfaceAnalysisResponse(BaseModel):
+    """Response from control surface analysis"""
+    original_airfoil_id: str
+    results: List[ControlSurfaceResult] = Field(..., description="Results for each flap configuration")
 
 
 @app.get("/")
@@ -497,6 +527,185 @@ async def create_airfoil(request: AirfoilCreateRequest):
         return AirfoilCreateResponse(
             success=False,
             error=f"Error creating airfoil: {str(e)}"
+        )
+
+
+# Control Surface Analysis Endpoint
+
+@app.post("/api/control-surface/analyze", response_model=ControlSurfaceAnalysisResponse)
+async def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
+    """
+    Analyze airfoil with trailing edge flap deflections.
+    For each flap configuration, checks cache first, then generates deflected geometry
+    and runs analysis if needed.
+    """
+    try:
+        if not supabase:
+            raise HTTPException(
+                status_code=500,
+                detail="Supabase client not configured"
+            )
+        
+        # Fetch original airfoil coordinates
+        airfoil_response = supabase.table('airfoils').select(
+            'id, name, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
+        ).eq('id', request.airfoil_id).single().execute()
+        
+        if not airfoil_response.data:
+            raise HTTPException(status_code=404, detail=f"Airfoil with ID {request.airfoil_id} not found")
+        
+        airfoil_data = airfoil_response.data
+        original_upper_x = airfoil_data['upper_x_coordinates']
+        original_upper_y = airfoil_data['upper_y_coordinates']
+        original_lower_x = airfoil_data['lower_x_coordinates']
+        original_lower_y = airfoil_data['lower_y_coordinates']
+        airfoil_name = airfoil_data.get('name', 'Airfoil')
+        
+        # Combine original coordinates for deflection
+        original_x = original_upper_x + original_lower_x
+        original_y = original_upper_y + original_lower_y
+        
+        results = []
+        
+        # Process each flap configuration
+        for flap_config in request.flap_configs:
+            deflection = flap_config.deflection
+            hinge_point = flap_config.hinge_point
+            
+            # When deflection is 0, use control_surface_fraction = 0 (hinge point doesn't matter)
+            flap_fraction_for_hash = 0.0 if deflection == 0 else hinge_point
+            
+            # Generate hash including flap parameters
+            cond_hash = generate_condition_hash(
+                request.conditions,
+                request.airfoil_id,
+                flap_fraction=flap_fraction_for_hash,
+                deflection=deflection
+            )
+            
+            # Check cache first
+            cached_result = None
+            try:
+                cache_response = supabase.table('performance_cache').select('*').eq(
+                    'airfoil_id', request.airfoil_id
+                ).eq('cond_hash', cond_hash).execute()
+                
+                if cache_response.data and len(cache_response.data) > 0:
+                    cached_result = cache_response.data[0]
+            except Exception as cache_error:
+                print(f"Cache lookup failed: {cache_error}")
+            
+            if cached_result:
+                # Use cached performance data
+                performance_data = cached_result['outputs']
+                
+                # Need to regenerate geometry for cached results
+                if deflection == 0:
+                    # Original airfoil - use original coordinates
+                    deflected_x = original_x
+                    deflected_y = original_y
+                else:
+                    # Regenerate deflected geometry
+                    deflected_coords = deflect_trailing_edge_flap(
+                        original_x, original_y, deflection, hinge_point
+                    )
+                    deflected_x = deflected_coords['x']
+                    deflected_y = deflected_coords['y']
+                
+                # Split back into upper and lower
+                # Find leading edge (minimum x)
+                min_x_idx = deflected_x.index(min(deflected_x))
+                upper_x = deflected_x[:min_x_idx + 1]
+                upper_y = deflected_y[:min_x_idx + 1]
+                lower_x = deflected_x[min_x_idx + 1:]
+                lower_y = deflected_y[min_x_idx + 1:]
+                
+                geometry = {
+                    'upper_x': upper_x,
+                    'upper_y': upper_y,
+                    'lower_x': lower_x,
+                    'lower_y': lower_y,
+                }
+            else:
+                # Cache miss - need to deflect and analyze
+                if deflection == 0:
+                    # Original airfoil - use original coordinates
+                    deflected_x = original_x
+                    deflected_y = original_y
+                    upper_x = original_upper_x
+                    upper_y = original_upper_y
+                    lower_x = original_lower_x
+                    lower_y = original_lower_y
+                else:
+                    # Deflect the airfoil
+                    deflected_coords = deflect_trailing_edge_flap(
+                        original_x, original_y, deflection, hinge_point
+                    )
+                    deflected_x = deflected_coords['x']
+                    deflected_y = deflected_coords['y']
+                    
+                    # Split back into upper and lower surfaces
+                    # Find leading edge (minimum x)
+                    min_x_idx = deflected_x.index(min(deflected_x))
+                    upper_x = deflected_x[:min_x_idx + 1]
+                    upper_y = deflected_y[:min_x_idx + 1]
+                    lower_x = deflected_x[min_x_idx + 1:]
+                    lower_y = deflected_y[min_x_idx + 1:]
+                
+                geometry = {
+                    'upper_x': upper_x,
+                    'upper_y': upper_y,
+                    'lower_x': lower_x,
+                    'lower_y': lower_y,
+                }
+                
+                # Run analysis with deflected coordinates
+                performance_data = analyze_airfoil(
+                    upper_x_coords=upper_x,
+                    upper_y_coords=upper_y,
+                    lower_x_coords=lower_x,
+                    lower_y_coords=lower_y,
+                    reynolds_number=request.conditions.Re,
+                    mach_number=request.conditions.Mach,
+                    alpha_range=request.conditions.alpha_range,
+                    n_crit=request.conditions.n_crit if request.conditions.n_crit is not None else 9.0,
+                    airfoil_name=airfoil_name
+                )
+                
+                # Cache the results
+                try:
+                    cache_data = {
+                        'airfoil_id': request.airfoil_id,
+                        'cond_hash': cond_hash,
+                        'inputs': {
+                            **request.conditions.model_dump(),
+                            'flap_fraction': flap_fraction_for_hash,  # Use 0 when deflection is 0
+                            'deflection': deflection
+                        },
+                        'outputs': performance_data
+                    }
+                    supabase.table('performance_cache').insert(cache_data).execute()
+                except Exception as cache_error:
+                    print(f"Failed to cache results: {cache_error}")
+            
+            results.append(ControlSurfaceResult(
+                deflection=deflection,
+                hinge_point=hinge_point,
+                geometry=geometry,
+                performance=performance_data
+            ))
+        
+        return ControlSurfaceAnalysisResponse(
+            original_airfoil_id=request.airfoil_id,
+            results=results
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error analyzing control surface: {str(e)}"
         )
 
 

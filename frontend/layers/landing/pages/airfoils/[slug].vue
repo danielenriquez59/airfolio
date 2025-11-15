@@ -346,8 +346,8 @@ useHead({
           />
         </div>
 
-        <!-- Run Performance Analysis Button -->
-        <div v-if="airfoil.id" class="mb-8">
+        <!-- Analysis Buttons -->
+        <div v-if="airfoil.id" class="mb-8 space-y-3">
           <button
             type="button"
             @click="showAnalysisModal = true"
@@ -356,6 +356,13 @@ useHead({
             <Icon name="heroicons:play" class="h-5 w-5" />
             Run Performance Analysis
           </button>
+          <NuxtLink
+            :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
+            class="block w-full px-6 py-3 bg-gray-200 text-gray-900 rounded-md font-medium hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 flex items-center justify-center gap-2"
+          >
+            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5" />
+            Control Surface Analysis
+          </NuxtLink>
         </div>
 
 

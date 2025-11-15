@@ -3,20 +3,22 @@ Utility functions for the airfoil analysis backend.
 """
 import hashlib
 import json
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from pydantic import BaseModel
 import math
 import numpy as np
 import aerosandbox as asb
 
 
-def generate_condition_hash(conditions: BaseModel, airfoil_id: str) -> str:
+def generate_condition_hash(conditions: BaseModel, airfoil_id: str, flap_fraction: Optional[float] = None, deflection: Optional[float] = None) -> str:
     """
     Generate a SHA256 hash of analysis conditions and airfoil ID for cache lookup.
     
     Args:
         conditions: Pydantic model with analysis conditions
         airfoil_id: Single airfoil UUID
+        flap_fraction: Optional hinge point as fraction of chord (for control surface analysis)
+        deflection: Optional deflection angle in degrees (for control surface analysis)
         
     Returns:
         Hex string hash of the conditions and airfoil ID
@@ -28,6 +30,12 @@ def generate_condition_hash(conditions: BaseModel, airfoil_id: str) -> str:
         'conditions': conditions_dict,
         'airfoil_id': airfoil_id
     }
+    
+    # Include control surface parameters if provided
+    if flap_fraction is not None:
+        hash_data['flap_fraction'] = flap_fraction
+    if deflection is not None:
+        hash_data['deflection'] = deflection
     
     hash_str = json.dumps(hash_data, sort_keys=True)
     return hashlib.sha256(hash_str.encode()).hexdigest()
@@ -243,4 +251,64 @@ def calculate_properties(x: List[float], y: List[float]) -> Dict[str, Any]:
             "upper_coordinates": [],
             "lower_coordinates": [],
         }
+
+
+def deflect_trailing_edge_flap(x: List[float], y: List[float], deflection: float, hinge_point: float = 0.75) -> Dict[str, Any]:
+    """
+    Deflect a trailing edge flap on an airfoil and return the deflected coordinates.
+    
+    Args:
+        x: Array of x-coordinates (chord-normalized, typically 0 to 1)
+        y: Array of y-coordinates (chord-normalized)
+        deflection: Deflection angle in degrees (downwards-positive)
+        hinge_point: Hinge location as fraction of chord (default 0.75 = 75% chord)
+    
+    Returns:
+        Dictionary containing:
+        - x: Deflected x-coordinates (as list)
+        - y: Deflected y-coordinates (as list)
+        - coordinates: Nx2 array of [x, y] coordinates (as list)
+        - deflection: Applied deflection angle (degrees)
+        - hinge_point: Hinge location used (fraction of chord)
+        - n_points: Number of coordinate points
+    """
+    try:
+        # Convert inputs to numpy arrays if they aren't already
+        x = np.array(x)
+        y = np.array(y)
+        
+        # Combine x and y into Nx2 coordinate array
+        # AeroSandbox expects coordinates in standard airfoil order:
+        # trailing edge upper -> leading edge -> trailing edge lower
+        coordinates = np.column_stack([x, y])
+        
+        # Create Airfoil object from coordinates
+        airfoil = asb.Airfoil(name="Custom", coordinates=coordinates)
+        
+        # Apply deflection using AeroSandbox's add_control_surface method
+        # modify_coordinates=True (always), modify_polars=False (always)
+        deflected_airfoil = airfoil.add_control_surface(
+            deflection=deflection,
+            hinge_point_x=hinge_point,
+            modify_coordinates=True,
+            modify_polars=True,
+        )
+        
+        # Extract deflected coordinates from the airfoil object
+        deflected_coords = deflected_airfoil.coordinates
+        deflected_x = deflected_coords[:, 0]
+        deflected_y = deflected_coords[:, 1]
+        
+        # Build return dictionary with coordinates and metadata
+        return {
+            "x": deflected_x.tolist(),
+            "y": deflected_y.tolist(),
+            "coordinates": deflected_coords.tolist(),
+            "deflection": float(deflection),
+            "hinge_point": float(hinge_point),
+            "n_points": int(len(deflected_coords)),
+        }
+    except Exception as e:
+        print(f"Error deflecting trailing edge flap: {e}")
+        raise
 

@@ -24,15 +24,26 @@ ChartJS.register(
   zoomPlugin
 )
 
+interface GeometryData {
+  name: string
+  upperX: number[]
+  upperY: number[]
+  lowerX: number[]
+  lowerY: number[]
+  color?: string
+}
+
 interface Props {
-  /** Upper surface X coordinates */
+  /** Upper surface X coordinates (for single geometry, backward compatibility) */
   upperX?: number[]
-  /** Upper surface Y coordinates */
+  /** Upper surface Y coordinates (for single geometry, backward compatibility) */
   upperY?: number[]
-  /** Lower surface X coordinates */
+  /** Lower surface X coordinates (for single geometry, backward compatibility) */
   lowerX?: number[]
-  /** Lower surface Y coordinates */
+  /** Lower surface Y coordinates (for single geometry, backward compatibility) */
   lowerY?: number[]
+  /** Multiple geometries for overlay (takes precedence over single geometry props) */
+  geometries?: GeometryData[]
   /** Airfoil name for title */
   name?: string
   /** Show grid */
@@ -51,11 +62,21 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   showGrid: true,
-  showLegend: false,
+  showLegend: true, // Default to true when using multiple geometries
   aspectRatio: 2.5,
   zoomable: false,
   showPointsOnHover: false,
 })
+
+// Color palette for multiple geometries
+const defaultColors = [
+  '#3B82F6', // Blue
+  '#EF4444', // Red
+  '#10B981', // Green
+  '#F59E0B', // Amber
+  '#8B5CF6', // Purple
+  '#EC4899', // Pink
+]
 
 // Chart instance reference for zoom reset
 const chartRef = ref<InstanceType<typeof Scatter> | null>(null)
@@ -65,44 +86,81 @@ const showMarkers = ref(props.showPointsOnHover)
 
 // Process coordinate data
 const chartData = computed(() => {
-  let upperCoords: Array<[number, number]> = []
-  let lowerCoords: Array<[number, number]> = []
+  const datasets: any[] = []
 
-  if (props.upperX && props.upperY) {
-    // Sort upper coordinates by X in descending order
-    upperCoords = props.upperX
-      .map((x, i) => [x, props.upperY![i]] as [number, number])
-      .sort((a, b) => b[0] - a[0]) // Descending X order
-  }
-  if (props.lowerX && props.lowerY) {
-    // Sort lower coordinates by X in ascending order
-    lowerCoords = props.lowerX
-      .map((x, i) => [x, props.lowerY![i]] as [number, number])
-      .sort((a, b) => a[0] - b[0]) // Ascending X order
-  }
+  // Use geometries prop if provided, otherwise fall back to single geometry props
+  if (props.geometries && props.geometries.length > 0) {
+    // Multiple geometries mode
+    props.geometries.forEach((geom, index) => {
+      let upperCoords: Array<[number, number]> = []
+      let lowerCoords: Array<[number, number]> = []
 
-  // Combine coordinates for closed loop
-  const allCoords = [...upperCoords, ...lowerCoords]
+      if (geom.upperX && geom.upperY) {
+        upperCoords = geom.upperX
+          .map((x, i) => [x, geom.upperY[i]] as [number, number])
+          .sort((a, b) => b[0] - a[0]) // Descending X order
+      }
+      if (geom.lowerX && geom.lowerY) {
+        lowerCoords = geom.lowerX
+          .map((x, i) => [x, geom.lowerY[i]] as [number, number])
+          .sort((a, b) => a[0] - b[0]) // Ascending X order
+      }
 
-  return {
-    datasets: [
-      {
-        label: 'Airfoil Profile',
+      const allCoords = [...upperCoords, ...lowerCoords]
+      const color = geom.color || defaultColors[index % defaultColors.length]
+
+      datasets.push({
+        label: geom.name,
         data: allCoords.map(([x, y]) => ({ x, y })),
-        borderColor: 'rgb(59, 130, 246)', // Blue
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: color,
+        backgroundColor: `${color}20`, // 20% opacity
         showLine: true,
         pointRadius: showMarkers.value ? 2 : 0,
         pointHoverRadius: showMarkers.value ? 4 : 0,
         pointHoverBorderWidth: 2,
-        pointHoverBorderColor: 'rgb(59, 130, 246)',
+        pointHoverBorderColor: color,
         pointHoverBackgroundColor: 'rgb(255, 255, 255)',
         borderWidth: 2,
         tension: 0.1,
-        fill: true,
-      },
-    ],
+        fill: false, // Don't fill when overlaying multiple geometries
+      })
+    })
+  } else {
+    // Single geometry mode (backward compatibility)
+    let upperCoords: Array<[number, number]> = []
+    let lowerCoords: Array<[number, number]> = []
+
+    if (props.upperX && props.upperY) {
+      upperCoords = props.upperX
+        .map((x, i) => [x, props.upperY![i]] as [number, number])
+        .sort((a, b) => b[0] - a[0]) // Descending X order
+    }
+    if (props.lowerX && props.lowerY) {
+      lowerCoords = props.lowerX
+        .map((x, i) => [x, props.lowerY![i]] as [number, number])
+        .sort((a, b) => a[0] - b[0]) // Ascending X order
+    }
+
+    const allCoords = [...upperCoords, ...lowerCoords]
+
+    datasets.push({
+      label: props.name || 'Airfoil Profile',
+      data: allCoords.map(([x, y]) => ({ x, y })),
+      borderColor: 'rgb(59, 130, 246)', // Blue
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      showLine: true,
+      pointRadius: showMarkers.value ? 2 : 0,
+      pointHoverRadius: showMarkers.value ? 4 : 0,
+      pointHoverBorderWidth: 2,
+      pointHoverBorderColor: 'rgb(59, 130, 246)',
+      pointHoverBackgroundColor: 'rgb(255, 255, 255)',
+      borderWidth: 2,
+      tension: 0.1,
+      fill: true,
+    })
   }
+
+  return { datasets }
 })
 
 // Calculate axis ranges dynamically
@@ -110,11 +168,21 @@ const axisRanges = computed(() => {
   const allX: number[] = []
   const allY: number[] = []
 
-  // Collect all X and Y coordinates
-  if (props.upperX) allX.push(...props.upperX)
-  if (props.lowerX) allX.push(...props.lowerX)
-  if (props.upperY) allY.push(...props.upperY)
-  if (props.lowerY) allY.push(...props.lowerY)
+  if (props.geometries && props.geometries.length > 0) {
+    // Multiple geometries mode - collect from all geometries
+    props.geometries.forEach(geom => {
+      if (geom.upperX) allX.push(...geom.upperX)
+      if (geom.lowerX) allX.push(...geom.lowerX)
+      if (geom.upperY) allY.push(...geom.upperY)
+      if (geom.lowerY) allY.push(...geom.lowerY)
+    })
+  } else {
+    // Single geometry mode (backward compatibility)
+    if (props.upperX) allX.push(...props.upperX)
+    if (props.lowerX) allX.push(...props.lowerX)
+    if (props.upperY) allY.push(...props.upperY)
+    if (props.lowerY) allY.push(...props.lowerY)
+  }
 
   // Use min/max values directly
   const xMin = Math.min(...allX)
@@ -167,7 +235,8 @@ const chartOptions = computed(() => {
         },
       },
       legend: {
-        display: props.showLegend,
+        display: props.showLegend || (props.geometries && props.geometries.length > 1),
+        position: 'top' as const,
       },
       tooltip: {
         enabled: true,
