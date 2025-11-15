@@ -11,15 +11,12 @@ const error = ref<string | null>(null)
 
 // Fetch 3 random airfoils
 const loadFeaturedAirfoils = async () => {
-  console.log('[FeaturedAirfoils] Starting loadFeaturedAirfoils...')
   try {
     loading.value = true
     error.value = null
     featuredAirfoils.value = []
     
-    console.log('[FeaturedAirfoils] Calling fetchRandomAirfoils...')
     const airfoils = await fetchRandomAirfoils(4)
-    console.log('[FeaturedAirfoils] Received airfoils:', airfoils)
     
     if (airfoils && airfoils.length > 0) {
       featuredAirfoils.value = airfoils
@@ -38,7 +35,6 @@ const loadFeaturedAirfoils = async () => {
 }
 
 onMounted(() => {
-  console.log('[FeaturedAirfoils] onMounted hook called')
   loadFeaturedAirfoils()
 })
 </script>
