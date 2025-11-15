@@ -145,7 +145,6 @@ const handleSelectionChange = async (entries: PerformanceCache[]) => {
   // Transform cache entries to plot format
   performanceDataForPlots.value = entries.map(entry => {
     const outputs = entry.outputs as any
-    console.log(outputs)
     return {
       name: formatCondition(entry.inputs),
       alpha: outputs?.alpha || [],

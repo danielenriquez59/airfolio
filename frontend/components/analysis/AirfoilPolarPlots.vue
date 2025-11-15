@@ -187,31 +187,34 @@ const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)'
   </div>
   
   <div v-else class="space-y-6">
-    <!-- CL vs α -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
-      <div class="h-64">
-        <Line :data="clChartData" :options="clChartOptions" />
+    <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- CL vs α -->
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="h-64">
+          <Line :data="clChartData" :options="clChartOptions" />
+        </div>
       </div>
-    </div>
 
-    <!-- CD vs α -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
-      <div class="h-64">
-        <Line :data="cdChartData" :options="cdChartOptions" />
+      <!-- CD vs α -->
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="h-64">
+          <Line :data="cdChartData" :options="cdChartOptions" />
+        </div>
       </div>
-    </div>
 
-    <!-- CM vs α -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
-      <div class="h-64">
-        <Line :data="cmChartData" :options="cmChartOptions" />
+      <!-- CM vs α -->
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="h-64">
+          <Line :data="cmChartData" :options="cmChartOptions" />
+        </div>
       </div>
-    </div>
 
-    <!-- L/D vs α -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
-      <div class="h-64">
-        <Line :data="ldChartData" :options="ldChartOptions" />
+      <!-- L/D vs α -->
+      <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="h-64">
+          <Line :data="ldChartData" :options="ldChartOptions" />
+        </div>
       </div>
     </div>
 
