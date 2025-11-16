@@ -285,32 +285,57 @@ async def analyze(request: AnalysisRequest):
                 # Create a map of airfoil_id -> airfoil_data for easy lookup
                 airfoil_map = {airfoil['id']: airfoil for airfoil in airfoil_data_list}
                 
-                # Run analysis for each airfoil and collect results
+                # === OPTIMIZATION: Batch cache lookup ===
+                # Step 1: Pre-generate all condition hashes upfront
+                airfoil_hash_map = {}  # airfoil_id -> (airfoil_name, cond_hash)
+                for airfoil_id in request.airfoil_ids:
+                    airfoil_data = airfoil_map[airfoil_id]
+                    airfoil_name = airfoil_data.get('name', f'Airfoil_{airfoil_id[:8]}')
+                    cond_hash = generate_condition_hash(request.conditions, airfoil_id)
+                    airfoil_hash_map[airfoil_id] = (airfoil_name, cond_hash)
+                
+                # Step 2: Batch query for all cached results at once
+                cache_lookup = {}  # airfoil_id -> cached_outputs
+                try:
+                    # Fetch all potential cache entries for these airfoils in a single query
+                    cache_response = supabase.table('performance_cache').select(
+                        'airfoil_id, cond_hash, outputs'
+                    ).in_('airfoil_id', list(airfoil_hash_map.keys())).execute()
+                    
+                    if cache_response.data:
+                        # Build a set of expected (airfoil_id, cond_hash) pairs for fast lookup
+                        expected_pairs = {
+                            (airfoil_id, cond_hash) 
+                            for airfoil_id, (_, cond_hash) in airfoil_hash_map.items()
+                        }
+                        
+                        # Filter in-memory to match exact (airfoil_id, cond_hash) pairs
+                        for cached_item in cache_response.data:
+                            cached_airfoil_id = cached_item['airfoil_id']
+                            cached_cond_hash = cached_item['cond_hash']
+                            
+                            # Check if this matches our required condition hash
+                            if (cached_airfoil_id, cached_cond_hash) in expected_pairs:
+                                cache_lookup[cached_airfoil_id] = cached_item['outputs']
+                
+                except Exception as cache_error:
+                    print(f"Batch cache lookup failed: {cache_error}")
+                    # Continue with empty cache_lookup - will run all analyses
+                
+                # Step 3: Process each airfoil (now just a map lookup, no DB queries!)
                 comparison_results = {}
                 n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
                 
                 for airfoil_id in request.airfoil_ids:
                     airfoil_data = airfoil_map[airfoil_id]
-                    airfoil_name = airfoil_data.get('name', f'Airfoil_{airfoil_id[:8]}')
+                    airfoil_name, cond_hash = airfoil_hash_map[airfoil_id]
                     
-                    # Generate hash for this specific airfoil
-                    cond_hash = generate_condition_hash(request.conditions, airfoil_id)
-                    
-                    # Check cache
-                    cached_result = None
-                    try:
-                        cache_response = supabase.table('performance_cache').select('*').eq(
-                            'airfoil_id', airfoil_id
-                        ).eq('cond_hash', cond_hash).single().execute()
-                        
-                        if cache_response.data:
-                            cached_result = cache_response.data['outputs']
-                    except:
-                        pass
-                    
-                    if cached_result:
-                        comparison_results[airfoil_name] = cached_result
+                    # Check batch cache lookup
+                    if airfoil_id in cache_lookup:
+                        # Cache hit!
+                        comparison_results[airfoil_name] = cache_lookup[airfoil_id]
                     else:
+                        # Cache miss - need to run analysis
                         # Extract coordinates
                         upper_x_coords = airfoil_data['upper_x_coordinates']
                         upper_y_coords = airfoil_data['upper_y_coordinates']

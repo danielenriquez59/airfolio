@@ -14,6 +14,12 @@ def generate_condition_hash(conditions: BaseModel, airfoil_id: str, flap_fractio
     """
     Generate a SHA256 hash of analysis conditions and airfoil ID for cache lookup.
     
+    Normalizes conditions to ensure consistent hashing:
+    - n_crit: None -> 9.0 (default used in analysis)
+    - Mach: None -> 0.0 (default value)
+    - control_surface_fraction: None -> 0.0 (default value)
+    - control_surface_deflection: None -> 0.0 (default value)
+    
     Args:
         conditions: Pydantic model with analysis conditions
         airfoil_id: Single airfoil UUID
@@ -23,7 +29,22 @@ def generate_condition_hash(conditions: BaseModel, airfoil_id: str, flap_fractio
     Returns:
         Hex string hash of the conditions and airfoil ID
     """
-    conditions_dict = conditions.model_dump(exclude_none=True, mode='json')
+    # Use exclude_none=False to include all fields, then normalize
+    conditions_dict = conditions.model_dump(exclude_none=False, mode='json')
+    
+    # Normalize fields to their default values used in analysis
+    # This ensures consistent hashing regardless of whether defaults are explicit or implicit
+    if conditions_dict.get('n_crit') is None:
+        conditions_dict['n_crit'] = 9.0
+    
+    if conditions_dict.get('Mach') is None:
+        conditions_dict['Mach'] = 0.0
+    
+    if conditions_dict.get('control_surface_fraction') is None:
+        conditions_dict['control_surface_fraction'] = 0.0
+    
+    if conditions_dict.get('control_surface_deflection') is None:
+        conditions_dict['control_surface_deflection'] = 0.0
     
     # Include airfoil ID in the hash
     hash_data = {
