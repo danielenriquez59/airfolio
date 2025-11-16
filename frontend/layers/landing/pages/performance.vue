@@ -111,6 +111,7 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 
 // Validation state from AnalysisParametersForm
 const paramsValid = ref(false)
+const paramsFormRef = ref<{ submit: () => void; isValid: boolean } | null>(null)
 
 // Handler for analysis params submit from form component
 const onAnalysisParamsSubmit = (params: {
@@ -125,8 +126,7 @@ const onAnalysisParamsSubmit = (params: {
   alphaMin.value = params.alphaMin
   alphaMax.value = params.alphaMax
   nCrit.value = params.nCrit
-  // Trigger analysis
-  handleRunAnalysis()
+  // Don't trigger analysis here anymore - it's called from button handler
 }
 
 // Handler for validity changes from form component
@@ -135,11 +135,27 @@ const onValidChange = (isValid: boolean) => {
 }
 
 const canRunAnalysis = computed(() => {
-  // Button is disabled if: invalid parameters OR no airfoils match geometry filters
-  return paramsValid.value && matchedCount.value > 0
+  // Button is disabled if: invalid parameters OR no airfoils match OR too many airfoils (>300)
+  return paramsValid.value && matchedCount.value > 0 && matchedCount.value <= 300
 })
 
-// Handler for run button - submits analysis request
+// Handler for run button - submits form first, then analysis request
+const handleRunButtonClick = async () => {
+  if (!canRunAnalysis.value) return
+  
+  // Submit form to get updated values
+  if (paramsFormRef.value) {
+    paramsFormRef.value.submit()
+  }
+  
+  // Wait a tick for the form submit to complete and update refs
+  await nextTick()
+  
+  // Run the analysis with updated values
+  handleRunAnalysis()
+}
+
+// Handler for running the actual analysis (called after form submission)
 const handleRunAnalysis = async () => {
   if (!canRunAnalysis.value) return
 
@@ -407,6 +423,7 @@ useHead({
       </p>
 
       <AnalysisParametersForm
+        ref="paramsFormRef"
         :initial-reynolds="reynoldsNumber"
         :initial-mach="machNumber"
         :initial-alpha-min="alphaMin"
@@ -428,19 +445,27 @@ useHead({
             ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500'
             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
         ]"
-        @click="handleRunAnalysis"
+        @click="handleRunButtonClick"
       >
         <span v-if="isSubmittingAnalysis" class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
         <span>{{ isSubmittingAnalysis ? 'Submitting Analysis...' : 'Run Performance Analysis' }}</span>
       </button>
       <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
         <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
+        <span v-else-if="matchedCount > 300">Too many airfoils selected ({{ matchedCount }} > 300 limit). Use geometry filters to reduce airfoils.</span>
         <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
       </p>
       
       <!-- Error Message -->
       <div v-if="analysisError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
         <p class="text-sm text-red-800">{{ analysisError }}</p>
+      </div>
+
+      <!-- Hint Message (shown during analysis processing) -->
+      <div v-if="isSubmittingAnalysis" class="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <p class="text-xs text-gray-600">
+          <span class="font-medium">Hint:</span> Non-cached performance results will take longer to generate. I.e., never-been-ran flow conditions will take longer!
+        </p>
       </div>
 
       <!-- Success Message -->

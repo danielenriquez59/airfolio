@@ -153,12 +153,63 @@ const getChartOptions = (
   },
 })
 
-const clChartData = computed(() => generateChartData('CL', true))
+// Generate datasets for legend-only chart (using CL data as base)
+const legendChartData = computed(() => {
+  const datasets = props.airfoils.map((airfoil, idx) => ({
+    label: airfoil.name,
+    data: [], // Empty data array - we only want the legend
+    borderColor: colors[idx % colors.length],
+    backgroundColor: colors[idx % colors.length] + '20',
+    borderWidth: 2,
+  }))
+
+  return { datasets }
+})
+
+// Options for legend-only chart
+const legendChartOptions = computed((): any => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top' as const,
+      labels: {
+        usePointStyle: true,
+        padding: 15,
+        font: {
+          size: 13,
+        },
+      },
+    },
+    tooltip: {
+      enabled: false, // Disable tooltip for legend chart
+    },
+  },
+  scales: {
+    x: {
+      display: false, // Hide x-axis
+    },
+    y: {
+      display: false, // Hide y-axis
+    },
+  },
+  elements: {
+    point: {
+      radius: 0, // Hide points
+    },
+    line: {
+      borderWidth: 0, // Hide lines
+    },
+  },
+}))
+
+const clChartData = computed(() => generateChartData('CL', false))
 const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', true))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false))
 const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false))
 const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false))
 const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false))
@@ -166,6 +217,15 @@ const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)'
 
 <template>
   <div class="space-y-6">
+    <!-- Legend Panel (spans 2 columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
+        <div class="h-16">
+          <Line :data="legendChartData" :options="legendChartOptions" />
+        </div>
+      </div>
+    </div>
+
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- CL vs α -->

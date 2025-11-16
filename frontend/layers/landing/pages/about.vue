@@ -3,7 +3,7 @@ const config = useRuntimeConfig()
 const supportEmail = config.public.supportEmail
 
 definePageMeta({
-  layout: 'landing',
+  layout: 'simple',
 })
 
 useHead({

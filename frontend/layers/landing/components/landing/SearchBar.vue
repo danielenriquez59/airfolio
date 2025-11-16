@@ -183,89 +183,82 @@ const handleKeydown = (event: KeyboardEvent) => {
       </div>
 
       <!-- Filter Rows -->
-      <div class="space-y-3">
+      <div class="grid grid-cols-3 gap-4 items-center max-w-xs">
+        <!-- Header Row -->
+        <div class="text-xs font-medium text-gray-600">Filter</div>
+        <div class="text-xs font-medium text-gray-600">Min %</div>
+        <div class="text-xs font-medium text-gray-600">Max %</div>
+        
         <!-- Thickness Filter Row -->
-        <div class="flex items-center gap-4 flex-wrap">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="thicknessEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <span class="text-sm font-medium text-gray-700">Thickness</span>
-          </label>
-          <div v-if="thicknessEnabled" class="flex items-center gap-3 flex-1">
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-              <VInput
-                v-model.number="thicknessMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="10"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-              <VInput
-                v-model.number="thicknessMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="20"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-          </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            v-model="thicknessEnabled"
+            type="checkbox"
+            class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+          />
+          <span class="text-sm font-medium text-gray-700">Thickness</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <VInput
+            v-model.number="thicknessMin"
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            placeholder="0"
+            size="sm"
+            wrapper-class="w-24"
+            :disabled="!thicknessEnabled"
+          />
+        </div>
+        <div class="flex items-center gap-2">
+          <VInput
+            v-model.number="thicknessMax"
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            placeholder="0"
+            size="sm"
+            wrapper-class="w-24"
+            :disabled="!thicknessEnabled"
+          />
         </div>
 
         <!-- Camber Filter Row -->
-        <div class="flex items-center gap-4 flex-wrap">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="camberEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <span class="text-sm font-medium text-gray-700">Camber</span>
-          </label>
-          <div v-if="camberEnabled" class="flex items-center gap-3 flex-1">
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-              <VInput
-                v-model.number="camberMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="5"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-              <VInput
-                v-model.number="camberMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="10"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-          </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            v-model="camberEnabled"
+            type="checkbox"
+            class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+          />
+          <span class="text-sm font-medium text-gray-700">Camber</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <VInput
+            v-model.number="camberMin"
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            placeholder="0"
+            size="sm"
+            wrapper-class="w-24"
+            :disabled="!camberEnabled"
+          />
+        </div>
+        <div class="flex items-center gap-2">
+          <VInput
+            v-model.number="camberMax"
+            type="number"
+            step="1"
+            min="0"
+            max="100"
+            placeholder="0"
+            size="sm"
+            wrapper-class="w-24"
+            :disabled="!camberEnabled"
+          />
         </div>
       </div>
     </div>

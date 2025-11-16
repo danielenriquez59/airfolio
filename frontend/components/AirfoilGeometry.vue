@@ -58,14 +58,17 @@ interface Props {
   zoomable?: boolean
   /** Show data points on hover */
   showPointsOnHover?: boolean
+  /** Show title */
+  showTitle?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showGrid: true,
-  showLegend: true, // Default to true when using multiple geometries
+  showLegend: false,
   aspectRatio: 2.5,
   zoomable: false,
   showPointsOnHover: false,
+  showTitle: false,
 })
 
 // Color palette for multiple geometries
@@ -223,7 +226,7 @@ const chartOptions = computed(() => {
     aspectRatio: calculatedAspectRatio.value,
     plugins: {
       title: {
-        display: !!props.name,
+        display: props.showTitle && !!props.name,
         text: props.name ? `Airfoil Profile` : '',
         font: {
           size: 16,
@@ -235,13 +238,13 @@ const chartOptions = computed(() => {
         },
       },
       legend: {
-        display: props.showLegend || (props.geometries && props.geometries.length > 1),
+        display: props.showLegend,
         position: 'top' as const,
       },
       tooltip: {
         enabled: true,
         intersect: false,
-        mode: showMarkers.value ? 'nearest' : 'index',
+        mode: (showMarkers.value ? 'nearest' : 'index') as 'nearest' | 'index',
         callbacks: {
           label: (context: any) => {
             const point = context.raw
@@ -264,11 +267,11 @@ const chartOptions = computed(() => {
             pinch: {
               enabled: true,
             },
-            mode: 'xy',
+            mode: 'xy' as const,
           },
           pan: {
             enabled: true,
-            mode: 'xy',
+            mode: 'xy' as const,
           },
           limits: {
             x: {
@@ -291,7 +294,7 @@ const chartOptions = computed(() => {
         max: ranges.xMax,
         title: {
           display: true,
-          text: 'Chord Position (x/c)',
+          text: 'Chord (x/c)',
           font: {
             size: 12,
           },
@@ -302,6 +305,11 @@ const chartOptions = computed(() => {
         },
         ticks: {
           stepSize: 10,
+          callback: function(value: any) {
+            const num = typeof value === 'number' ? value : parseFloat(value)
+            // Format to at most 2 decimal places, removing trailing zeros
+            return parseFloat(num.toFixed(2)).toString()
+          },
         },
       },
       y: {
@@ -321,6 +329,11 @@ const chartOptions = computed(() => {
         },
         ticks: {
           stepSize: 5,
+          callback: function(value: any) {
+            const num = typeof value === 'number' ? value : parseFloat(value)
+            // Format to at most 2 decimal places, removing trailing zeros
+            return parseFloat(num.toFixed(2)).toString()
+          },
         },
       },
     },

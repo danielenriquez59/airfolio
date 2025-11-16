@@ -11,7 +11,7 @@ const navigation = {
     { name: 'About', href: '/about' },
   ],
   resources: [
-    { name: 'Documentation', href: '/docs' },
+  //   { name: 'Documentation', href: '/docs' },
   ],
   // legal: [
   //   { name: 'Privacy Policy', href: '/privacy' },
@@ -37,9 +37,7 @@ const navigation = {
         <div class="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
           <div class="md:grid md:grid-cols-2 md:gap-8">
             <div>
-              <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase">
-                Product
-              </h3>
+             
               <ul role="list" class="mt-4 space-y-4">
                 <li v-for="item in navigation.product" :key="item.name">
                   <NuxtLink
@@ -52,9 +50,7 @@ const navigation = {
               </ul>
             </div>
             <div class="mt-10 md:mt-0">
-              <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase">
-                Resources
-              </h3>
+              
               <ul role="list" class="mt-4 space-y-4">
                 <li v-for="item in navigation.resources" :key="item.name">
                   <NuxtLink
