@@ -252,7 +252,10 @@ onMounted(async () => {
         <!-- Flap Configuration Table -->
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Flap Configurations</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-semibold text-gray-900">Flap Configurations</h2>
+              <span class="text-xs text-gray-500">(Up to three)</span>
+            </div>
             <button
               v-if="flapConfigs.length < 3"
               type="button"
