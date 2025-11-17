@@ -43,6 +43,7 @@ export type Database = {
         Row: {
           camber_loc_pct: number | null
           camber_pct: number | null
+          category: string | null
           created_at: string | null
           description: string | null
           file_path: string
@@ -65,6 +66,7 @@ export type Database = {
         Insert: {
           camber_loc_pct?: number | null
           camber_pct?: number | null
+          category?: string | null
           created_at?: string | null
           description?: string | null
           file_path: string
@@ -87,6 +89,7 @@ export type Database = {
         Update: {
           camber_loc_pct?: number | null
           camber_pct?: number | null
+          category?: string | null
           created_at?: string | null
           description?: string | null
           file_path?: string
@@ -105,6 +108,30 @@ export type Database = {
           upper_surface_nodes?: number | null
           upper_x_coordinates?: number[] | null
           upper_y_coordinates?: number[] | null
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }

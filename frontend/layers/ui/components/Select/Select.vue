@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { PropType, ref, toRefs, watch } from 'vue'
+import { ref, toRefs, watch } from 'vue'
+import type { PropType } from 'vue'
 import {
   Listbox,
   ListboxButton,
