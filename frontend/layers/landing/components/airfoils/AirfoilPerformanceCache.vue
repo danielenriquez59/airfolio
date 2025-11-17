@@ -37,14 +37,60 @@ const filteredEntriesCache = ref<any[]>([])
 // Dropdown state for Excel-style filters
 const openFilterColumn = ref<string | null>(null)
 
+// Refs for filter buttons to calculate dropdown position
+const reFilterButton = ref<HTMLElement | null>(null)
+const machFilterButton = ref<HTMLElement | null>(null)
+const ncritFilterButton = ref<HTMLElement | null>(null)
+const aoaMinFilterButton = ref<HTMLElement | null>(null)
+const aoaMaxFilterButton = ref<HTMLElement | null>(null)
+
+// Dropdown position state
+const dropdownPosition = ref<{ top: string; left: string } | null>(null)
+
 /**
  * Toggle filter dropdown for a specific column
  */
 const toggleFilterDropdown = (column: string) => {
   if (openFilterColumn.value === column) {
     openFilterColumn.value = null
+    dropdownPosition.value = null
   } else {
     openFilterColumn.value = column
+    updateDropdownPosition(column)
+  }
+}
+
+/**
+ * Calculate and update dropdown position based on button location
+ */
+const updateDropdownPosition = async (column: string) => {
+  await nextTick()
+  
+  let buttonRef: HTMLElement | null = null
+  switch (column) {
+    case 're':
+      buttonRef = reFilterButton.value
+      break
+    case 'mach':
+      buttonRef = machFilterButton.value
+      break
+    case 'ncrit':
+      buttonRef = ncritFilterButton.value
+      break
+    case 'aoaMin':
+      buttonRef = aoaMinFilterButton.value
+      break
+    case 'aoaMax':
+      buttonRef = aoaMaxFilterButton.value
+      break
+  }
+  
+  if (buttonRef) {
+    const rect = buttonRef.getBoundingClientRect()
+    dropdownPosition.value = {
+      top: `${rect.bottom + 4}px`,
+      left: `${rect.left}px`
+    }
   }
 }
 
@@ -53,6 +99,7 @@ const toggleFilterDropdown = (column: string) => {
  */
 const closeFilterDropdown = () => {
   openFilterColumn.value = null
+  dropdownPosition.value = null
 }
 
 /**
@@ -235,7 +282,9 @@ const matchesFilters = (entry: PerformanceCache): boolean => {
   const aoaMin = extractAoaMin(entry.inputs)
   const aoaMax = extractAoaMax(entry.inputs)
   const flapDef = extractFlapDeflection(entry.inputs)
-  const flapFrac = extractFlapFraction(entry.inputs)
+  
+  // Always exclude entries with non-zero flap deflection
+  if (flapDef !== null && flapDef !== 0) return false
   
   // For multi-select filters: if array is empty, include all; if array has values, must match one
   if (filters.value.re.length > 0 && !filters.value.re.includes(re ?? -Infinity)) return false
@@ -243,8 +292,6 @@ const matchesFilters = (entry: PerformanceCache): boolean => {
   if (filters.value.ncrit.length > 0 && !filters.value.ncrit.includes(ncrit ?? -Infinity)) return false
   if (filters.value.aoaMin.length > 0 && !filters.value.aoaMin.includes(aoaMin ?? -Infinity)) return false
   if (filters.value.aoaMax.length > 0 && !filters.value.aoaMax.includes(aoaMax ?? -Infinity)) return false
-  if (filters.value.flapDeflection.length > 0 && !filters.value.flapDeflection.includes(flapDef ?? -Infinity)) return false
-  if (filters.value.flapFraction.length > 0 && !filters.value.flapFraction.includes(flapFrac ?? -Infinity)) return false
   
   return true
 }
@@ -419,6 +466,13 @@ watch(() => props.airfoilId, () => {
   }
 }, { immediate: true })
 
+// Handle scroll and resize to update dropdown position
+const handleScrollOrResize = () => {
+  if (openFilterColumn.value) {
+    updateDropdownPosition(openFilterColumn.value)
+  }
+}
+
 onMounted(() => {
   if (props.airfoilId) {
     fetchCacheEntries()
@@ -427,12 +481,16 @@ onMounted(() => {
   // Add click-outside and escape key handlers
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscapeKey)
+  window.addEventListener('scroll', handleScrollOrResize, true)
+  window.addEventListener('resize', handleScrollOrResize)
 })
 
 onUnmounted(() => {
   // Remove event listeners
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleEscapeKey)
+  window.removeEventListener('scroll', handleScrollOrResize, true)
+  window.removeEventListener('resize', handleScrollOrResize)
 })
 </script>
 
@@ -499,6 +557,7 @@ onUnmounted(() => {
               <div class="flex items-center gap-1">
                 <span>Re</span>
                 <button
+                  ref="reFilterButton"
                   @click.stop="toggleFilterDropdown('re')"
                   class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
                   :class="{ 'bg-indigo-100': filters.re.length > 0 || openFilterColumn === 're' }"
@@ -511,32 +570,13 @@ onUnmounted(() => {
                   </span>
                 </button>
               </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 're'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('re', uniqueReValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('re')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueReValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.re.includes(val)"
-                        @change="toggleFilterValue('re', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </th>
             <!-- Mach Column -->
             <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
               <div class="flex items-center gap-1">
                 <span>Mach</span>
                 <button
+                  ref="machFilterButton"
                   @click.stop="toggleFilterDropdown('mach')"
                   class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
                   :class="{ 'bg-indigo-100': filters.mach.length > 0 || openFilterColumn === 'mach' }"
@@ -549,32 +589,13 @@ onUnmounted(() => {
                   </span>
                 </button>
               </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'mach'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('mach', uniqueMachValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('mach')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueMachValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.mach.includes(val)"
-                        @change="toggleFilterValue('mach', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val.toFixed(2) }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </th>
             <!-- Ncrit Column -->
             <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
               <div class="flex items-center gap-1">
                 <span>Ncrit</span>
                 <button
+                  ref="ncritFilterButton"
                   @click.stop="toggleFilterDropdown('ncrit')"
                   class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
                   :class="{ 'bg-indigo-100': filters.ncrit.length > 0 || openFilterColumn === 'ncrit' }"
@@ -587,32 +608,13 @@ onUnmounted(() => {
                   </span>
                 </button>
               </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'ncrit'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('ncrit', uniqueNcritValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('ncrit')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueNcritValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.ncrit.includes(val)"
-                        @change="toggleFilterValue('ncrit', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </th>
             <!-- AoA Min Column -->
             <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
               <div class="flex items-center gap-1">
                 <span>AoA Min</span>
                 <button
+                  ref="aoaMinFilterButton"
                   @click.stop="toggleFilterDropdown('aoaMin')"
                   class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
                   :class="{ 'bg-indigo-100': filters.aoaMin.length > 0 || openFilterColumn === 'aoaMin' }"
@@ -625,32 +627,13 @@ onUnmounted(() => {
                   </span>
                 </button>
               </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'aoaMin'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('aoaMin', uniqueAoaMinValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('aoaMin')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueAoaMinValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.aoaMin.includes(val)"
-                        @change="toggleFilterValue('aoaMin', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val.toFixed(1) }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </th>
             <!-- AoA Max Column -->
             <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
               <div class="flex items-center gap-1">
                 <span>AoA Max</span>
                 <button
+                  ref="aoaMaxFilterButton"
                   @click.stop="toggleFilterDropdown('aoaMax')"
                   class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
                   :class="{ 'bg-indigo-100': filters.aoaMax.length > 0 || openFilterColumn === 'aoaMax' }"
@@ -662,102 +645,6 @@ onUnmounted(() => {
                     {{ filters.aoaMax.length }}
                   </span>
                 </button>
-              </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'aoaMax'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('aoaMax', uniqueAoaMaxValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('aoaMax')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueAoaMaxValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.aoaMax.includes(val)"
-                        @change="toggleFilterValue('aoaMax', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val.toFixed(1) }}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </th>
-            <!-- Flap Deflection Column -->
-            <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
-              <div class="flex items-center gap-1">
-                <span>Flap Deflection</span>
-                <button
-                  @click.stop="toggleFilterDropdown('flapDeflection')"
-                  class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
-                  :class="{ 'bg-indigo-100': filters.flapDeflection.length > 0 || openFilterColumn === 'flapDeflection' }"
-                >
-                  <svg class="w-4 h-4" :class="{ 'text-indigo-600': filters.flapDeflection.length > 0, 'text-gray-500': filters.flapDeflection.length === 0 }" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                  <span v-if="filters.flapDeflection.length > 0" class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-indigo-600 rounded-full">
-                    {{ filters.flapDeflection.length }}
-                  </span>
-                </button>
-              </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'flapDeflection'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('flapDeflection', uniqueFlapDeflectionValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('flapDeflection')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueFlapDeflectionValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.flapDeflection.includes(val)"
-                        @change="toggleFilterValue('flapDeflection', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val.toFixed(1) }}°</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </th>
-            <!-- Flap Fraction Column -->
-            <th class="px-4 py-2 text-left font-semibold text-gray-700 relative">
-              <div class="flex items-center gap-1">
-                <span>Flap Fraction</span>
-                <button
-                  @click.stop="toggleFilterDropdown('flapFraction')"
-                  class="relative inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors"
-                  :class="{ 'bg-indigo-100': filters.flapFraction.length > 0 || openFilterColumn === 'flapFraction' }"
-                >
-                  <svg class="w-4 h-4" :class="{ 'text-indigo-600': filters.flapFraction.length > 0, 'text-gray-500': filters.flapFraction.length === 0 }" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                  <span v-if="filters.flapFraction.length > 0" class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-indigo-600 rounded-full">
-                    {{ filters.flapFraction.length }}
-                  </span>
-                </button>
-              </div>
-              <!-- Filter Dropdown -->
-              <div v-if="openFilterColumn === 'flapFraction'" class="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded shadow-lg z-50">
-                <div class="p-3">
-                  <div class="flex gap-2 mb-3">
-                    <button @click.stop="selectAllFilterValues('flapFraction', uniqueFlapFractionValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-                    <button @click.stop="clearAllFilterValues('flapFraction')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
-                  </div>
-                  <div class="max-h-40 overflow-y-auto space-y-1">
-                    <label v-for="val in uniqueFlapFractionValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
-                      <input
-                        type="checkbox"
-                        :checked="filters.flapFraction.includes(val)"
-                        @change="toggleFilterValue('flapFraction', val)"
-                        class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <span>{{ val.toFixed(2) }}</span>
-                    </label>
-                  </div>
-                </div>
               </div>
             </th>
             <th class="px-4 py-2 text-left font-semibold text-gray-700">Cached</th>
@@ -793,12 +680,6 @@ onUnmounted(() => {
             <td class="px-4 py-2 text-gray-900">
               {{ extractAoaMax(entry.inputs)?.toFixed(1) ?? 'N/A' }}
             </td>
-            <td class="px-4 py-2 text-gray-900">
-              {{ extractFlapDeflection(entry.inputs)?.toFixed(1) ?? 'N/A' }}°
-            </td>
-            <td class="px-4 py-2 text-gray-900">
-              {{ extractFlapFraction(entry.inputs)?.toFixed(2) ?? 'N/A' }}
-            </td>
             <td class="px-4 py-2 text-gray-900 whitespace-nowrap">
               {{ entry.created_at ? new Date(entry.created_at).toLocaleDateString() : 'N/A' }}
             </td>
@@ -806,6 +687,142 @@ onUnmounted(() => {
         </tbody>
       </table>
     </div>
+
+    <!-- Filter Dropdowns using Teleport to avoid clipping -->
+    <!-- Re Filter Dropdown -->
+    <Teleport to="body">
+      <div 
+        v-if="openFilterColumn === 're' && dropdownPosition" 
+        class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
+        :style="dropdownPosition"
+      >
+        <div class="p-3">
+          <div class="flex gap-2 mb-3">
+            <button @click.stop="selectAllFilterValues('re', uniqueReValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
+            <button @click.stop="clearAllFilterValues('re')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto space-y-1">
+            <label v-for="val in uniqueReValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
+              <input
+                type="checkbox"
+                :checked="filters.re.includes(val)"
+                @change="toggleFilterValue('re', val)"
+                class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
+              />
+              <span>{{ val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Mach Filter Dropdown -->
+    <Teleport to="body">
+      <div 
+        v-if="openFilterColumn === 'mach' && dropdownPosition" 
+        class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
+        :style="dropdownPosition"
+      >
+        <div class="p-3">
+          <div class="flex gap-2 mb-3">
+            <button @click.stop="selectAllFilterValues('mach', uniqueMachValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
+            <button @click.stop="clearAllFilterValues('mach')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto space-y-1">
+            <label v-for="val in uniqueMachValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
+              <input
+                type="checkbox"
+                :checked="filters.mach.includes(val)"
+                @change="toggleFilterValue('mach', val)"
+                class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
+              />
+              <span>{{ val.toFixed(2) }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Ncrit Filter Dropdown -->
+    <Teleport to="body">
+      <div 
+        v-if="openFilterColumn === 'ncrit' && dropdownPosition" 
+        class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
+        :style="dropdownPosition"
+      >
+        <div class="p-3">
+          <div class="flex gap-2 mb-3">
+            <button @click.stop="selectAllFilterValues('ncrit', uniqueNcritValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
+            <button @click.stop="clearAllFilterValues('ncrit')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto space-y-1">
+            <label v-for="val in uniqueNcritValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
+              <input
+                type="checkbox"
+                :checked="filters.ncrit.includes(val)"
+                @change="toggleFilterValue('ncrit', val)"
+                class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
+              />
+              <span>{{ val }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- AoA Min Filter Dropdown -->
+    <Teleport to="body">
+      <div 
+        v-if="openFilterColumn === 'aoaMin' && dropdownPosition" 
+        class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
+        :style="dropdownPosition"
+      >
+        <div class="p-3">
+          <div class="flex gap-2 mb-3">
+            <button @click.stop="selectAllFilterValues('aoaMin', uniqueAoaMinValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
+            <button @click.stop="clearAllFilterValues('aoaMin')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto space-y-1">
+            <label v-for="val in uniqueAoaMinValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
+              <input
+                type="checkbox"
+                :checked="filters.aoaMin.includes(val)"
+                @change="toggleFilterValue('aoaMin', val)"
+                class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
+              />
+              <span>{{ val.toFixed(1) }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- AoA Max Filter Dropdown -->
+    <Teleport to="body">
+      <div 
+        v-if="openFilterColumn === 'aoaMax' && dropdownPosition" 
+        class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
+        :style="dropdownPosition"
+      >
+        <div class="p-3">
+          <div class="flex gap-2 mb-3">
+            <button @click.stop="selectAllFilterValues('aoaMax', uniqueAoaMaxValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
+            <button @click.stop="clearAllFilterValues('aoaMax')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+          </div>
+          <div class="max-h-40 overflow-y-auto space-y-1">
+            <label v-for="val in uniqueAoaMaxValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
+              <input
+                type="checkbox"
+                :checked="filters.aoaMax.includes(val)"
+                @change="toggleFilterValue('aoaMax', val)"
+                class="w-3 h-3 text-indigo-600 border-gray-300 rounded"
+              />
+              <span>{{ val.toFixed(1) }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
