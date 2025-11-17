@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Database } from '~/types/database.types'
+import { formatCategoryName } from '~/utils/categoryUtils'
+
+type Category = Database['public']['Tables']['categories']['Row']
+
 definePageMeta({
   layout: 'default',
 })
@@ -18,6 +23,7 @@ const router = useRouter()
 
 const config = useRuntimeConfig()
 const { retrieveTemporaryData, clearTemporaryData } = useAirfoilUpload()
+const { fetchCategories } = useCategories()
 
 // State
 const isLoading = ref(true)
@@ -25,6 +31,7 @@ const isConfirming = ref(false)
 const uploadData = ref<any>(null)
 const calculatedProperties = ref<any>(null)
 const error = ref<string>('')
+const categoryMap = ref<Map<string, Category>>(new Map())
 
 // Get hash from URL
 const hash = route.query.hash as string
@@ -36,6 +43,12 @@ onMounted(async () => {
       error.value = 'Invalid upload session. Please start over.'
       return
     }
+
+    // Fetch categories map
+    const categories = await fetchCategories()
+    categories.forEach(cat => {
+      categoryMap.value.set(cat.id, cat)
+    })
 
     // Retrieve temporary data
     const data = retrieveTemporaryData(hash)
@@ -78,15 +91,22 @@ const handleConfirm = async () => {
 
   try {
     // Call create endpoint
+    const body: any = {
+      name: uploadData.value.name,
+      description: uploadData.value.description,
+      upper_surface: uploadData.value.upperSurface,
+      lower_surface: uploadData.value.lowerSurface,
+      source_url: uploadData.value.sourceUrl,
+    }
+    
+    // Include category if selected
+    if (uploadData.value.categoryId) {
+      body.category = uploadData.value.categoryId
+    }
+    
     const response = await $fetch(`${config.public.backendUrl}/api/airfoils/create`, {
       method: 'POST',
-      body: {
-        name: uploadData.value.name,
-        description: uploadData.value.description,
-        upper_surface: uploadData.value.upperSurface,
-        lower_surface: uploadData.value.lowerSurface,
-        source_url: uploadData.value.sourceUrl,
-      },
+      body,
     })
 
     if (response.success) {
@@ -148,13 +168,22 @@ const handleBack = async () => {
       <div v-else-if="uploadData && calculatedProperties" class="space-y-6">
         <!-- Airfoil Info Card -->
         <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ uploadData.name }}</h2>
-          <p v-if="uploadData.description" class="text-gray-600 mb-4">{{ uploadData.description }}</p>
-          <p v-if="uploadData.sourceUrl" class="text-sm text-gray-500">
-            Source: <a :href="uploadData.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800">
-              {{ uploadData.sourceUrl }}
-            </a>
-          </p>
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ uploadData.name }}</h2>
+              <p v-if="uploadData.description" class="text-gray-600 mb-4">{{ uploadData.description }}</p>
+              <p v-if="uploadData.sourceUrl" class="text-sm text-gray-500">
+                Source: <a :href="uploadData.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800">
+                  {{ uploadData.sourceUrl }}
+                </a>
+              </p>
+            </div>
+            <div v-if="uploadData.categoryId && categoryMap.has(uploadData.categoryId)">
+              <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full whitespace-nowrap">
+                {{ formatCategoryName(categoryMap.get(uploadData.categoryId)?.name || '') }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <!-- Geometry Preview -->

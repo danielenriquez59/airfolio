@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
+import type { Database } from '~/types/database.types'
+import { formatCategoryName } from '~/utils/categoryUtils'
+
+type Category = Database['public']['Tables']['categories']['Row']
 
 definePageMeta({
   layout: 'default',
@@ -27,6 +31,8 @@ const {
   storeTemporaryData,
 } = useAirfoilUpload()
 
+const { fetchCategories } = useCategories()
+
 const route = useRoute()
 const router = useRouter()
 
@@ -40,8 +46,12 @@ const activeTab = ref<'manual' | 'csv'>('manual')
 const airfoilName = ref('')
 const description = ref('')
 const sourceUrl = ref('')
+const selectedCategory = ref<string | undefined>()
 const upperSurface: Ref<CoordinatePair[]> = ref(initializeEmptyRows(10))
 const lowerSurface: Ref<CoordinatePair[]> = ref(initializeEmptyRows(10))
+
+// Category options
+const allCategories = ref<Category[]>([])
 
 // UI state
 const showHelp = ref(false)
@@ -56,6 +66,15 @@ const canSubmit = computed(() => {
     lowerSurface.value.length > 0 &&
     Object.keys(errors.value).length === 0
   )
+})
+
+// Fetch categories on mount
+onMounted(async () => {
+  try {
+    allCategories.value = await fetchCategories()
+  } catch (err) {
+    console.error('Error fetching categories:', err)
+  }
 })
 
 // Watchers
@@ -152,6 +171,7 @@ const handleSubmit = async () => {
       upperSurface: upper,
       lowerSurface: lower,
       sourceUrl: sourceUrl.value.trim() || undefined,
+      categoryId: selectedCategory.value || undefined,
     }
 
     // Generate hash and store data
@@ -248,6 +268,23 @@ const resetForm = () => {
             wrapper-class="w-full"
             size="lg"
           />
+        </div>
+
+        <!-- Category -->
+        <div>
+          <label for="category" class="block text-sm font-medium text-gray-900 mb-1">
+            Category (optional)
+          </label>
+          <select
+            v-model="selectedCategory"
+            id="category"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">No category</option>
+            <option v-for="category in allCategories" :key="category.id" :value="category.id">
+              {{ formatCategoryName(category.name) }}
+            </option>
+          </select>
         </div>
 
         <!-- Coordinates Section -->

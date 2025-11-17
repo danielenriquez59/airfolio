@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
+import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 
 interface Props {
   /** Airfoil UUID */
@@ -17,17 +19,35 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { fetchAirfoil } = useAirfoils()
+const { fetchCategories } = useCategories()
 
 const airfoil = ref<Airfoil | null>(null)
+const category = ref<Category | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const categoryMap = ref<Map<string, Category>>(new Map())
 
-// Fetch airfoil data
+// Fetch airfoil data and categories
 onMounted(async () => {
   try {
     loading.value = true
+    
+    // Fetch categories map
+    const categories = await fetchCategories()
+    categories.forEach(cat => {
+      categoryMap.value.set(cat.id, cat)
+    })
+    
+    // Fetch airfoil data
     const data = await fetchAirfoil(props.airfoilId)
-    airfoil.value = data
+    if (data) {
+      airfoil.value = data
+      
+      // Get category if airfoil has one
+      if (data.category && categoryMap.value.has(data.category)) {
+        category.value = categoryMap.value.get(data.category) || null
+      }
+    }
   } catch (err: any) {
     error.value = err.message || 'Failed to load airfoil'
     console.error('Error loading airfoil:', err)
@@ -62,12 +82,21 @@ const handleClick = () => {
   >
     <template #header>
       <div class="px-4">
-        <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
-          {{ airfoil?.name.toUpperCase() || 'Loading...' }}
-        </h3>
-        <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
-          {{ airfoil.description }}
-        </p>
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1">
+            <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
+              {{ airfoil?.name.toUpperCase() || 'Loading...' }}
+            </h3>
+            <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
+              {{ airfoil.description }}
+            </p>
+          </div>
+          <div v-if="category" class="ml-2">
+            <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full whitespace-nowrap">
+              {{ formatCategoryName(category.name) }}
+            </span>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -164,6 +193,8 @@ const handleClick = () => {
 <style scoped>
 .line-clamp-2 {
   display: -webkit-box;
+  display: box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;

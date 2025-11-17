@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
+import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import AirfoilPerformanceCache from '~/layers/landing/components/airfoils/AirfoilPerformanceCache.vue'
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
 type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 
 definePageMeta({
@@ -14,10 +16,13 @@ const route = useRoute()
 const { fetchAirfoilByName } = useAirfoils()
 const { downloadLednicer, downloadSelig } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
+const { fetchCategories } = useCategories()
 
 const airfoil = ref<Airfoil | null>(null)
+const category = ref<Category | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const categoryMap = ref<Map<string, Category>>(new Map())
 
 // Modal state
 const showAnalysisModal = ref(false)
@@ -160,6 +165,13 @@ onMounted(async () => {
   try {
     loading.value = true
     error.value = null
+    
+    // Fetch categories map
+    const categories = await fetchCategories()
+    categories.forEach(cat => {
+      categoryMap.value.set(cat.id, cat)
+    })
+    
     const data = await fetchAirfoilByName(airfoilSlug.value)
     
     if (!data) {
@@ -168,6 +180,11 @@ onMounted(async () => {
     }
     
     airfoil.value = data
+    
+    // Get category if airfoil has one
+    if (data.category && categoryMap.value.has(data.category)) {
+      category.value = categoryMap.value.get(data.category) || null
+    }
     
     // Update URL if slug doesn't match (for proper SEO/redirects)
     const currentSlug = createSlug(data.name)
@@ -299,6 +316,14 @@ useHead({
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
             <dl class="space-y-3">
+              <div v-if="category">
+                <dt class="text-sm text-gray-500">Category</dt>
+                <dd>
+                  <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
+                    {{ formatCategoryName(category.name) }}
+                  </span>
+                </dd>
+              </div>
               <div v-if="airfoil.source_url">
                 <dt class="text-sm text-gray-500">Source</dt>
                 <dd>

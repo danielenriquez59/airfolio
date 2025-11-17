@@ -51,6 +51,12 @@ const camberMax = computed(() => {
   return num >= 1 ? num / 100 : num
 })
 
+const categoryIds = computed(() => {
+  const val = route.query.categoryIds as string
+  if (!val) return undefined
+  return val.split(',')
+})
+
 const hasMore = computed(() => currentPage.value < totalPages.value)
 
 // Perform search with current filters
@@ -70,6 +76,7 @@ const performSearch = async (reset = false) => {
       thicknessMax: thicknessMax.value,
       camberMin: camberMin.value,
       camberMax: camberMax.value,
+      categoryIds: categoryIds.value,
       page: currentPage.value,
       limit: 20,
     }

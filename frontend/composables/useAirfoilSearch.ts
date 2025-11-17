@@ -13,6 +13,7 @@ export interface SearchParams {
   thicknessMax?: number
   camberMin?: number
   camberMax?: number
+  categoryIds?: string[]
   page?: number
   limit?: number
 }
@@ -41,6 +42,7 @@ export const useAirfoilSearch = () => {
       thicknessMax,
       camberMin,
       camberMax,
+      categoryIds,
       page = 1,
       limit = 20,
     } = params
@@ -79,6 +81,11 @@ export const useAirfoilSearch = () => {
     }
     if (camberMax !== undefined) {
       supabaseQuery = supabaseQuery.lte('camber_pct', camberMax)
+    }
+
+    // Category filter - only include airfoils with selected categories
+    if (categoryIds && categoryIds.length > 0) {
+      supabaseQuery = supabaseQuery.in('category', categoryIds)
     }
 
     // For exclude filter, we need to fetch all matching results first, then filter client-side
