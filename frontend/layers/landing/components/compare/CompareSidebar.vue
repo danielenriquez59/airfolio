@@ -38,14 +38,14 @@ const minCLMax = ref(props.filters.minCLMax)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
 
-// Track which filters are enabled
+// Track which filters are enabled - INITIALIZE ONCE, don't recalculate from props
 const filterEnabled = reactive({
   maxCMRoughness: props.filters.maxCMRoughness !== null,
   minCMAtZero: props.filters.minCMAtZero !== null,
   minMaxLD: props.filters.minMaxLD !== null,
   minCLMax: props.filters.minCLMax !== null,
-  // Design CL and AOA are paired - use single enabled state
-  targetDesign: props.filters.targetCL !== null && props.filters.targetAOA !== null,
+  // Design CL and AOA are paired - enabled if EITHER has a value initially
+  targetDesign: props.filters.targetCL !== null || props.filters.targetAOA !== null,
 })
 
 // Computed properties for range sliders (handle null values)
@@ -69,7 +69,7 @@ const minCLMaxSlider = computed({
   set: (val) => { minCLMax.value = val }
 })
 
-// Watch filter changes from parent
+// Watch filter changes from parent - UPDATE VALUES ONLY, not enabled state
 watch(
   () => props.filters,
   (newFilters) => {
@@ -80,13 +80,13 @@ watch(
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
     
-    // Update enabled state based on filter values
-    filterEnabled.maxCMRoughness = newFilters.maxCMRoughness !== null
-    filterEnabled.minCMAtZero = newFilters.minCMAtZero !== null
-    filterEnabled.minMaxLD = newFilters.minMaxLD !== null
-    filterEnabled.minCLMax = newFilters.minCLMax !== null
-    // Design CL and AOA are paired
-    filterEnabled.targetDesign = newFilters.targetCL !== null && newFilters.targetAOA !== null
+    // DO NOT recalculate enabled state from values - let user control it via checkbox
+    // Only update enabled state if ALL values for a filter become null (filter was cleared externally)
+    if (newFilters.maxCMRoughness === null) filterEnabled.maxCMRoughness = false
+    if (newFilters.minCMAtZero === null) filterEnabled.minCMAtZero = false
+    if (newFilters.minMaxLD === null) filterEnabled.minMaxLD = false
+    if (newFilters.minCLMax === null) filterEnabled.minCLMax = false
+    if (newFilters.targetCL === null && newFilters.targetAOA === null) filterEnabled.targetDesign = false
   },
   { deep: true }
 )
