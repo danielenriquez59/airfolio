@@ -13,6 +13,8 @@ definePageMeta({
 })
 
 const route = useRoute()
+const config = useRuntimeConfig()
+const supportEmail = config.public.supportEmail
 const { fetchAirfoilByName } = useAirfoils()
 const { downloadLednicer, downloadSelig } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
@@ -406,6 +408,14 @@ useHead({
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Plots</h2>
             <AirfoilPolarPlots :performance-data="performanceDataForPlots" />
           </div>
+        </div>
+
+        <!-- Data Accuracy Notice -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+          <p class="text-xs text-gray-400 text-center">
+            We need your help to keep an accurate database. If you suspect that there is an issue with this airfoil's geometry, stats, categorization, or description please email us at 
+            <a :href="`mailto:${supportEmail}`" class="text-gray-500 hover:text-gray-600 underline">{{ supportEmail }}</a>.
+          </p>
         </div>
       </div>
 
