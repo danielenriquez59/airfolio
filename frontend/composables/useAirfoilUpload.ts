@@ -103,6 +103,35 @@ function allFinite(coords: CoordinatePair[]): boolean {
   })
 }
 
+/**
+ * Check for duplicate coordinate pairs
+ */
+function hasDuplicatePoints(coords: CoordinatePair[]): boolean {
+  if (coords.length < 2) {
+    return false
+  }
+
+  const seen = new Set<string>()
+  for (const coord of coords) {
+    const x = typeof coord.x === 'string' ? parseFloat(coord.x) : coord.x
+    const y = typeof coord.y === 'string' ? parseFloat(coord.y) : coord.y
+    
+    // Skip invalid coordinates
+    if (isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
+      continue
+    }
+
+    // Create a unique key for the coordinate pair
+    const key = `${x},${y}`
+    if (seen.has(key)) {
+      return true
+    }
+    seen.add(key)
+  }
+
+  return false
+}
+
 export const useAirfoilUpload = () => {
   const supabase = useSupabaseClient<Database>()
 
@@ -124,12 +153,29 @@ export const useAirfoilUpload = () => {
       errors.push({ field: 'lowerSurface', message: `Lower surface requires at least ${MIN_POINTS} points (currently ${lower.length})` })
     }
 
+    // Check point counts (maximum 200 points per surface)
+    const MAX_POINTS = 200
+    if (upper.length > MAX_POINTS) {
+      errors.push({ field: 'upperSurface', message: `Upper surface cannot exceed ${MAX_POINTS} points (currently ${upper.length})` })
+    }
+    if (lower.length > MAX_POINTS) {
+      errors.push({ field: 'lowerSurface', message: `Lower surface cannot exceed ${MAX_POINTS} points (currently ${lower.length})` })
+    }
+
     // Check finite values
     if (upper.length > 0 && !allFinite(upper)) {
       errors.push({ field: 'upperSurface', message: 'Upper surface contains invalid coordinates' })
     }
     if (lower.length > 0 && !allFinite(lower)) {
       errors.push({ field: 'lowerSurface', message: 'Lower surface contains invalid coordinates' })
+    }
+
+    // Check for duplicate points
+    if (upper.length > 0 && hasDuplicatePoints(upper)) {
+      errors.push({ field: 'upperSurface', message: 'Upper surface contains duplicate points' })
+    }
+    if (lower.length > 0 && hasDuplicatePoints(lower)) {
+      errors.push({ field: 'lowerSurface', message: 'Lower surface contains duplicate points' })
     }
 
     // Check monotonic x-coordinates

@@ -458,6 +458,13 @@ async def validate_airfoil(request: AirfoilValidationRequest):
         if len(request.lower_surface) == 0:
             errors.append("Lower surface requires at least 1 coordinate pair")
         
+        # Validate maximum point counts
+        MAX_POINTS = 200
+        if len(request.upper_surface) > MAX_POINTS:
+            errors.append(f"Upper surface cannot exceed {MAX_POINTS} points (currently {len(request.upper_surface)})")
+        if len(request.lower_surface) > MAX_POINTS:
+            errors.append(f"Lower surface cannot exceed {MAX_POINTS} points (currently {len(request.lower_surface)})")
+        
         # Validate monotonic x-coordinates
         upper = [tuple(p) for p in request.upper_surface]
         lower = [tuple(p) for p in request.lower_surface]
