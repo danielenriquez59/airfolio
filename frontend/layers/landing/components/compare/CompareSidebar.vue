@@ -446,7 +446,16 @@ const handleResetFilters = () => {
         <!-- Rendering Mode -->
         <div class="pt-4 border-t border-gray-200">
           <div class="space-y-2">
-            <label class="block text-xs text-gray-600 mb-1">Rendering Mode</label>
+            <div class="flex items-center gap-1 mb-1">
+              <label class="block text-xs text-gray-600">Rendering Mode</label>
+              <div class="group relative">
+                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  Performance mode reduces data points for faster rendering with large datasets.
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </div>
             <select
               :value="performanceMode || 'performance'"
               @change="emit('update-performance-mode', ($event.target as HTMLSelectElement).value as 'performance' | 'detail')"
@@ -455,9 +464,6 @@ const handleResetFilters = () => {
               <option value="performance">Performance (Recommended)</option>
               <option value="detail">High Detail</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">
-              Performance mode reduces data points for faster rendering with large datasets.
-            </p>
           </div>
         </div>
       </div>

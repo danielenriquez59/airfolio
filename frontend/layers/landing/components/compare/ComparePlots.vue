@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -12,8 +12,10 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
+import zoomPlugin from 'chartjs-plugin-zoom'
 import type { AirfoilPolarData } from '~/composables/useCompare'
 import { calculateLD } from '~/composables/useCompare'
+import { exportPolarDataCSV } from '~/composables/useCSVExport'
 import { downsampleLTTB, getOptimalThreshold } from '~/utils/dataDownsampling'
 
 // Register Chart.js components
@@ -25,7 +27,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  zoomPlugin
 )
 
 interface Props {
@@ -144,6 +147,21 @@ const getChartOptions = (
       borderWidth: 1,
       padding: 12,
     },
+    zoom: {
+      zoom: {
+        wheel: {
+          enabled: true,
+        },
+        pinch: {
+          enabled: true,
+        },
+        mode: 'xy' as const,
+      },
+      pan: {
+        enabled: true,
+        mode: 'xy' as const,
+      },
+    },
   },
   scales: {
     x: {
@@ -258,6 +276,33 @@ const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', f
 const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false))
 const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false))
 const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false))
+
+// Chart refs for reset zoom
+const clChartRef = ref<InstanceType<typeof Line> | null>(null)
+const cdChartRef = ref<InstanceType<typeof Line> | null>(null)
+const cmChartRef = ref<InstanceType<typeof Line> | null>(null)
+const ldChartRef = ref<InstanceType<typeof Line> | null>(null)
+
+// Reset zoom on all charts
+const resetZoom = () => {
+  const charts = [clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value]
+  charts.forEach((chartRef) => {
+    if (chartRef && chartRef.chart) {
+      const chart = chartRef.chart as any
+      if (chart && typeof chart.resetZoom === 'function') {
+        chart.resetZoom()
+      }
+    }
+  })
+}
+
+// Export filtered data to CSV
+const handleExportCSV = () => {
+  if (!props.airfoils || props.airfoils.length === 0) {
+    return
+  }
+  exportPolarDataCSV(props.airfoils)
+}
 </script>
 
 <template>
@@ -282,33 +327,54 @@ const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)'
       </div>
     </div>
 
+    <!-- Reset Zoom and Export Buttons -->
+    <div class="flex justify-end gap-2">
+      <button
+        type="button"
+        @click="resetZoom"
+        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
+        Reset Zoom
+      </button>
+      <button
+        type="button"
+        @click="handleExportCSV"
+        :disabled="!airfoils || airfoils.length === 0"
+        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+        Export Filtered Data
+      </button>
+    </div>
+
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- CL vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="clChartData" :options="clChartOptions" />
+          <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
         </div>
       </div>
 
       <!-- CD vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="cdChartData" :options="cdChartOptions" />
+          <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
         </div>
       </div>
 
       <!-- CM vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="cmChartData" :options="cmChartOptions" />
+          <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
         </div>
       </div>
 
       <!-- L/D vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="ldChartData" :options="ldChartOptions" />
+          <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
         </div>
       </div>
     </div>
