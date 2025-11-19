@@ -106,10 +106,14 @@ const generateChartData = (
   }
 }
 
+// Tooltip enabled state
+const tooltipsEnabled = ref(true)
+
 // Chart options
 const getChartOptions = (
   yLabel: string,
-  showLegend: boolean
+  showLegend: boolean,
+  enableTooltips: boolean = true
 ): any => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -129,6 +133,7 @@ const getChartOptions = (
       },
     },
     tooltip: {
+      enabled: enableTooltips,
       mode: 'index' as const,
       intersect: false,
       callbacks: {
@@ -272,10 +277,10 @@ const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -303,6 +308,11 @@ const handleExportCSV = () => {
   }
   exportPolarDataCSV(props.airfoils)
 }
+
+// Toggle tooltips
+const toggleTooltips = () => {
+  tooltipsEnabled.value = !tooltipsEnabled.value
+}
 </script>
 
 <template>
@@ -327,8 +337,21 @@ const handleExportCSV = () => {
       </div>
     </div>
 
-    <!-- Reset Zoom and Export Buttons -->
+    <!-- Reset Zoom, Export, and Tooltip Toggle Buttons -->
     <div class="flex justify-end gap-2">
+      <button
+        type="button"
+        @click="toggleTooltips"
+        :class="[
+          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+          tooltipsEnabled
+            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
+            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+        ]"
+      >
+        <Icon name="heroicons:information-circle" class="h-4 w-4" />
+        {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+      </button>
       <button
         type="button"
         @click="resetZoom"
