@@ -198,7 +198,7 @@ const resetForm = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
+  <div class="min-h-screen bg-white py-12">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
       <!-- Header with Help Button -->
       <div class="mb-8">
@@ -219,7 +219,7 @@ const resetForm = () => {
       </div>
 
       <!-- Form -->
-      <form class="bg-white rounded-lg shadow p-6 space-y-6">
+      <form class="space-y-6">
         <!-- Name -->
         <div>
           <label for="name" class="block text-sm font-medium text-gray-900 mb-1">
