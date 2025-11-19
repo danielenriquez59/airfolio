@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Category Manager - Airfolio',
+  title: 'Category & Description Manager - Airfolio',
 })
 
 type Category = Database['public']['Tables']['categories']['Row']
@@ -22,6 +22,7 @@ const {
   removeCategory,
   getCategoryCounts,
   fetchAllAirfoils,
+  updateDescriptions,
 } = useCategories()
 
 // State
@@ -43,12 +44,25 @@ const selectedCategory = ref<{ value: string; text: string } | null>(null)
 const selectedAirfoilIds = ref<Set<string>>(new Set())
 const airfoilSearchQuery = ref('')
 
+// Bulk description state
+const bulkDescription = ref('')
+const selectedAirfoilIdsForDescription = ref<Set<string>>(new Set())
+const airfoilSearchQueryForDescription = ref('')
+
 // Computed
 const filteredAirfoils = computed(() => {
   if (!airfoilSearchQuery.value) {
     return airfoils.value
   }
   const query = airfoilSearchQuery.value.toLowerCase()
+  return airfoils.value.filter((a) => a.name.toLowerCase().includes(query))
+})
+
+const filteredAirfoilsForDescription = computed(() => {
+  if (!airfoilSearchQueryForDescription.value) {
+    return airfoils.value
+  }
+  const query = airfoilSearchQueryForDescription.value.toLowerCase()
   return airfoils.value.filter((a) => a.name.toLowerCase().includes(query))
 })
 
@@ -208,6 +222,72 @@ const getCategoryName = (categoryId: string | null) => {
   return categories.value.find((c) => c.id === categoryId)?.name || null
 }
 
+const toggleAirfoilSelectionForDescription = (airfoilId: string) => {
+  if (selectedAirfoilIdsForDescription.value.has(airfoilId)) {
+    selectedAirfoilIdsForDescription.value.delete(airfoilId)
+  } else {
+    selectedAirfoilIdsForDescription.value.add(airfoilId)
+  }
+}
+
+const selectAllFilteredForDescription = () => {
+  filteredAirfoilsForDescription.value.forEach((a) => {
+    selectedAirfoilIdsForDescription.value.add(a.id)
+  })
+}
+
+const deselectAllForDescription = () => {
+  selectedAirfoilIdsForDescription.value.clear()
+}
+
+const handleUpdateDescriptions = async () => {
+  if (selectedAirfoilIdsForDescription.value.size === 0) {
+    error.value = 'Please select at least one airfoil'
+    return
+  }
+
+  if (!bulkDescription.value.trim()) {
+    error.value = 'Please enter a description'
+    return
+  }
+
+  try {
+    await updateDescriptions(
+      Array.from(selectedAirfoilIdsForDescription.value),
+      bulkDescription.value.trim()
+    )
+    selectedAirfoilIdsForDescription.value.clear()
+    bulkDescription.value = ''
+    await loadData()
+    error.value = null
+  } catch (e: any) {
+    error.value = e.message || 'Failed to update descriptions'
+  }
+}
+
+const handleClearDescriptions = async () => {
+  if (selectedAirfoilIdsForDescription.value.size === 0) {
+    error.value = 'Please select at least one airfoil'
+    return
+  }
+
+  if (!confirm('Are you sure you want to clear descriptions for the selected airfoils?')) {
+    return
+  }
+
+  try {
+    await updateDescriptions(
+      Array.from(selectedAirfoilIdsForDescription.value),
+      null
+    )
+    selectedAirfoilIdsForDescription.value.clear()
+    await loadData()
+    error.value = null
+  } catch (e: any) {
+    error.value = e.message || 'Failed to clear descriptions'
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   loadData()
@@ -216,7 +296,7 @@ onMounted(() => {
 
 <template>
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-900 mb-6">Category Manager</h1>
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Category & Description Manager</h1>
 
     <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
       <p class="text-red-800">{{ error }}</p>
@@ -226,9 +306,11 @@ onMounted(() => {
       <p class="text-gray-600">Loading...</p>
     </div>
 
-    <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Left Section: Category Management -->
-      <div class="space-y-6">
+    <div v-else class="space-y-6">
+      <!-- Top Section: Two Column Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Section: Category Management -->
+        <div class="space-y-6">
         <div class="bg-white border border-gray-200 rounded-lg p-6">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">
             Create Category
@@ -451,6 +533,104 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <!-- Bulk Description Management -->
+        <div class="bg-white border border-gray-200 rounded-lg p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">
+            Bulk Description Management
+          </h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                v-model="bulkDescription"
+                placeholder="Enter description to apply to selected airfoils..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                rows="3"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Search Airfoils
+              </label>
+              <VInput
+                v-model="airfoilSearchQueryForDescription"
+                placeholder="Search by name..."
+                class="w-full"
+              />
+            </div>
+
+            <div class="flex gap-2">
+              <VButton size="sm" variant="ghost" @click="selectAllFilteredForDescription">
+                Select All
+              </VButton>
+              <VButton size="sm" variant="ghost" @click="deselectAllForDescription">
+                Deselect All
+              </VButton>
+              <span class="text-sm text-gray-600 self-center ml-auto">
+                Selected: {{ selectedAirfoilIdsForDescription.size }}
+              </span>
+            </div>
+
+            <div
+              class="border border-gray-200 rounded-md max-h-96 overflow-y-auto"
+            >
+              <div
+                v-if="filteredAirfoilsForDescription.length === 0"
+                class="p-4 text-gray-500 text-sm text-center"
+              >
+                No airfoils found
+              </div>
+              <div v-else class="divide-y divide-gray-200">
+                <label
+                  v-for="airfoil in filteredAirfoilsForDescription"
+                  :key="airfoil.id"
+                  class="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="selectedAirfoilIdsForDescription.has(airfoil.id)"
+                    @change="toggleAirfoilSelectionForDescription(airfoil.id)"
+                    class="mr-3 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ airfoil.name }}
+                    </div>
+                    <div
+                      v-if="airfoil.description"
+                      class="text-xs text-gray-500 mt-1 truncate"
+                    >
+                      Current: {{ airfoil.description }}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <VButton
+                color="primary"
+                :disabled="selectedAirfoilIdsForDescription.size === 0 || !bulkDescription.trim()"
+                @click="handleUpdateDescriptions"
+              >
+                Apply Description
+              </VButton>
+              <VButton
+                color="error"
+                variant="tertiary"
+                :disabled="selectedAirfoilIdsForDescription.size === 0"
+                @click="handleClearDescriptions"
+              >
+                Clear Descriptions
+              </VButton>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
   </div>

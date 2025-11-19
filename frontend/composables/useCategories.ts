@@ -187,7 +187,7 @@ export const useCategories = () => {
     while (hasMore) {
       const { data, error } = await supabase
         .from('airfoils')
-        .select('id, name, category')
+        .select('id, name, category, description')
         .order('name', { ascending: true })
         .range(from, from + batchSize - 1)
 
@@ -208,6 +208,28 @@ export const useCategories = () => {
     return allAirfoils
   }
 
+  /**
+   * Update descriptions for multiple airfoils
+   */
+  const updateDescriptions = async (
+    airfoilIds: string[],
+    description: string | null
+  ): Promise<void> => {
+    if (airfoilIds.length === 0) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('airfoils')
+      .update({ description: description || null })
+      .in('id', airfoilIds)
+
+    if (error) {
+      console.error('Error updating descriptions:', error)
+      throw error
+    }
+  }
+
   return {
     fetchCategories,
     createCategory,
@@ -218,6 +240,7 @@ export const useCategories = () => {
     fetchAirfoilsByCategory,
     getCategoryCounts,
     fetchAllAirfoils,
+    updateDescriptions,
   }
 }
 
