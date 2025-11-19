@@ -324,7 +324,7 @@ defineExpose({
   <div v-else class="space-y-6">
     <!-- Legend Panel (spans 2 columns) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
+      <div class="lg:col-span-2">
         <div :class="props.performanceData.length > 100 ? 'h-32' : 'h-16'">
           <Line :data="legendChartData" :options="legendChartOptions" />
         </div>
@@ -359,36 +359,28 @@ defineExpose({
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- CL vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <div class="h-64">
-          <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
-        </div>
+      <div class="h-64">
+        <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
       </div>
 
       <!-- CD vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <div class="h-64">
-          <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
-        </div>
+      <div class="h-64">
+        <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
       </div>
 
       <!-- CM vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <div class="h-64">
-          <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
-        </div>
+      <div class="h-64">
+        <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
       </div>
 
       <!-- L/D vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <div class="h-64">
-          <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
-        </div>
+      <div class="h-64">
+        <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
       </div>
     </div>
 
     <!-- Plot Explanation (Collapsible) -->
-    <div class="bg-gray-50 rounded-lg border border-gray-200">
+    <div class="bg-gray-50 rounded-lg">
       <details class="group">
         <summary
           class="cursor-pointer p-4 flex items-center justify-between hover:bg-gray-100 transition-colors"

@@ -230,7 +230,7 @@ useHead({
 </script>
 
 <template>
-  <div class="bg-gray-50 py-8">
+  <div class="bg-white py-8">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -260,7 +260,7 @@ useHead({
         </div>
 
         <!-- Geometry Visualization -->
-        <div class="mb-8 bg-white rounded-lg shadow p-6">
+        <div class="mb-8">
           <AirfoilGeometry
             v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
             :upper-x="airfoil.upper_x_coordinates"
@@ -280,13 +280,12 @@ useHead({
 
         <!-- Metadata -->
         <div class="mb-8">
-          <div class="bg-white rounded-lg shadow p-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
                 <dl class="space-y-3">
                   <div v-if="airfoil.thickness_pct">
-                    <dt class="text-sm text-gray-500">Thickness</dt>
+                    <dt class="text-sm text-gray-500">Thickness (t/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
                       <span v-if="airfoil.thickness_loc_pct" class="text-sm text-gray-600 font-normal">
@@ -295,7 +294,7 @@ useHead({
                     </dd>
                   </div>
                   <div v-if="airfoil.camber_pct">
-                    <dt class="text-sm text-gray-500">Camber</dt>
+                    <dt class="text-sm text-gray-500">Camber (y/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.camber_pct * 100).toFixed(2) }}%
                       <span v-if="airfoil.camber_loc_pct" class="text-sm text-gray-600 font-normal">
@@ -387,10 +386,10 @@ useHead({
                 </dl>
               </div>
             </div>
-          </div>
         </div>
+        
         <!-- Analysis Buttons -->
-        <div v-if="airfoil.id" class="mb-8 space-y-3">
+        <div v-if="airfoil.id" class="mb-8 space-y-3 border-t border-gray-200 pt-8">
           <button
             type="button"
             @click="showAnalysisModal = true"
@@ -410,23 +409,21 @@ useHead({
 
         <!-- Performance Data (Combined Cache and Plots) -->
         <div v-if="airfoil.id" class="mb-8">
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Data</h2>
-            
-            <!-- Performance Cache Table -->
-            <div class="mb-6">
-              <AirfoilPerformanceCache 
-                :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
-                ref="cacheRef"
-                :airfoil-id="airfoil.id"
-                :no-card="true"
-                @selection-change="handleSelectionChange"
-              />
-            </div>
-
-            <!-- Performance Plots -->
-            <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Data</h2>
+          
+          <!-- Performance Cache Table -->
+          <div class="mb-6">
+            <AirfoilPerformanceCache 
+              :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
+              ref="cacheRef"
+              :airfoil-id="airfoil.id"
+              :no-card="true"
+              @selection-change="handleSelectionChange"
+            />
           </div>
+
+          <!-- Performance Plots -->
+          <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
         </div>
 
         <!-- Data Accuracy Notice -->
