@@ -17,6 +17,7 @@ interface Props {
     maxLD: { min: number; max: number }
     clMax: { min: number; max: number }
   }
+  performanceMode?: 'performance' | 'detail'
 }
 
 const props = defineProps<Props>()
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   'select-all': []
   'deselect-all': []
   'reset-filters': []
+  'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
 // Filter input refs
@@ -145,25 +147,18 @@ const handleResetFilters = () => {
 
 <template>
   <div class="space-y-6">
-    <!-- Data Context Info Card -->
-    <div v-if="dataContext" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <h3 class="text-sm font-semibold text-blue-900 mb-2">Analysis Context</h3>
-      <div class="text-xs text-blue-800 space-y-1">
-        <p v-if="dataContext.Re">
-          <span class="font-medium">Reynolds Number:</span> {{ dataContext.Re.toLocaleString() }}
-        </p>
-        <p v-if="dataContext.Mach !== undefined">
-          <span class="font-medium">Mach Number:</span> {{ dataContext.Mach }}
-        </p>
-        <p v-if="dataContext.source">
-          <span class="font-medium">Source:</span> {{ dataContext.source }}
-        </p>
-      </div>
-    </div>
-
-    <!-- Counts Info Card -->
+    <!-- Combined Info Card -->
     <div class="bg-white rounded-lg shadow p-4">
       <div class="space-y-2 text-sm">
+        <div v-if="dataContext && dataContext.Re" class="flex justify-between">
+          <span class="text-gray-600">Reynolds Number:</span>
+          <span class="font-semibold text-gray-900">{{ dataContext.Re.toLocaleString() }}</span>
+        </div>
+        <div v-if="dataContext && dataContext.Mach !== undefined" class="flex justify-between">
+          <span class="text-gray-600">Mach Number:</span>
+          <span class="font-semibold text-gray-900">{{ dataContext.Mach }}</span>
+        </div>
+        <div v-if="dataContext && (dataContext.Re || dataContext.Mach !== undefined)" class="pt-2 mt-2 border-t border-gray-200"></div>
         <div class="flex justify-between">
           <span class="text-gray-600">Total Airfoils:</span>
           <span class="font-semibold text-gray-900">{{ totalCount }}</span>
@@ -446,6 +441,24 @@ const handleResetFilters = () => {
             wrapper-class="w-full"
             :disabled="!filterEnabled.minCMAtZero"
           />
+        </div>
+
+        <!-- Rendering Mode -->
+        <div class="pt-4 border-t border-gray-200">
+          <div class="space-y-2">
+            <label class="block text-xs text-gray-600 mb-1">Rendering Mode</label>
+            <select
+              :value="performanceMode || 'performance'"
+              @change="emit('update-performance-mode', ($event.target as HTMLSelectElement).value as 'performance' | 'detail')"
+              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="performance">Performance (Recommended)</option>
+              <option value="detail">High Detail</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">
+              Performance mode reduces data points for faster rendering with large datasets.
+            </p>
+          </div>
         </div>
       </div>
     </div>

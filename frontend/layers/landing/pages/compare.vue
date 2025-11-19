@@ -30,6 +30,9 @@ const {
 // Active tab: 'plots' or 'table'
 const activeTab = ref<'plots' | 'table'>('plots')
 
+// Performance mode state
+const performanceMode = ref<'performance' | 'detail'>('performance')
+
 // Loading and error states
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -658,12 +661,14 @@ useHead({
             :total-count="state.allAirfoils.size"
             :data-context="dataContext"
             :filter-ranges="getFilterRanges"
+            :performance-mode="performanceMode"
             @update-filter="updateFilter"
             @set-selected="setSelectedAirfoils"
             @toggle-selection="toggleAirfoilSelection"
             @select-all="selectAllFiltered"
             @deselect-all="deselectAll"
             @reset-filters="resetFilters"
+            @update-performance-mode="performanceMode = $event"
           />
         </div>
 
@@ -705,6 +710,7 @@ useHead({
                 <ComparePlots
                   v-if="getSelectedAirfoilsData.length > 0"
                   :airfoils="getSelectedAirfoilsData"
+                  :performance-mode="performanceMode"
                 />
                 <div v-else class="text-center py-12 text-gray-500">
                   <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>

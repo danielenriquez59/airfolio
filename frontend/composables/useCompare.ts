@@ -3,8 +3,13 @@
  * Handles filtering, selection, and data normalization for the compare page
  */
 
+import { computed, reactive, readonly } from 'vue'
 import { useAirfoils } from './useAirfoils'
 import type { Database } from '~/types/database.types'
+
+// Simple memoization cache
+const ldCache = new Map<string, number[]>()
+const metricsCache = new Map<string, any>()
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -56,11 +61,20 @@ const DEFAULT_FILTERS: FilterState = {
  * Calculate L/D ratio from CL and CD arrays
  */
 export function calculateLD(CL: number[], CD: number[]): number[] {
-  return CL.map((cl, i) => {
+  const cacheKey = CL.join(',') + '|' + CD.join(',')
+  
+  if (ldCache.has(cacheKey)) {
+    return ldCache.get(cacheKey)!
+  }
+  
+  const result = CL.map((cl, i) => {
     const cd = CD[i]
     if (cd === 0 || !isFinite(cd) || !isFinite(cl)) return 0
     return cl / cd
   })
+  
+  ldCache.set(cacheKey, result)
+  return result
 }
 
 /**
@@ -90,6 +104,12 @@ function findZeroAlphaIndex(alpha: number[]): number {
  * Calculate summary metrics for an airfoil
  */
 export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
+  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha)
+  
+  if (metricsCache.has(cacheKey)) {
+    return metricsCache.get(cacheKey)
+  }
+  
   const { alpha, CL, CD, CM } = airfoil
   
   // Calculate L/D
@@ -120,7 +140,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
   // L/D at alpha = 0°
   const ldAtZero = LD[zeroAlphaIdx]
   
-  return {
+  const result = {
     maxLD,
     maxLDAlpha,
     clMax,
@@ -130,6 +150,9 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
     cmAtZero,
     ldAtZero,
   }
+  
+  metricsCache.set(cacheKey, result)
+  return result
 }
 
 /**
@@ -463,6 +486,10 @@ export const useCompare = () => {
     resetFilters,
     applyFilters,
     getFilterRanges,
+    clearCache: () => {
+      ldCache.clear()
+      metricsCache.clear()
+    }
   }
 }
 

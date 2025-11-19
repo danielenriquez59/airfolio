@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -13,6 +14,7 @@ import {
 } from 'chart.js'
 import type { AirfoilPolarData } from '~/composables/useCompare'
 import { calculateLD } from '~/composables/useCompare'
+import { downsampleLTTB, getOptimalThreshold } from '~/utils/dataDownsampling'
 
 // Register Chart.js components
 ChartJS.register(
@@ -28,9 +30,12 @@ ChartJS.register(
 
 interface Props {
   airfoils: AirfoilPolarData[]
+  performanceMode?: 'performance' | 'detail'
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  performanceMode: 'performance'
+})
 
 // Color palette for multiple airfoils
 const colors = [
@@ -43,6 +48,18 @@ const colors = [
   '#06B6D4', // Cyan
   '#F97316', // Orange
 ]
+
+// Computed properties for downsampling
+const downsampleThreshold = computed(() => 
+  getOptimalThreshold(
+    props.airfoils[0]?.alpha.length || 0,
+    props.airfoils.length
+  )
+)
+
+const shouldDownsample = computed(() => 
+  props.performanceMode === 'performance' && props.airfoils.length > 20
+)
 
 // Generate chart data for a metric
 const generateChartData = (
@@ -58,19 +75,26 @@ const generateChartData = (
       data = airfoil[metric]
     }
 
+    let chartData = data.map((value, i) => ({
+      x: airfoil.alpha[i],
+      y: value,
+    }))
+
+    // Apply downsampling in performance mode
+    if (shouldDownsample.value) {
+      chartData = downsampleLTTB(chartData, downsampleThreshold.value)
+    }
+
     return {
       label: airfoil.name,
-      data: data.map((value, i) => ({
-        x: airfoil.alpha[i],
-        y: value,
-      })),
+      data: chartData,
       borderColor: colors[idx % colors.length],
       backgroundColor: colors[idx % colors.length] + '20',
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
       fill: false,
-      tension: 0.1,
+      tension: 0,
     }
   })
 
@@ -86,6 +110,9 @@ const getChartOptions = (
 ): any => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: false,
+  parsing: false,
+  normalized: true,
   plugins: {
     legend: {
       display: showLegend,
@@ -151,6 +178,21 @@ const getChartOptions = (
       },
     },
   },
+  elements: {
+    point: {
+      radius: 0,
+      hitRadius: 0,
+      hoverRadius: 3,
+    },
+    line: {
+      tension: 0,
+    },
+  },
+  interaction: {
+    mode: 'nearest' as const,
+    axis: 'x' as const,
+    intersect: false,
+  },
 })
 
 // Generate datasets for legend-only chart (using CL data as base)
@@ -170,16 +212,19 @@ const legendChartData = computed(() => {
 const legendChartOptions = computed((): any => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: false,
   plugins: {
     legend: {
       display: true,
       position: 'top' as const,
+      maxHeight: 200,
       labels: {
         usePointStyle: true,
-        padding: 15,
+        padding: props.airfoils.length > 100 ? 8 : 15,
         font: {
-          size: 13,
+          size: props.airfoils.length > 100 ? 10 : 13,
         },
+        boxWidth: props.airfoils.length > 100 ? 8 : 12,
       },
     },
     tooltip: {
@@ -217,10 +262,21 @@ const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)'
 
 <template>
   <div class="space-y-6">
+    <!-- Performance Info Banner -->
+    <div v-if="airfoils.length > 50" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <p class="text-sm text-blue-800">
+        <Icon name="heroicons:information-circle" class="inline h-4 w-4 mr-1" />
+        Rendering {{ airfoils.length }} airfoils
+        <span v-if="shouldDownsample">
+          ({{ downsampleThreshold }} points per curve for optimal performance)
+        </span>
+      </p>
+    </div>
+
     <!-- Legend Panel (spans 2 columns) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
-        <div class="h-16">
+        <div :class="airfoils.length > 100 ? 'h-32' : 'h-16'">
           <Line :data="legendChartData" :options="legendChartOptions" />
         </div>
       </div>
