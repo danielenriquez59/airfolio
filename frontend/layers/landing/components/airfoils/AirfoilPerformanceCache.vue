@@ -5,13 +5,16 @@ type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 
 interface Props {
   airfoilId: string
+  noCard?: boolean // If true, don't render the card wrapper
 }
 
 const emit = defineEmits<{
   'selection-change': [entries: any[]]
 }>()
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  noCard: false
+})
 
 const supabase = useSupabaseClient<Database>()
 
@@ -495,9 +498,28 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow p-6">
-    <div class="flex items-center justify-between mb-4">
+  <div :class="props.noCard ? '' : 'bg-white rounded-lg shadow p-6'">
+    <div v-if="!props.noCard" class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold text-gray-900">Performance Data <span class="text-sm text-gray-300">(Cached)</span></h2>
+      <div v-if="filteredEntries.length > 0" class="flex gap-2">
+        <button
+          type="button"
+          class="text-xs text-indigo-600 hover:text-indigo-800"
+          @click="selectAll"
+        >
+          Select All
+        </button>
+        <span class="text-gray-300">|</span>
+        <button
+          type="button"
+          class="text-xs text-indigo-600 hover:text-indigo-800"
+          @click="deselectAll"
+        >
+          Deselect All
+        </button>
+      </div>
+    </div>
+    <div v-else class="flex items-center justify-between mb-4">
       <div v-if="filteredEntries.length > 0" class="flex gap-2">
         <button
           type="button"
@@ -538,7 +560,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Table -->
-    <div v-else class="overflow-x-auto max-h-96 overflow-y-auto border border-gray-200 rounded-lg relative" data-filter-table>
+    <div v-else class="overflow-x-auto max-h-60 overflow-y-auto border border-gray-200 rounded-lg relative" data-filter-table>
       <table class="w-full text-sm">
         <!-- Header Row with Filter Icons -->
         <thead class="sticky top-0 bg-gray-50 border-b border-gray-200">

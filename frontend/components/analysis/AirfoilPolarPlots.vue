@@ -11,6 +11,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
+import zoomPlugin from 'chartjs-plugin-zoom'
 
 // Register Chart.js components
 ChartJS.register(
@@ -21,7 +22,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  zoomPlugin
 )
 
 interface PerformanceDataPoint {
@@ -34,9 +36,12 @@ interface PerformanceDataPoint {
 
 interface Props {
   performanceData: PerformanceDataPoint[]
+  showControls?: boolean // Whether to show reset zoom and tooltip toggle buttons
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showControls: true
+})
 
 // Color palette for multiple conditions
 const colors = [
@@ -96,13 +101,20 @@ const generateChartData = (
   }
 }
 
+// Tooltip enabled state
+const tooltipsEnabled = ref(true)
+
 // Chart options
 const getChartOptions = (
   yLabel: string,
-  showLegend: boolean
+  showLegend: boolean,
+  enableTooltips: boolean = true
 ): any => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: false,
+  parsing: false,
+  normalized: true,
   plugins: {
     legend: {
       display: showLegend,
@@ -116,6 +128,7 @@ const getChartOptions = (
       },
     },
     tooltip: {
+      enabled: enableTooltips,
       mode: 'index' as const,
       intersect: false,
       callbacks: {
@@ -133,6 +146,21 @@ const getChartOptions = (
       borderColor: 'rgba(255, 255, 255, 0.2)',
       borderWidth: 1,
       padding: 12,
+    },
+    zoom: {
+      zoom: {
+        wheel: {
+          enabled: true,
+        },
+        pinch: {
+          enabled: true,
+        },
+        mode: 'xy' as const,
+      },
+      pan: {
+        enabled: true,
+        mode: 'xy' as const,
+      },
     },
   },
   scales: {
@@ -168,6 +196,21 @@ const getChartOptions = (
       },
     },
   },
+  elements: {
+    point: {
+      radius: 0,
+      hitRadius: 0,
+      hoverRadius: 3,
+    },
+    line: {
+      tension: 0,
+    },
+  },
+  interaction: {
+    mode: 'nearest' as const,
+    axis: 'x' as const,
+    intersect: false,
+  },
 })
 
 const clChartData = computed(() => generateChartData('CL', true))
@@ -175,10 +218,102 @@ const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', true))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
+
+// Generate datasets for legend-only chart (using CL data as base)
+const legendChartData = computed(() => {
+  const datasets = props.performanceData.map((data, idx) => ({
+    label: data.name,
+    data: [], // Empty data array - we only want the legend
+    borderColor: colors[idx % colors.length],
+    backgroundColor: colors[idx % colors.length] + '20',
+    borderWidth: 2,
+  }))
+
+  return { datasets }
+})
+
+// Options for legend-only chart
+const legendChartOptions = computed((): any => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top' as const,
+      maxHeight: 200,
+      labels: {
+        usePointStyle: true,
+        padding: props.performanceData.length > 100 ? 8 : 15,
+        font: {
+          size: props.performanceData.length > 100 ? 10 : 13,
+        },
+        boxWidth: props.performanceData.length > 100 ? 8 : 12,
+      },
+    },
+    tooltip: {
+      enabled: false, // Disable tooltip for legend chart
+    },
+  },
+  scales: {
+    x: {
+      display: false, // Hide x-axis
+    },
+    y: {
+      display: false, // Hide y-axis
+    },
+  },
+  elements: {
+    point: {
+      radius: 0, // Hide points
+    },
+    line: {
+      borderWidth: 0, // Hide lines
+    },
+  },
+}))
+
+// Chart refs for reset zoom
+const clChartRef = ref<InstanceType<typeof Line> | null>(null)
+const cdChartRef = ref<InstanceType<typeof Line> | null>(null)
+const cmChartRef = ref<InstanceType<typeof Line> | null>(null)
+const ldChartRef = ref<InstanceType<typeof Line> | null>(null)
+
+// Reset zoom on all charts
+const resetZoom = () => {
+  const charts = [clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value]
+  charts.forEach((chartRef) => {
+    if (chartRef && chartRef.chart) {
+      const chart = chartRef.chart as any
+      if (chart && typeof chart.resetZoom === 'function') {
+        chart.resetZoom()
+      }
+    }
+  })
+}
+
+const emit = defineEmits<{
+  tooltipsToggled: [enabled: boolean]
+}>()
+
+// Toggle tooltips
+const toggleTooltips = () => {
+  tooltipsEnabled.value = !tooltipsEnabled.value
+  emit('tooltipsToggled', tooltipsEnabled.value)
+}
+
+// Expose methods and state for parent component
+defineExpose({
+  resetZoom,
+  toggleTooltips,
+  get tooltipsEnabled() {
+    return tooltipsEnabled.value
+  },
+})
 </script>
 
 <template>
@@ -187,33 +322,67 @@ const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)'
   </div>
   
   <div v-else class="space-y-6">
+    <!-- Legend Panel (spans 2 columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
+        <div :class="props.performanceData.length > 100 ? 'h-32' : 'h-16'">
+          <Line :data="legendChartData" :options="legendChartOptions" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Control Buttons (below legend, above plots) -->
+    <div v-if="props.showControls" class="flex justify-end gap-2">
+      <button
+        type="button"
+        @click="toggleTooltips"
+        :class="[
+          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+          tooltipsEnabled
+            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
+            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+        ]"
+      >
+        <Icon name="heroicons:information-circle" class="h-4 w-4" />
+        {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+      </button>
+      <button
+        type="button"
+        @click="resetZoom"
+        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
+        Reset Zoom
+      </button>
+    </div>
+
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- CL vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="clChartData" :options="clChartOptions" />
+          <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
         </div>
       </div>
 
       <!-- CD vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="cdChartData" :options="cdChartOptions" />
+          <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
         </div>
       </div>
 
       <!-- CM vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="cmChartData" :options="cmChartOptions" />
+          <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
         </div>
       </div>
 
       <!-- L/D vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
-          <Line :data="ldChartData" :options="ldChartOptions" />
+          <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
         </div>
       </div>
     </div>

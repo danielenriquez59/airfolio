@@ -43,6 +43,19 @@ const performanceDataForPlots = ref<Array<{
   CD: number[]
   CM: number[]
 }>>([])
+const plotsRef = ref<{ resetZoom: () => void; toggleTooltips: () => void; tooltipsEnabled: boolean } | null>(null)
+const tooltipsEnabled = ref(true)
+
+const handleTooltipsToggled = (enabled: boolean) => {
+  tooltipsEnabled.value = enabled
+}
+
+// Sync initial tooltip state when component is ready
+watchEffect(() => {
+  if (plotsRef.value) {
+    tooltipsEnabled.value = plotsRef.value.tooltipsEnabled
+  }
+})
 
 const airfoilSlug = computed(() => route.params.slug as string)
 
@@ -266,122 +279,116 @@ useHead({
         </div>
 
         <!-- Metadata -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="mb-8">
           <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
-            <dl class="space-y-3">
-              <div v-if="airfoil.thickness_pct">
-                <dt class="text-sm text-gray-500">Thickness</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
-                  <span v-if="airfoil.thickness_loc_pct" class="text-sm text-gray-600 font-normal">
-                    @ {{ (airfoil.thickness_loc_pct * 100).toFixed(1) }}% x/c
-                  </span>
-                </dd>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
+                <dl class="space-y-3">
+                  <div v-if="airfoil.thickness_pct">
+                    <dt class="text-sm text-gray-500">Thickness</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
+                      <span v-if="airfoil.thickness_loc_pct" class="text-sm text-gray-600 font-normal">
+                        @ {{ (airfoil.thickness_loc_pct * 100).toFixed(1) }}% x/c
+                      </span>
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.camber_pct">
+                    <dt class="text-sm text-gray-500">Camber</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ (airfoil.camber_pct * 100).toFixed(2) }}%
+                      <span v-if="airfoil.camber_loc_pct" class="text-sm text-gray-600 font-normal">
+                        @ {{ (airfoil.camber_loc_pct * 100).toFixed(1) }}% x/c
+                      </span>
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.le_radius">
+                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.le_radius.toFixed(4) }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.te_thickness">
+                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.te_thickness.toFixed(4) }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.upper_surface_nodes !== null">
+                    <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.upper_surface_nodes }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.lower_surface_nodes !== null">
+                    <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.lower_surface_nodes }}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div v-if="airfoil.camber_pct">
-                <dt class="text-sm text-gray-500">Camber</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ (airfoil.camber_pct * 100).toFixed(2) }}%
-                  <span v-if="airfoil.camber_loc_pct" class="text-sm text-gray-600 font-normal">
-                    @ {{ (airfoil.camber_loc_pct * 100).toFixed(1) }}% x/c
-                  </span>
-                </dd>
-              </div>
-              <div v-if="airfoil.le_radius">
-                <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.le_radius.toFixed(4) }}
-                </dd>
-              </div>
-              <div v-if="airfoil.te_thickness">
-                <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.te_thickness.toFixed(4) }}
-                </dd>
-              </div>
-              <div v-if="airfoil.upper_surface_nodes !== null">
-                <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.upper_surface_nodes }}
-                </dd>
-              </div>
-              <div v-if="airfoil.lower_surface_nodes !== null">
-                <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
-                <dd class="text-lg font-semibold text-gray-900">
-                  {{ airfoil.lower_surface_nodes }}
-                </dd>
-              </div>
-            </dl>
-          </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
-            <dl class="space-y-3">
-              <div v-if="category">
-                <dt class="text-sm text-gray-500">Category</dt>
-                <dd>
-                  <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
-                    {{ formatCategoryName(category.name) }}
-                  </span>
-                </dd>
-              </div>
-              <div v-if="airfoil.source_url">
-                <dt class="text-sm text-gray-500">Source</dt>
-                <dd>
-                  <a
-                    :href="airfoil.source_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
+                <dl class="space-y-3">
+                  <div v-if="category">
+                    <dt class="text-sm text-gray-500">Category</dt>
+                    <dd>
+                      <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
+                        {{ formatCategoryName(category.name) }}
+                      </span>
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.source_url">
+                    <dt class="text-sm text-gray-500">Source</dt>
+                    <dd>
+                      <a
+                        :href="airfoil.source_url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+                      >
+                        {{ airfoil.source_url }}
+                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4" />
+                      </a>
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.created_at">
+                    <dt class="text-sm text-gray-500">Added</dt>
+                    <dd class="text-gray-900">
+                      {{ new Date(airfoil.created_at).toLocaleDateString() }}
+                    </dd>
+                  </div>
+                  <div
+                    v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
                   >
-                    {{ airfoil.source_url }}
-                    <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4" />
-                  </a>
-                </dd>
+                    <dt class="text-sm text-gray-500">Download</dt>
+                    <dd class="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        @click="() => downloadLednicer(airfoil!)"
+                        class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Download Lednicer Format
+                        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        @click="() => downloadSelig(airfoil!)"
+                        class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Download Selig Format
+                        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+                      </button>
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div v-if="airfoil.created_at">
-                <dt class="text-sm text-gray-500">Added</dt>
-                <dd class="text-gray-900">
-                  {{ new Date(airfoil.created_at).toLocaleDateString() }}
-                </dd>
-              </div>
-              <div
-                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
-              >
-                <dt class="text-sm text-gray-500">Download</dt>
-                <dd class="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    @click="() => downloadLednicer(airfoil!)"
-                    class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
-                  >
-                    Download Lednicer Format
-                    <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    @click="() => downloadSelig(airfoil!)"
-                    class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
-                  >
-                    Download Selig Format
-                    <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-                  </button>
-                </dd>
-              </div>
-            </dl>
+            </div>
           </div>
         </div>
-        <!-- Performance Cache Data -->
-        <div v-if="airfoil.id" class="mb-8">
-          <AirfoilPerformanceCache 
-            :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
-            ref="cacheRef"
-            :airfoil-id="airfoil.id"
-            @selection-change="handleSelectionChange"
-          />
-        </div>
-
         <!-- Analysis Buttons -->
         <div v-if="airfoil.id" class="mb-8 space-y-3">
           <button
@@ -401,12 +408,24 @@ useHead({
           </NuxtLink>
         </div>
 
-
-        <!-- Performance Plots -->
+        <!-- Performance Data (Combined Cache and Plots) -->
         <div v-if="airfoil.id" class="mb-8">
           <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Plots</h2>
-            <AirfoilPolarPlots :performance-data="performanceDataForPlots" />
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Data</h2>
+            
+            <!-- Performance Cache Table -->
+            <div class="mb-6">
+              <AirfoilPerformanceCache 
+                :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
+                ref="cacheRef"
+                :airfoil-id="airfoil.id"
+                :no-card="true"
+                @selection-change="handleSelectionChange"
+              />
+            </div>
+
+            <!-- Performance Plots -->
+            <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
           </div>
         </div>
 
