@@ -240,7 +240,7 @@ const handleRunAnalysis = async () => {
 }
 
 useHead({
-  title: 'Performance Analysis - NeuralFoil Powered | Airfolio',
+  title: 'Airfoil Comparison - NeuralFoil Powered | Airfolio',
   meta: [
     {
       name: 'description',
@@ -253,7 +253,7 @@ useHead({
 <template>
   <div class="max-w-4xl mx-auto">
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Analysis</h1>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Airfoil Comparison</h1>
       <p class="text-lg text-gray-600">
         Configure geometry filters and flow conditions to run a
         <a
