@@ -12,7 +12,6 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-import zoomPlugin from 'chartjs-plugin-zoom'
 import type { AirfoilPolarData } from '~/composables/useCompare'
 import { calculateLD } from '~/composables/useCompare'
 import { exportPolarDataCSV } from '~/composables/useCSVExport'
@@ -27,9 +26,15 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler,
-  zoomPlugin
+  Filler
 )
+
+// Register zoom plugin only on client side
+if (process.client) {
+  import('chartjs-plugin-zoom').then((zoomPlugin) => {
+    ChartJS.register(zoomPlugin.default)
+  })
+}
 
 interface Props {
   airfoils: AirfoilPolarData[]
