@@ -132,7 +132,7 @@ const menus = ref([
         "
       >
         <div class="flex gap-2 items-center justify-center">
-          {{ $t('app_name') }}
+          Airfolio
         </div>
       </nuxt-link>
       <button

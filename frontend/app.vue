@@ -1,6 +1,5 @@
 <script setup lang="ts">
-const { t } = useI18n()
-const appName = t('app_name')
+const appName = 'Airfolio'
 
 useHead({
   titleTemplate: (titleChunk) => {
@@ -10,7 +9,7 @@ useHead({
     {
       hid: 'description',
       name: 'description',
-      content: t('app_description'),
+      content: 'Airfoil search and analysis tool',
     },
   ],
 })
