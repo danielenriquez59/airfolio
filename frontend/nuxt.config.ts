@@ -9,7 +9,6 @@ export default defineNuxtConfig({
     '@nuxt/content',
     '@nuxt/icon',
     '@nuxtjs/tailwindcss',
-    '@nuxtjs/i18n',
     '@nuxtjs/google-fonts',
     '@nuxtjs/fontaine',
     '@pinia/nuxt',
@@ -26,11 +25,6 @@ export default defineNuxtConfig({
     sources: [
       '/api/sitemap-urls'
     ],
-  },
-  i18n: {
-    locales: ['en', 'id'],
-    defaultLocale: 'en',
-    vueI18n: './i18n.config.ts',
   },
   runtimeConfig: {
     public: {
