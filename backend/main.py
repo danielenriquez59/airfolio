@@ -119,6 +119,20 @@ class FlapConfiguration(BaseModel):
     hinge_point: float = Field(default=0.75, ge=0.5, le=0.9, description="Hinge location as fraction of chord")
 
 
+class CSTAnalysisRequest(BaseModel):
+    """Request for CST-generated airfoil analysis (no caching)"""
+    upper_x: List[float] = Field(..., description="Upper surface X coordinates")
+    upper_y: List[float] = Field(..., description="Upper surface Y coordinates")
+    lower_x: List[float] = Field(..., description="Lower surface X coordinates")
+    lower_y: List[float] = Field(..., description="Lower surface Y coordinates")
+    reynolds: float = Field(..., description="Reynolds number")
+    mach: float = Field(default=0.0, description="Mach number")
+    alpha_start: float = Field(..., description="Alpha start (degrees)")
+    alpha_end: float = Field(..., description="Alpha end (degrees)")
+    alpha_step: float = Field(..., description="Alpha step (degrees)")
+    n_crit: float = Field(default=9.0, description="Critical N-factor")
+
+
 class ControlSurfaceAnalysisRequest(BaseModel):
     """Request for control surface analysis"""
     airfoil_id: str = Field(..., description="Airfoil UUID")
@@ -740,6 +754,72 @@ async def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Error analyzing control surface: {str(e)}"
+        )
+
+
+@app.post("/api/analyze-cst")
+async def analyze_cst(request: CSTAnalysisRequest):
+    """
+    Analyze CST-generated airfoil coordinates directly (no caching, no database lookup).
+    This endpoint is for transient CST modifications that shouldn't be cached.
+    """
+    try:
+        # Validate coordinate arrays
+        if len(request.upper_x) != len(request.upper_y):
+            raise HTTPException(
+                status_code=400,
+                detail="Upper X and Y coordinate arrays must have the same length"
+            )
+        if len(request.lower_x) != len(request.lower_y):
+            raise HTTPException(
+                status_code=400,
+                detail="Lower X and Y coordinate arrays must have the same length"
+            )
+        if len(request.upper_x) < 2 or len(request.lower_x) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 points for upper and lower surfaces"
+            )
+        
+        # Validate alpha range
+        if request.alpha_start >= request.alpha_end:
+            raise HTTPException(
+                status_code=400,
+                detail="alpha_start must be less than alpha_end"
+            )
+        if request.alpha_step <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="alpha_step must be positive"
+            )
+        
+        # Run analysis directly (no caching)
+        analysis_results = analyze_airfoil(
+            upper_x_coords=request.upper_x,
+            upper_y_coords=request.upper_y,
+            lower_x_coords=request.lower_x,
+            lower_y_coords=request.lower_y,
+            reynolds_number=request.reynolds,
+            mach_number=request.mach,
+            alpha_range=[request.alpha_start, request.alpha_end, request.alpha_step],
+            n_crit=request.n_crit,
+            airfoil_name="CST Airfoil",
+            model_size="xlarge"
+        )
+        
+        return analysis_results
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error analyzing CST airfoil: {str(e)}"
         )
 
 

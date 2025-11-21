@@ -9,8 +9,15 @@ defineProps<{
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
   { title: 'Airfoils', to: '/search' },
-  { title: 'Compare', to: '/performance' },
-  { title: 'Upload', to: '/upload' },
+  {
+    title: 'Tools',
+    to: '#',
+    children: [
+      { title: 'Compare', to: '/performance' },
+      { title: 'Upload', to: '/upload' },
+      { title: 'CST Generator', to: '/cst-visualizer' },
+    ],
+  },
   { title: 'About', to: '/about' },
 ]
 </script>
