@@ -367,39 +367,41 @@ watch(() => props.showPointsOnHover, (newVal) => {
 </script>
 
 <template>
-  <div class="w-full relative" :style="{ height: `${props.height}px` }">
-    <!-- Control Buttons -->
-    <div
-      v-if="zoomable || showPointsOnHover"
-      class="absolute top-2 right-2 z-10 flex gap-2"
-    >
-      <button
-        v-if="zoomable"
-        type="button"
-        @click="resetZoom"
-        class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
-        title="Reset Zoom"
+  <ClientOnly>
+    <div class="w-full relative" :style="{ height: `${props.height}px` }">
+      <!-- Control Buttons -->
+      <div
+        v-if="zoomable || showPointsOnHover"
+        class="absolute top-2 right-2 z-10 flex gap-2"
       >
-        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
-        <span>Reset Zoom</span>
-      </button>
-      <button
-        v-if="showPointsOnHover"
-        type="button"
-        @click="toggleMarkers"
-        class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
-        :title="showMarkers ? 'Hide Markers' : 'Show Markers'"
-      >
-        <Icon :name="showMarkers ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
-        <span>{{ showMarkers ? 'Hide Markers' : 'Show Markers' }}</span>
-      </button>
-    </div>
+        <button
+          v-if="zoomable"
+          type="button"
+          @click="resetZoom"
+          class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
+          title="Reset Zoom"
+        >
+          <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+          <span>Reset Zoom</span>
+        </button>
+        <button
+          v-if="showPointsOnHover"
+          type="button"
+          @click="toggleMarkers"
+          class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
+          :title="showMarkers ? 'Hide Markers' : 'Show Markers'"
+        >
+          <Icon :name="showMarkers ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
+          <span>{{ showMarkers ? 'Hide Markers' : 'Show Markers' }}</span>
+        </button>
+      </div>
 
-    <Scatter
-      ref="chartRef"
-      :data="chartData"
-      :options="chartOptions"
-    />
-  </div>
+      <Scatter
+        ref="chartRef"
+        :data="chartData"
+        :options="chartOptions"
+      />
+    </div>
+  </ClientOnly>
 </template>
 

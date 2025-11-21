@@ -1,0 +1,19 @@
+[build]
+  # Directory to run the build command in
+  base = "frontend"
+  
+  # Command to build the site
+  command = "pnpm generate"
+  
+  # Directory where the build output is located (relative to 'base')
+  publish = ".output/public"
+
+[build.environment]
+  # Ensure Node version is compatible
+  NODE_VERSION = "20"
+
+# Handle Single Page Application (SPA) routing fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

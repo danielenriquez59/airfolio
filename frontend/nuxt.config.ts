@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  ssr: false, // Disable SSR - run as SPA (client-side only)
+  ssr: true, // Disable SSR - run as SPA (client-side only)
   
   alias: {
     '@': './',
@@ -15,35 +15,22 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@vueuse/nuxt',
     '@nuxtjs/supabase',
+    '@nuxtjs/sitemap',
+    '@nuxtjs/robots',
   ],
+  site: {
+    url: process.env.NUXT_PUBLIC_SITE_URL,
+    name: 'Airfolio',
+  },
+  sitemap: {
+    sources: [
+      '/api/sitemap-urls'
+    ],
+  },
   i18n: {
     locales: ['en', 'id'],
     defaultLocale: 'en',
-    vueI18n: {
-      legacy: false,
-      locale: 'en',
-      messages: {
-        en: {
-          app_name: 'Airfolio',
-          app_description:
-        'Airfoil search and analysis tool',
-          menu_home: 'Home',
-          menu_store: 'Store',
-          menu_blog: 'Blog',
-          menu_dashboard: 'Dashboard',
-        },
-        id: {
-          app_name: 'Airfolio',
-          app_description:
-        'Alat pencarian dan analisis airfoil',
-          menu_home: 'Beranda',
-          menu_store: 'Toko',
-          menu_blog: 'Blog',
-          menu_dashboard: 'Dasbor',
-        },
-      },
-    },
-    // vueI18n: './i18n.config.ts', // if you are using custom path, default
+    vueI18n: './i18n.config.ts',
   },
   runtimeConfig: {
     public: {
