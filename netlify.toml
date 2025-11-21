@@ -1,7 +1,7 @@
 [build]
   # Directory to run the build command in
   base = "frontend"
-  command = "mkdir -p .netlify/functions-internal/server && pnpm generate"
+  command = "pnpm generate"
   
   # Directory where the build output is located (relative to 'base')
   publish = ".output/public"
