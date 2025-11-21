@@ -220,8 +220,10 @@ async def analyze(request: AnalysisRequest):
                     mach_number=request.conditions.Mach,
                     alpha_range=request.conditions.alpha_range,
                     n_crit=request.conditions.n_crit if request.conditions.n_crit is not None else 9.0,
-                    airfoil_name=airfoil_name
+                    airfoil_name=airfoil_name,
+                    model_size="xlarge"
                 )
+                # valid model_size: Valid model_size values: "xxsmall" "xsmall" "small" "medium" "large" "xlarge" "xxlarge" "xxxlarge"
 
                 # Store results in performance_cache
                 try:
