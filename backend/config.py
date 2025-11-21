@@ -2,7 +2,8 @@
 Configuration settings for the FastAPI backend.
 """
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from pydantic import field_validator
+from typing import List, Optional, Union
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,15 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "https://*.netlify.app",  # For Netlify deployments
     ]
+    
+    @field_validator('CORS_ORIGINS', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse CORS_ORIGINS from string or list"""
+        if isinstance(v, str):
+            # Handle comma-separated string
+            return [origin.strip() for origin in v.split(',')]
+        return v
     
     # Database (Supabase)
     SUPABASE_URL: str = ""
