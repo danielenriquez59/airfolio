@@ -1,7 +1,7 @@
 [build]
   # Directory to run the build command in
   base = "frontend"
-  
+  command = "mkdir -p .netlify/functions-internal/server && pnpm generate"
   # Command to build the site
   command = "pnpm generate"
   
