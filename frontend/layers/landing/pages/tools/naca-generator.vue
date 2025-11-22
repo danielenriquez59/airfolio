@@ -6,6 +6,16 @@ definePageMeta({
   layout: 'detail',
 })
 
+// SEO
+useSeoMeta({
+  title: 'NACA Generator - Generate NACA 4-Digit and 5-Digit Series Airfoils',
+  description: 'Generate and analyze NACA 4-digit and 5-digit series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  ogTitle: 'NACA Generator - Generate NACA 4-Digit and 5-Digit Series Airfoils',
+  ogDescription: 'Generate and analyze NACA 4-digit and 5-digit series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+})
+
 const { generateNACA4, generateNACA5, generateNACA4Name, generateNACA5Name } = useNACAGenerator()
 const { exportNACAParameters, exportLednicer, exportSelig } = useNACAExport()
 const config = useRuntimeConfig()
@@ -163,7 +173,7 @@ const geometries = computed(() => {
       upperY: nacaCoordinates.value.upperY,
       lowerX: nacaCoordinates.value.lowerX,
       lowerY: nacaCoordinates.value.lowerY,
-      color: seriesType.value === '4-digit' ? '#3b82f6' : '#10b981', // Blue for 4-digit, green for 5-digit
+      color: '#3b82f6', // Blue for all series
     })
   }
 
@@ -203,57 +213,61 @@ const performanceData = computed(() => {
       subtitle="Generate and analyze NACA 4-digit and 5-digit series airfoils"
     />
 
-    <!-- Series Type Selector -->
-    <div class="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-      <label class="block text-sm font-semibold text-gray-700 mb-3">Airfoil Series</label>
-      <div class="flex gap-4">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            :value="'4-digit'"
-            :checked="seriesType === '4-digit'"
-            class="w-4 h-4 text-blue-600 focus:ring-blue-500"
-            @change="seriesType = '4-digit'"
-          />
-          <span class="text-sm font-medium text-gray-700">NACA 4-Digit Series</span>
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            :value="'5-digit'"
-            :checked="seriesType === '5-digit'"
-            class="w-4 h-4 text-green-600 focus:ring-green-500"
-            @change="seriesType = '5-digit'"
-          />
-          <span class="text-sm font-medium text-gray-700">NACA 5-Digit Series</span>
-        </label>
-      </div>
-      <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-        <div class="flex items-start gap-2">
-          <Icon name="heroicons:information-circle-20-solid" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <p class="text-sm text-blue-800">
-            <span v-if="seriesType === '4-digit'">
-              Defines airfoil by max camber, camber location, and max thickness.
-            </span>
-            <span v-else>
-              Defines airfoil by design lift coefficient (Cl), max camber location, and max thickness.
-            </span>
-          </p>
-        </div>
-      </div>
-      <div class="mt-3 p-3 bg-gray-50 rounded-lg">
-        <div class="text-2xl font-mono font-bold text-blue-700">{{ currentNacaName }}</div>
-      </div>
-    </div>
-
     <!-- Geometry Visualization -->
     <div v-if="nacaCoordinates" class="mb-6">
       <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <!-- Series Type Selector -->
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-700 mb-3">Airfoil Series</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                :value="'4-digit'"
+                :checked="seriesType === '4-digit'"
+                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                @change="seriesType = '4-digit'"
+              />
+              <span class="text-sm font-medium text-gray-700">NACA 4-Digit Series</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                :value="'5-digit'"
+                :checked="seriesType === '5-digit'"
+                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                @change="seriesType = '5-digit'"
+              />
+              <span class="text-sm font-medium text-gray-700">NACA 5-Digit Series</span>
+            </label>
+          </div>
+          <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div class="flex items-start gap-2">
+              <Icon name="heroicons:information-circle-20-solid" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div class="flex-1">
+                <h4 class="text-blue-900 font-bold mb-2">Technical Note</h4>
+                <p class="text-sm text-blue-800">
+                  <span v-if="seriesType === '4-digit'">
+                    The NACA 4-digit airfoil sections are generated using a thickness distribution equation and a mean camber line composed of two parabolic arcs merging smoothly at the position of maximum camber.
+                  </span>
+                  <span v-else>
+                    The NACA 5-digit series uses the same thickness form as the 4-digit series but employs a specific camber line designed to move the maximum camber forward for higher maximum lift coefficients. The calculations here approximate the standard camber lines.
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+            <div class="text-2xl font-mono font-bold text-blue-700">{{ currentNacaName }}</div>
+          </div>
+        </div>
+        
+        <!-- Geometry Plot -->
         <div class="w-full overflow-hidden h-[300px] md:h-[400px]">
           <AirfoilGeometry
             v-if="geometries.length > 0"
             :geometries="geometries"
-            :show-legend="true"
+            :show-legend="false"
             :aspect-ratio="2.5"
             :zoomable="true"
             :height="400"
@@ -272,6 +286,9 @@ const performanceData = computed(() => {
         :naca4-params="naca4Params"
         :naca5-params="naca5Params"
         :naca-name="currentNacaName"
+        :on-export-parameters="handleExportParameters"
+        :on-export-selig="handleExportSelig"
+        :on-export-lednicer="handleExportLednicer"
         @update:series-type="seriesType = $event"
         @update:naca4-params="naca4Params = $event"
         @update:naca5-params="naca5Params = $event"
@@ -281,42 +298,6 @@ const performanceData = computed(() => {
     <!-- Empty State -->
     <div v-else class="mb-6 p-8 bg-gray-50 rounded-lg border border-gray-200 text-center">
       <p class="text-gray-600">Generating airfoil geometry...</p>
-    </div>
-
-    <!-- Export Buttons -->
-    <div v-if="nacaCoordinates" class="mb-6">
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Export Options</h3>
-        <div class="flex flex-wrap gap-3">
-          <button
-            type="button"
-            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportParameters"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export NACA Parameters (CSV)
-          </button>
-          <button
-            type="button"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportSelig"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export Selig Format (.dat)
-          </button>
-          <button
-            type="button"
-            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportLednicer"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export Lednicer Format (.dat)
-          </button>
-        </div>
-        <p class="mt-3 text-sm text-gray-600">
-          Export NACA parameters as CSV, or the generated coordinates in Selig or Lednicer format.
-        </p>
-      </div>
     </div>
 
     <!-- Analysis Panel -->
@@ -340,21 +321,6 @@ const performanceData = computed(() => {
       />
     </div>
 
-    <!-- Info Card -->
-    <div class="mt-6 bg-slate-900 text-slate-400 p-6 rounded-xl text-sm leading-relaxed">
-      <h4 class="text-slate-200 font-bold mb-2 flex items-center gap-2">
-        <Icon name="heroicons:information-circle-20-solid" class="w-4 h-4" />
-        Technical Note
-      </h4>
-      <p>
-        <span v-if="seriesType === '4-digit'">
-          The NACA 4-digit airfoil sections are generated using a thickness distribution equation and a mean camber line composed of two parabolic arcs merging smoothly at the position of maximum camber.
-        </span>
-        <span v-else>
-          The NACA 5-digit series uses the same thickness form as the 4-digit series but employs a specific camber line designed to move the maximum camber forward for higher maximum lift coefficients. The calculations here approximate the standard camber lines.
-        </span>
-      </p>
-    </div>
   </div>
 </template>
 

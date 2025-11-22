@@ -6,6 +6,16 @@ definePageMeta({
   layout: 'detail',
 })
 
+// SEO
+useSeoMeta({
+  title: 'CST Generator - Generate Airfoils with Class Shape Transformation',
+  description: 'Generate and analyze airfoils using CST (Class Shape Transformation) method. Visualize airfoil geometry, adjust parameters, and export in multiple formats including Selig and Lednicer.',
+  ogTitle: 'CST Generator - Generate Airfoils with Class Shape Transformation',
+  ogDescription: 'Generate and analyze airfoils using CST (Class Shape Transformation) method. Visualize airfoil geometry, adjust parameters, and export in multiple formats.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+})
+
 const { generateCSTCoordinates } = useCSTParameters()
 const { exportCSTParameters, exportLednicer, exportSelig } = useCSTExport()
 const config = useRuntimeConfig()
@@ -229,8 +239,8 @@ const performanceData = computed(() => {
 <template>
   <div class="container mx-auto px-4 py-8 max-w-7xl">
     <PageHeader
-      title="CST Visualizer"
-      subtitle="Visualize and export airfoils in CST (Class Shape Transformation) format"
+      title="CST Generator"
+      subtitle="Generate and analyze airfoils in CST (Class Shape Transformation) format"
     />
 
     <!-- Geometry Visualization -->
@@ -241,7 +251,7 @@ const performanceData = computed(() => {
           <AirfoilGeometry
             v-if="geometries.length > 0"
             :geometries="geometries"
-            :show-legend="true"
+            :show-legend="false"
             :aspect-ratio="2.5"
             :zoomable="true"
             :height="400"
@@ -257,6 +267,9 @@ const performanceData = computed(() => {
     <div v-if="cstParameters && cstCoordinates" class="mb-6">
       <CSTParameterEditor
         :parameters="cstParameters"
+        :on-export-parameters="handleExportParameters"
+        :on-export-selig="handleExportSelig"
+        :on-export-lednicer="handleExportLednicer"
         @update:parameters="cstParameters = $event"
         @update-order="handleOrderUpdate"
       />
@@ -267,42 +280,6 @@ const performanceData = computed(() => {
       <p class="text-gray-600">
         Adjust the default CST parameters to generate an airfoil geometry.
       </p>
-    </div>
-
-    <!-- Export Buttons -->
-    <div v-if="cstParameters && cstCoordinates" class="mb-6">
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Export Options</h3>
-        <div class="flex flex-wrap gap-3">
-          <button
-            type="button"
-            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportParameters"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export CST Parameters (CSV)
-          </button>
-          <button
-            type="button"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportSelig"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export Selig Format (.dat)
-          </button>
-          <button
-            type="button"
-            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md transition-colors flex items-center gap-2"
-            @click="handleExportLednicer"
-          >
-            <Icon name="heroicons:arrow-down-tray-20-solid" class="w-5 h-5" />
-            Export Lednicer Format (.dat)
-          </button>
-        </div>
-        <p class="mt-3 text-sm text-gray-600">
-          Export CST parameters as CSV, or the generated coordinates in Selig or Lednicer format.
-        </p>
-      </div>
     </div>
 
     <!-- Analysis Panel -->

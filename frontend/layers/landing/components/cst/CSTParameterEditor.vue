@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { CSTParameters } from '~/composables/useCSTParameters'
-import Collapsible from '~/layers/ui/components/Collapsible/Collapsible.vue'
+import NACAExportButtons from '~/layers/landing/components/naca/NACAExportButtons.vue'
 
 interface Props {
   parameters: CSTParameters
+  onExportParameters?: () => void
+  onExportSelig?: () => void
+  onExportLednicer?: () => void
 }
 
 interface Emits {
@@ -14,12 +17,33 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const upperExpanded = ref(true)
-const lowerExpanded = ref(true)
-const leExpanded = ref(false)
-const teExpanded = ref(false)
-
 const inputOrder = ref(String(props.parameters.order + 1))
+
+// Watch for inputOrder changes and auto-update weights
+watch(inputOrder, (newValue) => {
+  const count = parseInt(newValue)
+  if (isNaN(count) || count < 3 || count > 21) {
+    return
+  }
+
+  const newOrder = count - 1
+  if (newOrder !== props.parameters.order) {
+    emit('update-order', newOrder)
+  }
+})
+
+// Reset invalid input values on blur
+const handleInputBlur = () => {
+  const count = parseInt(inputOrder.value)
+  if (isNaN(count) || count < 3 || count > 21) {
+    inputOrder.value = String(props.parameters.order + 1)
+  }
+}
+
+// Sync inputOrder when parameters.order changes externally
+watch(() => props.parameters.order, (newOrder) => {
+  inputOrder.value = String(newOrder + 1)
+})
 
 const handleWeightChange = (index: number, isUpper: boolean, value: string | number) => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value
@@ -52,16 +76,6 @@ const handleTEThicknessChange = (value: string | number) => {
   emit('update:parameters', newParams)
 }
 
-const handleUpdateOrder = () => {
-  const count = parseInt(inputOrder.value)
-  if (isNaN(count) || count < 3 || count > 21) {
-    inputOrder.value = String(props.parameters.order + 1)
-    return
-  }
-
-  const newOrder = count - 1
-  emit('update-order', newOrder)
-}
 </script>
 
 <template>
@@ -76,37 +90,22 @@ const handleUpdateOrder = () => {
         min="3"
         max="21"
         class="w-16 px-2 py-1 border border-slate-300 rounded text-center font-mono text-sm focus:outline-none focus:border-blue-500"
+        @blur="handleInputBlur"
       />
-      <button
-        type="button"
-        class="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
-        @click="handleUpdateOrder"
-      >
-        <Icon name="heroicons:arrow-path-20-solid" class="w-3 h-3" />
-        Reset
-      </button>
     </div>
 
     <!-- 2x2 Grid Layout -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Upper Weights -->
       <div class="border border-purple-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="upperExpanded"
-          :title="`Upper Weights (${parameters.upperWeights.length} weights)`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
-            panel: 'p-4 bg-purple-50/50 max-h-[300px] overflow-y-auto space-y-2'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span>Upper Weights</span>
-              <span class="text-xs text-slate-400">{{ parameters.upperWeights.length }} weights</span>
-            </div>
-          </template>
+        <div class="w-full flex items-center justify-between p-4 bg-purple-50">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+            <span class="font-semibold text-slate-800">Upper Weights</span>
+            <span class="text-xs text-slate-400">{{ parameters.upperWeights.length }} weights</span>
+          </div>
+        </div>
+        <div class="p-4 bg-purple-50/50 max-h-[300px] overflow-y-auto space-y-2">
           <div
             v-for="(weight, index) in parameters.upperWeights"
             :key="`upper-${index}`"
@@ -132,27 +131,19 @@ const handleUpdateOrder = () => {
               @input="handleWeightChange(index, true, ($event.target as HTMLInputElement).value)"
             />
           </div>
-        </Collapsible>
+        </div>
       </div>
 
       <!-- Lower Weights -->
       <div class="border border-red-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="lowerExpanded"
-          :title="`Lower Weights (${parameters.lowerWeights.length} weights)`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
-            panel: 'p-4 bg-red-50/50 max-h-[300px] overflow-y-auto space-y-2'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-red-500"></div>
-              <span>Lower Weights</span>
-              <span class="text-xs text-slate-400">{{ parameters.lowerWeights.length }} weights</span>
-            </div>
-          </template>
+        <div class="w-full flex items-center justify-between p-4 bg-red-50">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span class="font-semibold text-slate-800">Lower Weights</span>
+            <span class="text-xs text-slate-400">{{ parameters.lowerWeights.length }} weights</span>
+          </div>
+        </div>
+        <div class="p-4 bg-red-50/50 max-h-[300px] overflow-y-auto space-y-2">
           <div
             v-for="(weight, index) in parameters.lowerWeights"
             :key="`lower-${index}`"
@@ -178,74 +169,72 @@ const handleUpdateOrder = () => {
               @input="handleWeightChange(index, false, ($event.target as HTMLInputElement).value)"
             />
           </div>
-        </Collapsible>
+        </div>
       </div>
 
-      <!-- Leading Edge Weight -->
-      <div class="border border-purple-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="leExpanded"
-          title="LE Mod Weight"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-purple-50/50 hover:bg-purple-100 transition-colors',
-            title: 'text-xs font-bold text-purple-700 uppercase tracking-wide',
-            panel: 'p-4 bg-purple-50/50'
-          }"
-        >
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-purple-600">Value:</span>
+      <!-- LE Mod Weight & TE Thickness Combined -->
+      <div class="border border-blue-200 rounded-lg overflow-hidden">
+        <div class="w-full flex items-center justify-between p-4 bg-blue-50">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span class="font-semibold text-slate-800">LE Mod Weight & TE Thickness</span>
+          </div>
+        </div>
+        <div class="p-4 bg-blue-50/50 space-y-4">
+          <!-- LE Mod Weight -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs text-blue-600 font-medium">LE Mod Weight:</span>
+              <input
+                type="number"
+                step="0.0001"
+                :value="parameters.leWeight"
+                class="w-20 px-2 py-1 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
+                @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
+              />
+            </div>
             <input
-              type="number"
-              step="0.0001"
+              type="range"
+              min="-2.0"
+              max="2.0"
+              step="0.001"
               :value="parameters.leWeight"
-              class="w-20 px-2 py-1 bg-white border border-purple-200 rounded text-right font-mono text-sm focus:outline-none focus:border-purple-400"
+              class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-500"
               @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
             />
           </div>
-          <input
-            type="range"
-            min="-2.0"
-            max="2.0"
-            step="0.001"
-            :value="parameters.leWeight"
-            class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-purple-200 accent-purple-500"
-            @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
-          />
-        </Collapsible>
-      </div>
 
-      <!-- Trailing Edge Thickness -->
-      <div class="border border-red-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="teExpanded"
-          title="TE Thickness (Δζ)"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-red-50/50 hover:bg-red-100 transition-colors',
-            title: 'text-xs font-bold text-red-700 uppercase tracking-wide',
-            panel: 'p-4 bg-red-50/50'
-          }"
-        >
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-red-600">Value:</span>
+          <!-- TE Thickness -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs text-blue-600 font-medium">TE Thickness (Δζ):</span>
+              <input
+                type="number"
+                step="0.0001"
+                :value="parameters.teThickness"
+                class="w-20 px-2 py-1 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
+                @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
+              />
+            </div>
             <input
-              type="number"
+              type="range"
+              min="0"
+              max="0.02"
               step="0.0001"
               :value="parameters.teThickness"
-              class="w-20 px-2 py-1 bg-white border border-red-200 rounded text-right font-mono text-sm focus:outline-none focus:border-red-400"
+              class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-500"
               @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
             />
           </div>
-          <input
-            type="range"
-            min="0"
-            max="0.02"
-            step="0.0001"
-            :value="parameters.teThickness"
-            class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-red-200 accent-red-500"
-            @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
-          />
-        </Collapsible>
+        </div>
       </div>
+
+      <!-- Export Buttons -->
+      <NACAExportButtons
+        :on-export-parameters="onExportParameters"
+        :on-export-selig="onExportSelig"
+        :on-export-lednicer="onExportLednicer"
+      />
     </div>
   </div>
 </template>
