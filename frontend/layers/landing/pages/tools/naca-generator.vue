@@ -242,15 +242,13 @@ const performanceData = computed(() => {
         </div>
       </div>
       <div class="mt-3 p-3 bg-gray-50 rounded-lg">
-        <div class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Generated Name</div>
-        <div class="text-xl font-mono font-bold text-blue-700">{{ currentNacaName }}</div>
+        <div class="text-2xl font-mono font-bold text-blue-700">{{ currentNacaName }}</div>
       </div>
     </div>
 
     <!-- Geometry Visualization -->
     <div v-if="nacaCoordinates" class="mb-6">
       <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Geometry Visualization</h3>
         <div class="w-full overflow-hidden h-[300px] md:h-[400px]">
           <AirfoilGeometry
             v-if="geometries.length > 0"

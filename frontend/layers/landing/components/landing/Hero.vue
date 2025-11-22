@@ -102,6 +102,9 @@ onClickOutside(searchContainerRef, () => {
           <h1 class="flex items-center justify-center">
             <Logo size="xl" />
           </h1>
+          <p class="mt-6 text-lg text-gray-500">
+            A modern airfoil search and analysis tool
+          </p>
           
           <div class="mt-10 flex items-center justify-center">
             <div ref="searchContainerRef" class="relative w-full max-w-lg">
