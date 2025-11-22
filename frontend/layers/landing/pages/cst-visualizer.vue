@@ -233,11 +233,6 @@ const performanceData = computed(() => {
       subtitle="Visualize and export airfoils in CST (Class Shape Transformation) format"
     />
 
-    <!-- Error Display -->
-    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-sm text-red-800">{{ error }}</p>
-    </div>
-
     <!-- Geometry Visualization -->
     <div v-if="cstParameters && cstCoordinates" class="mb-6">
       <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -313,6 +308,11 @@ const performanceData = computed(() => {
     <!-- Analysis Panel -->
     <div class="mb-6">
       <CSTAnalysisPanel :is-loading="isLoadingAnalysis" @analyze="handleAnalyze" />
+    </div>
+
+    <!-- Error Display -->
+    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <p class="text-sm text-red-800">{{ error }}</p>
     </div>
 
     <!-- Analysis Results -->
