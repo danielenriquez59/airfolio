@@ -149,7 +149,7 @@ const handleAnalyze = async (conditions: {
     )
 
     // Call backend endpoint
-    const response = await $fetch(`${config.public.backendUrl}/api/analyze-cst`, {
+    const response = await $fetch(`${config.public.backendUrl}/api/analyze-transient`, {
       method: 'POST',
       body: {
         upper_x: analysisCoords.upperX,
@@ -162,6 +162,7 @@ const handleAnalyze = async (conditions: {
         alpha_end: conditions.alphaEnd,
         alpha_step: conditions.alphaStep,
         n_crit: conditions.nCrit,
+        airfoil_name: 'CST Airfoil',
       },
     })
 

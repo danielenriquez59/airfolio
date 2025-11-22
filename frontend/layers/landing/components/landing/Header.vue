@@ -16,6 +16,7 @@ const navigation: NavigationItem[] = [
       { title: 'Compare', to: '/performance' },
       { title: 'Upload', to: '/upload' },
       { title: 'CST Generator', to: '/cst-visualizer' },
+      { title: 'NACA Generator', to: '/tools/naca-generator' },
     ],
   },
   { title: 'About', to: '/about' },
