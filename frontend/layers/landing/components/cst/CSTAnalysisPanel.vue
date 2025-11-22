@@ -160,7 +160,7 @@ const handleSubmit = () => {
         <span>{{ isLoading ? 'Running Analysis...' : 'Run Analysis' }}</span>
       </button>
       <p v-if="isLoading" class="mt-2 text-xs text-gray-500 text-center">
-        Analysis may take a few moments. Results are not cached.
+        Analysis may take a few moments.
       </p>
     </div>
   </div>

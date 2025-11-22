@@ -227,7 +227,7 @@ const chartOptions = computed(() => {
 
   return {
     responsive: true,
-    maintainAspectRatio: true,
+    maintainAspectRatio: props.height ? false : true,
     aspectRatio: calculatedAspectRatio.value,
     plugins: {
       title: {
@@ -373,7 +373,7 @@ watch(() => props.showPointsOnHover, (newVal) => {
 
 <template>
   <ClientOnly>
-    <div class="w-full relative" :style="{ height: `${props.height}px` }">
+    <div class="w-full relative overflow-hidden" :style="props.height ? { height: `${props.height}px`, maxHeight: `${props.height}px` } : {}">
       <!-- Control Buttons -->
       <div
         v-if="zoomable || showPointsOnHover"

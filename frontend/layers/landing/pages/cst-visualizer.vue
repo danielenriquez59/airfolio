@@ -1,26 +1,29 @@
 <script setup lang="ts">
-import type { Database } from '~/types/database.types'
 import type { CSTParameters, CSTCoordinates } from '~/composables/useCSTParameters'
+import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 
 definePageMeta({
   layout: 'detail',
 })
 
-type Airfoil = Database['public']['Tables']['airfoils']['Row']
-
-const { generateCSTCoordinates, fitCSTParameters } = useCSTParameters()
+const { generateCSTCoordinates } = useCSTParameters()
 const { exportCSTParameters, exportLednicer, exportSelig } = useCSTExport()
 const config = useRuntimeConfig()
 
 // State
-const selectedAirfoil = ref<Airfoil | null>(null)
 const cstParameters = ref<CSTParameters | null>(null)
 const cstCoordinates = ref<CSTCoordinates | null>(null)
-const originalCoordinates = ref<CSTCoordinates | null>(null)
 const analysisResults = ref<any>(null)
-const isLoadingFitting = ref(false)
 const isLoadingAnalysis = ref(false)
 const error = ref<string | null>(null)
+
+// Plot controls
+const plotsRef = ref<{ resetZoom: () => void; toggleTooltips: () => void; tooltipsEnabled: boolean } | null>(null)
+const tooltipsEnabled = ref(true)
+
+const handleTooltipsToggled = (enabled: boolean) => {
+  tooltipsEnabled.value = enabled
+}
 
 // Default CST parameters (DAE-11)
 const DAE11_LE_WEIGHT = 0.5035
@@ -43,56 +46,6 @@ const initializeDefaultParameters = () => {
 // Initialize on mount
 onMounted(() => {
   initializeDefaultParameters()
-})
-
-// Watch for airfoil selection
-watch(selectedAirfoil, async (newAirfoil) => {
-  if (!newAirfoil) {
-    initializeDefaultParameters()
-    originalCoordinates.value = null
-    analysisResults.value = null
-    return
-  }
-
-  // Fetch full airfoil data with coordinates
-  isLoadingFitting.value = true
-  error.value = null
-
-  try {
-    if (
-      !newAirfoil.upper_x_coordinates ||
-      !newAirfoil.upper_y_coordinates ||
-      !newAirfoil.lower_x_coordinates ||
-      !newAirfoil.lower_y_coordinates
-    ) {
-      throw new Error('Airfoil geometry data is missing')
-    }
-
-    // Store original coordinates
-    originalCoordinates.value = {
-      upperX: [...newAirfoil.upper_x_coordinates],
-      upperY: [...newAirfoil.upper_y_coordinates],
-      lowerX: [...newAirfoil.lower_x_coordinates],
-      lowerY: [...newAirfoil.lower_y_coordinates],
-    }
-
-    // Fit CST parameters from airfoil coordinates
-    const fitted = fitCSTParameters(
-      newAirfoil.upper_x_coordinates,
-      newAirfoil.upper_y_coordinates,
-      newAirfoil.lower_x_coordinates,
-      newAirfoil.lower_y_coordinates,
-      7 // Default order
-    )
-
-    cstParameters.value = fitted
-    regenerateCoordinates()
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to fit CST parameters'
-    console.error('Error fitting CST parameters:', err)
-  } finally {
-    isLoadingFitting.value = false
-  }
 })
 
 // Watch for parameter changes
@@ -150,24 +103,21 @@ const handleOrderUpdate = (newOrder: number) => {
 const handleExportParameters = () => {
   if (!cstParameters.value) return
 
-  const airfoilName = selectedAirfoil.value?.name || 'CST_Airfoil'
-  exportCSTParameters(cstParameters.value, airfoilName)
+  exportCSTParameters(cstParameters.value, 'CST_Airfoil')
 }
 
 // Handle export coordinates in Lednicer format
 const handleExportLednicer = () => {
   if (!cstCoordinates.value) return
 
-  const airfoilName = selectedAirfoil.value?.name || 'CST_Airfoil'
-  exportLednicer(cstCoordinates.value, airfoilName)
+  exportLednicer(cstCoordinates.value, 'CST_Airfoil')
 }
 
 // Handle export coordinates in Selig format
 const handleExportSelig = () => {
   if (!cstCoordinates.value) return
 
-  const airfoilName = selectedAirfoil.value?.name || 'CST_Airfoil'
-  exportSelig(cstCoordinates.value, airfoilName)
+  exportSelig(cstCoordinates.value, 'CST_Airfoil')
 }
 
 // Handle analysis
@@ -199,7 +149,6 @@ const handleAnalyze = async (conditions: {
     )
 
     // Call backend endpoint
-    // Convert Reynolds number from thousands to actual value (consistent with other pages)
     const response = await $fetch(`${config.public.backendUrl}/api/analyze-cst`, {
       method: 'POST',
       body: {
@@ -225,7 +174,7 @@ const handleAnalyze = async (conditions: {
   }
 }
 
-// Prepare geometries for overlay visualization
+// Prepare geometries for visualization
 const geometries = computed(() => {
   const geoms: Array<{
     name: string
@@ -235,17 +184,6 @@ const geometries = computed(() => {
     lowerY: number[]
     color?: string
   }> = []
-
-  if (originalCoordinates.value && selectedAirfoil.value) {
-    geoms.push({
-      name: selectedAirfoil.value.name,
-      upperX: originalCoordinates.value.upperX,
-      upperY: originalCoordinates.value.upperY,
-      lowerX: originalCoordinates.value.lowerX,
-      lowerY: originalCoordinates.value.lowerY,
-      color: '#94a3b8', // Gray for original
-    })
-  }
 
   if (cstCoordinates.value) {
     geoms.push({
@@ -265,13 +203,23 @@ const geometries = computed(() => {
 const performanceData = computed(() => {
   if (!analysisResults.value) return []
 
+  // Ensure all required fields exist and are arrays
+  if (
+    !Array.isArray(analysisResults.value.alpha) ||
+    !Array.isArray(analysisResults.value.CL) ||
+    !Array.isArray(analysisResults.value.CD) ||
+    !Array.isArray(analysisResults.value.CM)
+  ) {
+    return []
+  }
+
   return [
     {
       name: 'CST Airfoil',
-      alpha: analysisResults.value.alpha || [],
-      CL: analysisResults.value.CL || [],
-      CD: analysisResults.value.CD || [],
-      CM: analysisResults.value.CM || [],
+      alpha: analysisResults.value.alpha,
+      CL: analysisResults.value.CL,
+      CD: analysisResults.value.CD,
+      CM: analysisResults.value.CM,
     },
   ]
 })
@@ -289,30 +237,18 @@ const performanceData = computed(() => {
       <p class="text-sm text-red-800">{{ error }}</p>
     </div>
 
-    <!-- Airfoil Selector -->
-    <div class="mb-6">
-      <CSTAirfoilSelector v-model="selectedAirfoil" />
-    </div>
-
-    <!-- Loading State for Fitting -->
-    <div v-if="isLoadingFitting" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-      <p class="text-sm text-blue-800 flex items-center gap-2">
-        <Icon name="heroicons:arrow-path-20-solid" class="w-4 h-4 animate-spin" />
-        Fitting CST parameters from airfoil geometry...
-      </p>
-    </div>
-
     <!-- Geometry Visualization -->
     <div v-if="cstParameters && cstCoordinates" class="mb-6">
       <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Geometry Comparison</h3>
-        <div class="h-[300px] md:h-[400px]">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Geometry Visualization</h3>
+        <div class="w-full overflow-hidden h-[300px] md:h-[400px]">
           <AirfoilGeometry
             v-if="geometries.length > 0"
             :geometries="geometries"
             :show-legend="true"
             :aspect-ratio="2.5"
             :zoomable="true"
+            :height="400"
           />
           <div v-else class="flex items-center justify-center h-full text-gray-500">
             <p class="text-sm">No geometry to display</p>
@@ -325,16 +261,15 @@ const performanceData = computed(() => {
     <div v-if="cstParameters && cstCoordinates" class="mb-6">
       <CSTParameterEditor
         :parameters="cstParameters"
-        :airfoil-name="selectedAirfoil?.name"
         @update:parameters="cstParameters = $event"
         @update-order="handleOrderUpdate"
       />
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!isLoadingFitting" class="mb-6 p-8 bg-gray-50 rounded-lg border border-gray-200 text-center">
+    <div v-else class="mb-6 p-8 bg-gray-50 rounded-lg border border-gray-200 text-center">
       <p class="text-gray-600">
-        Select an airfoil to begin CST parameterization, or adjust the default CST parameters above.
+        Adjust the default CST parameters to generate an airfoil geometry.
       </p>
     </div>
 
@@ -375,15 +310,20 @@ const performanceData = computed(() => {
     </div>
 
     <!-- Analysis Panel -->
-    <!-- <div class="mb-6">
+    <div class="mb-6">
       <CSTAnalysisPanel :is-loading="isLoadingAnalysis" @analyze="handleAnalyze" />
-    </div> -->
+    </div>
 
     <!-- Analysis Results -->
-    <!-- <div v-if="analysisResults && performanceData.length > 0" class="mt-6">
+    <div v-if="analysisResults && performanceData.length > 0" class="mt-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
-      <AirfoilPolarPlots :performance-data="performanceData" />
-    </div> -->
+      <AirfoilPolarPlots
+        ref="plotsRef"
+        :performance-data="performanceData"
+        :show-controls="true"
+        @tooltips-toggled="handleTooltipsToggled"
+      />
+    </div>
 
     <!-- Attribution -->
     <div class="mt-12 pt-6 border-t border-gray-200">
