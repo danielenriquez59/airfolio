@@ -190,9 +190,10 @@ async def root():
     return {"message": "Airfoil Analysis API", "version": "1.0.0"}
 
 
-@app.get("/health")
+@app.get("/health", status_code=200)
+@app.head("/health", status_code=200)
 async def health():
-    """Health check endpoint"""
+    """Health check endpoint for monitoring services like Uptime Robot"""
     return {"status": "healthy"}
 
 
