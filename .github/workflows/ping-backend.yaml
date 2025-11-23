@@ -1,0 +1,30 @@
+name: Keep Backend Alive
+on:
+  schedule:
+    - cron: '*/13 * * * *'  # Every 13 minutes
+  workflow_dispatch:  # Allows manual trigger
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/ping-backend.yaml'  # Only trigger on changes to this workflow file
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health Endpoint
+        run: |
+          echo "🔄 Pinging backend at $(date)"
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://airfolio-backend.onrender.com/health || echo "000")
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Backend is alive (HTTP $response)"
+            exit 0
+          elif [ "$response" -eq 000 ]; then
+            echo "❌ Backend is unreachable (timeout or connection failed)"
+            exit 1
+          else
+            echo "⚠️ Backend returned HTTP $response"
+            exit 1
+          fi
