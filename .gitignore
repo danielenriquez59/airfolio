@@ -40,7 +40,7 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
-
+!.github*
 # Temporary files
 *.tmp
 *.bak
