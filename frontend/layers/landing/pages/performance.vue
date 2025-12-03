@@ -526,7 +526,7 @@ useHead({
 
       <!-- Airfoil Selection Panel (shown when specific mode is selected) -->
       <div v-if="selectionMode === 'specific'" class="mt-4">
-        <AirfoilSelectionPanel
+        <CompareAirfoilSelectionPanel
           v-model="preAnalysisSelectedAirfoils"
           :airfoils="displayedAirfoils"
           :max-selection="300"
