@@ -2,6 +2,9 @@
 import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
 import type { SearchParams } from '~/composables/useAirfoilSearch'
 import { useDebounceFn } from '@vueuse/core'
+import type { Database } from '~/types/database.types'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 definePageMeta({
   layout: 'detail',
@@ -65,12 +68,37 @@ const nCrit = ref<number>(9)
 const matchedCount = ref<number>(0)
 const isLoadingCount = ref(false)
 
+// Selection mode state
+const selectionMode = ref<'all' | 'specific'>('all')
+const preAnalysisSelectedAirfoils = ref<string[]>([]) // IDs of manually selected airfoils
+const filteredAirfoilsList = ref<Airfoil[]>([]) // Cached list of geometry-filtered airfoils
+const selectionSearch = ref<string>('') // Search within filtered airfoils
+const isLoadingFilteredList = ref(false) // Loading state for fetching filtered list
+
 // Form validation
 const paramsValid = ref(false)
 const paramsFormRef = ref<{ submit: () => void; isValid: boolean } | null>(null)
 
 // Helper functions
 const percentageToDecimal = (value: number): number => value / 100
+
+/**
+ * Computed property to check if analysis can be run
+ */
+const canRunAnalysis = computed(() => {
+  if (!paramsValid.value || isLoading.value) {
+    return false
+  }
+
+  if (selectionMode.value === 'specific') {
+    // For specific mode, check selection constraints
+    const selectedCount = preAnalysisSelectedAirfoils.value.length
+    return selectedCount > 0 && selectedCount <= 300
+  } else {
+    // For 'all' mode, check matched count
+    return matchedCount.value > 0
+  }
+})
 
 /**
  * Load geometry filters and flow conditions from URL params
@@ -120,6 +148,17 @@ const loadParamsFromURL = () => {
   if (query.nCrit) {
     nCrit.value = parseFloat(query.nCrit as string)
   }
+
+  // Selection mode
+  if (query.selectionMode === 'specific' || query.selectionMode === 'all') {
+    selectionMode.value = query.selectionMode as 'all' | 'specific'
+  }
+
+  // Selected airfoil IDs (for specific mode)
+  if (query.selectedIds) {
+    const ids = (query.selectedIds as string).split(',').filter(Boolean)
+    preAnalysisSelectedAirfoils.value = ids
+  }
 }
 
 /**
@@ -158,20 +197,28 @@ const updateAirfoilCount = useDebounceFn(async () => {
 }, 300)
 
 // Watch filter changes to update count
-watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax], () => {
+watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax], async () => {
   updateAirfoilCount()
+  // Clear filtered list when filters change (will refetch if needed)
+  if (selectionMode.value === 'specific') {
+    filteredAirfoilsList.value = []
+    preAnalysisSelectedAirfoils.value = []
+    // Refetch the list if we're in specific mode
+    await fetchFilteredAirfoilsList()
+  }
 }, { immediate: true })
 
 /**
- * Load analysis data from URL params or form values
+ * Fetch filtered airfoil list for selection panel
  */
-const loadAnalysisData = async () => {
-  isLoading.value = true
-  error.value = null
+const fetchFilteredAirfoilsList = async () => {
+  if (filteredAirfoilsList.value.length > 0) {
+    return // Already cached
+  }
 
+  isLoadingFilteredList.value = true
   try {
-    // Build geometry filter params
-    const searchParams: SearchParams = {
+    const params: SearchParams = {
       includeName: includeName.value.trim() || undefined,
       excludeName: excludeName.value.trim() || undefined,
       thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
@@ -190,13 +237,101 @@ const loadAnalysisData = async () => {
       limit: 10000, // Get all matching airfoils
     }
 
-    // Query airfoils with geometry filters
-    const searchResult = await searchAirfoils(searchParams)
-    const airfoilIds = searchResult.data.map(a => a.id)
-    const airfoilNames = searchResult.data.map(a => a.name)
+    const result = await searchAirfoils(params)
+    filteredAirfoilsList.value = result.data
+  } catch (error) {
+    console.error('Error fetching filtered airfoils list:', error)
+    filteredAirfoilsList.value = []
+  } finally {
+    isLoadingFilteredList.value = false
+  }
+}
+
+/**
+ * Filtered airfoils based on search query
+ */
+const displayedAirfoils = computed(() => {
+  if (!selectionSearch.value.trim()) {
+    return filteredAirfoilsList.value
+  }
+  const searchTerm = selectionSearch.value.trim().toLowerCase()
+  return filteredAirfoilsList.value.filter(airfoil =>
+    airfoil.name.toLowerCase().includes(searchTerm)
+  )
+})
+
+// Watch selection mode - fetch list when switching to specific
+watch(selectionMode, async (newMode) => {
+  if (newMode === 'specific') {
+    await fetchFilteredAirfoilsList()
+  } else {
+    // Clear selection when switching back to 'all'
+    preAnalysisSelectedAirfoils.value = []
+  }
+})
+
+/**
+ * Load analysis data from URL params or form values
+ */
+const loadAnalysisData = async () => {
+  isLoading.value = true
+  error.value = null
+
+  try {
+    let airfoilIds: string[] = []
+    let airfoilNames: string[] = []
+
+    if (selectionMode.value === 'specific') {
+      // Use only selected airfoils
+      if (preAnalysisSelectedAirfoils.value.length === 0) {
+        error.value = 'Please select at least one airfoil to analyze.'
+        return
+      }
+      if (preAnalysisSelectedAirfoils.value.length > 300) {
+        error.value = 'Maximum 300 airfoils allowed. Please select fewer airfoils.'
+        return
+      }
+
+      // Map IDs to names from filtered list
+      airfoilIds = [...preAnalysisSelectedAirfoils.value]
+      airfoilNames = filteredAirfoilsList.value
+        .filter(a => airfoilIds.includes(a.id))
+        .map(a => a.name)
+      
+      // Ensure we have names for all IDs (fallback to ID if name not found)
+      airfoilNames = airfoilIds.map(id => {
+        const airfoil = filteredAirfoilsList.value.find(a => a.id === id)
+        return airfoil?.name || id
+      })
+    } else {
+      // Use all matching airfoils (current behavior)
+      const searchParams: SearchParams = {
+        includeName: includeName.value.trim() || undefined,
+        excludeName: excludeName.value.trim() || undefined,
+        thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
+          ? percentageToDecimal(thicknessMin.value)
+          : undefined,
+        thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
+          ? percentageToDecimal(thicknessMax.value)
+          : undefined,
+        camberMin: camberEnabled.value && camberMin.value !== undefined
+          ? percentageToDecimal(camberMin.value)
+          : undefined,
+        camberMax: camberEnabled.value && camberMax.value !== undefined
+          ? percentageToDecimal(camberMax.value)
+          : undefined,
+        page: 1,
+        limit: 10000, // Get all matching airfoils
+      }
+
+      // Query airfoils with geometry filters
+      const searchResult = await searchAirfoils(searchParams)
+      airfoilIds = searchResult.data.map(a => a.id)
+      airfoilNames = searchResult.data.map(a => a.name)
+    }
 
     if (airfoilIds.length === 0) {
-      error.value = 'No airfoils match the selected geometry filters.'
+      error.value = 'No airfoils selected for analysis.'
       return
     }
 
@@ -248,7 +383,7 @@ const loadAnalysisData = async () => {
  * Handle form submission (for direct usage mode)
  */
 const handleRunAnalysis = async () => {
-  if (!paramsValid.value || matchedCount.value === 0) return
+  if (!canRunAnalysis.value) return
 
   // Update URL with current params
   const queryParams: Record<string, string> = {}
@@ -283,6 +418,12 @@ const handleRunAnalysis = async () => {
   queryParams.alphaMin = alphaMin.value.toString()
   queryParams.alphaMax = alphaMax.value.toString()
   queryParams.nCrit = nCrit.value.toString()
+
+  // Selection mode and selected IDs
+  queryParams.selectionMode = selectionMode.value
+  if (selectionMode.value === 'specific' && preAnalysisSelectedAirfoils.value.length > 0) {
+    queryParams.selectedIds = preAnalysisSelectedAirfoils.value.join(',')
+  }
 
   router.replace({ query: queryParams })
   
@@ -327,6 +468,12 @@ const updateURL = () => {
   query.alphaMin = alphaMin.value.toString()
   query.alphaMax = alphaMax.value.toString()
   query.nCrit = nCrit.value.toString()
+
+  // Serialize selection mode and selected IDs
+  query.selectionMode = selectionMode.value
+  if (selectionMode.value === 'specific' && preAnalysisSelectedAirfoils.value.length > 0) {
+    query.selectedIds = preAnalysisSelectedAirfoils.value.join(',')
+  }
 
   // Serialize performance filters
   if (state.filters.maxCMRoughness !== null) {
@@ -404,9 +551,14 @@ const hasURLParams = computed(() => {
 })
 
 // Load data on mount
-onMounted(() => {
+onMounted(async () => {
   loadParamsFromURL()
   loadPerformanceFiltersFromURL()
+  
+  // If selection mode is 'specific', fetch filtered list
+  if (selectionMode.value === 'specific') {
+    await fetchFilteredAirfoilsList()
+  }
   
   // If URL params exist, load analysis data automatically
   if (hasURLParams.value) {
@@ -570,11 +722,43 @@ useHead({
 
         <!-- Airfoil Count Display -->
         <div class="mt-4 pt-4 border-t border-gray-200">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 mb-4">
             <span class="text-sm text-gray-600">Matching airfoils:</span>
             <span v-if="isLoadingCount" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></span>
             <span v-else class="text-sm font-semibold text-gray-900">{{ matchedCount }} airfoil{{ matchedCount !== 1 ? 's' : '' }}</span>
           </div>
+
+          <!-- Selection Mode Toggle -->
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="selectionMode"
+                type="radio"
+                value="all"
+                class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span class="text-sm text-gray-700">All matching airfoils</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="selectionMode"
+                type="radio"
+                value="specific"
+                class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span class="text-sm text-gray-700">Select specific airfoils (up to 300)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Airfoil Selection Panel (shown when specific mode is selected) -->
+        <div v-if="selectionMode === 'specific'" class="mt-4">
+          <AirfoilSelectionPanel
+            v-model="preAnalysisSelectedAirfoils"
+            :airfoils="displayedAirfoils"
+            :max-selection="300"
+            :is-loading="isLoadingFilteredList"
+          />
         </div>
       </div>
 
@@ -608,10 +792,10 @@ useHead({
       <div class="bg-white rounded-lg shadow p-6">
         <button
           type="button"
-          :disabled="!paramsValid || matchedCount === 0 || isLoading"
+          :disabled="!canRunAnalysis"
           :class="[
             'w-full px-6 py-3 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2',
-            paramsValid && matchedCount > 0 && !isLoading
+            canRunAnalysis
               ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           ]"
@@ -620,9 +804,16 @@ useHead({
           <span v-if="isLoading" class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
           <span>{{ isLoading ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
         </button>
-        <p v-if="!paramsValid || matchedCount === 0" class="mt-2 text-xs text-gray-500 text-center">
-          <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
-          <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+        <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
+          <span v-if="selectionMode === 'specific'">
+            <span v-if="preAnalysisSelectedAirfoils.length === 0">Please select at least one airfoil to analyze.</span>
+            <span v-else-if="preAnalysisSelectedAirfoils.length > 300">Maximum 300 airfoils allowed. Please select fewer airfoils.</span>
+            <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+          </span>
+          <span v-else>
+            <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
+            <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+          </span>
         </p>
       </div>
     </div>
