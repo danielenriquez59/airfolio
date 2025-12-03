@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { SearchParams } from '~/composables/useAirfoilSearch'
 import { useDebounceFn } from '@vueuse/core'
+import type { Database } from '~/types/database.types'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 definePageMeta({
   layout: 'detail',
@@ -32,6 +35,12 @@ const nCrit = ref<number>(9)
 // Matched airfoil count
 const matchedCount = ref<number>(0)
 const isLoadingCount = ref(false)
+
+// Selection mode state
+const selectionMode = ref<'all' | 'specific'>('all')
+const preAnalysisSelectedAirfoils = ref<string[]>([]) // IDs of manually selected airfoils
+const filteredAirfoilsList = ref<Airfoil[]>([]) // Cached list of geometry-filtered airfoils
+const isLoadingFilteredList = ref(false) // Loading state for fetching filtered list
 
 // Analysis submission state
 const isSubmittingAnalysis = ref(false)
@@ -105,9 +114,54 @@ const updateAirfoilCount = useDebounceFn(async () => {
 }, 300)
 
 // Watch filter changes to update count
-watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax], () => {
+watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax], async () => {
   updateAirfoilCount()
+  // Clear filtered list when filters change (will refetch if needed)
+  if (selectionMode.value === 'specific') {
+    filteredAirfoilsList.value = []
+    preAnalysisSelectedAirfoils.value = []
+    // Refetch the list if we're in specific mode
+    await fetchFilteredAirfoilsList()
+  }
 }, { immediate: true })
+
+/**
+ * Fetch filtered airfoil list for selection panel
+ */
+const fetchFilteredAirfoilsList = async () => {
+  if (filteredAirfoilsList.value.length > 0) {
+    return // Already cached
+  }
+
+  isLoadingFilteredList.value = true
+  try {
+    const params = buildSearchParams(1, 10000) // Get all matching airfoils
+    const result = await searchAirfoils(params)
+    filteredAirfoilsList.value = result.data
+  } catch (error) {
+    console.error('Error fetching filtered airfoils list:', error)
+    filteredAirfoilsList.value = []
+  } finally {
+    isLoadingFilteredList.value = false
+  }
+}
+
+/**
+ * Filtered airfoils based on search query
+ */
+const displayedAirfoils = computed(() => {
+  return filteredAirfoilsList.value // No search filtering needed here, handled in component
+})
+
+// Watch selection mode - fetch list when switching to specific
+watch(selectionMode, async (newMode) => {
+  if (newMode === 'specific') {
+    await fetchFilteredAirfoilsList()
+  } else {
+    // Clear selection when switching back to 'all'
+    preAnalysisSelectedAirfoils.value = []
+  }
+})
 
 // Validation state from AnalysisParametersForm
 const paramsValid = ref(false)
@@ -135,8 +189,18 @@ const onValidChange = (isValid: boolean) => {
 }
 
 const canRunAnalysis = computed(() => {
-  // Button is disabled if: invalid parameters OR no airfoils match OR too many airfoils (>300)
-  return paramsValid.value && matchedCount.value > 0 && matchedCount.value <= 300
+  if (!paramsValid.value) {
+    return false
+  }
+
+  if (selectionMode.value === 'specific') {
+    // For specific mode, check selection constraints
+    const selectedCount = preAnalysisSelectedAirfoils.value.length
+    return selectedCount > 0 && selectedCount <= 300
+  } else {
+    // For 'all' mode, check matched count
+    return matchedCount.value > 0 && matchedCount.value <= 300
+  }
 })
 
 // Handler for run button - submits form first, then analysis request
@@ -164,15 +228,33 @@ const handleRunAnalysis = async () => {
   analysisResponse.value = null
 
   try {
-    // First, fetch all matching airfoil IDs
-    const searchParams = buildSearchParams(1, 10000) // Get all matching airfoils
+    let airfoilIds: string[] = []
 
-    const result = await searchAirfoils(searchParams)
-    searchResult.value = result
-    const airfoilIds = result.data.map(airfoil => airfoil.id)
+    if (selectionMode.value === 'specific') {
+      // Use only selected airfoils
+      if (preAnalysisSelectedAirfoils.value.length === 0) {
+        analysisError.value = 'Please select at least one airfoil to analyze.'
+        isSubmittingAnalysis.value = false
+        return
+      }
+      if (preAnalysisSelectedAirfoils.value.length > 300) {
+        analysisError.value = 'Maximum 300 airfoils allowed. Please select fewer airfoils.'
+        isSubmittingAnalysis.value = false
+        return
+      }
+
+      airfoilIds = [...preAnalysisSelectedAirfoils.value]
+    } else {
+      // Use all matching airfoils (current behavior)
+      const searchParams = buildSearchParams(1, 10000) // Get all matching airfoils
+      const result = await searchAirfoils(searchParams)
+      searchResult.value = result
+      airfoilIds = result.data.map(airfoil => airfoil.id)
+    }
 
     if (airfoilIds.length === 0) {
-      analysisError.value = 'No airfoils match the selected filters.'
+      analysisError.value = 'No airfoils selected for analysis.'
+      isSubmittingAnalysis.value = false
       return
     }
 
@@ -225,6 +307,12 @@ const handleRunAnalysis = async () => {
     queryParams.alphaMin = alphaMin.value.toString()
     queryParams.alphaMax = alphaMax.value.toString()
     queryParams.nCrit = nCrit.value.toString()
+
+    // Selection mode and selected IDs
+    queryParams.selectionMode = selectionMode.value
+    if (selectionMode.value === 'specific' && preAnalysisSelectedAirfoils.value.length > 0) {
+      queryParams.selectedIds = preAnalysisSelectedAirfoils.value.join(',')
+    }
 
     // Redirect to compare page with query params
     await navigateTo({
@@ -407,11 +495,43 @@ useHead({
 
       <!-- Airfoil Count Display -->
       <div class="mt-4 pt-4 border-t border-gray-200">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 mb-4">
           <span class="text-sm text-gray-600">Matching airfoils:</span>
           <span v-if="isLoadingCount" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></span>
           <span v-else class="text-sm font-semibold text-gray-900">{{ matchedCount }} airfoil{{ matchedCount !== 1 ? 's' : '' }}</span>
         </div>
+
+        <!-- Selection Mode Toggle -->
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              v-model="selectionMode"
+              type="radio"
+              value="all"
+              class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+            />
+            <span class="text-sm text-gray-700">All matching airfoils</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              v-model="selectionMode"
+              type="radio"
+              value="specific"
+              class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+            />
+            <span class="text-sm text-gray-700">Select specific airfoils (up to 300)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Airfoil Selection Panel (shown when specific mode is selected) -->
+      <div v-if="selectionMode === 'specific'" class="mt-4">
+        <AirfoilSelectionPanel
+          v-model="preAnalysisSelectedAirfoils"
+          :airfoils="displayedAirfoils"
+          :max-selection="300"
+          :is-loading="isLoadingFilteredList"
+        />
       </div>
     </div>
 
@@ -451,9 +571,16 @@ useHead({
         <span>{{ isSubmittingAnalysis ? 'Submitting Analysis...' : 'Run Performance Analysis' }}</span>
       </button>
       <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
-        <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
-        <span v-else-if="matchedCount > 300">Too many airfoils selected ({{ matchedCount }} > 300 limit). Use geometry filters to reduce airfoils.</span>
-        <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+        <span v-if="selectionMode === 'specific'">
+          <span v-if="preAnalysisSelectedAirfoils.length === 0">Please select at least one airfoil to analyze.</span>
+          <span v-else-if="preAnalysisSelectedAirfoils.length > 300">Maximum 300 airfoils allowed. Please select fewer airfoils.</span>
+          <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+        </span>
+        <span v-else>
+          <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
+          <span v-else-if="matchedCount > 300">Too many airfoils selected ({{ matchedCount }} > 300 limit). Use geometry filters to reduce airfoils.</span>
+          <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+        </span>
       </p>
       
       <!-- Error Message -->
