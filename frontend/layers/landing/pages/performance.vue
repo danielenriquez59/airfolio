@@ -127,6 +127,7 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 
 /**
  * Fetch filtered airfoil list for selection panel
+ * Fetches in batches to overcome Supabase row limits
  */
 const fetchFilteredAirfoilsList = async () => {
   if (filteredAirfoilsList.value.length > 0) {
@@ -135,9 +136,26 @@ const fetchFilteredAirfoilsList = async () => {
 
   isLoadingFilteredList.value = true
   try {
-    const params = buildSearchParams(1, 10000) // Get all matching airfoils
-    const result = await searchAirfoils(params)
-    filteredAirfoilsList.value = result.data
+    // Fetch in batches to get all results (Supabase has row limits)
+    const batchSize = 1000
+    let allAirfoils: Airfoil[] = []
+    let page = 1
+    let hasMore = true
+
+    while (hasMore) {
+      const params = buildSearchParams(page, batchSize)
+      const result = await searchAirfoils(params)
+      
+      if (result.data.length > 0) {
+        allAirfoils = [...allAirfoils, ...result.data]
+        page++
+        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
+      } else {
+        hasMore = false
+      }
+    }
+
+    filteredAirfoilsList.value = allAirfoils
   } catch (error) {
     console.error('Error fetching filtered airfoils list:', error)
     filteredAirfoilsList.value = []

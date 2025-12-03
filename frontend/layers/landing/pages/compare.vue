@@ -210,6 +210,7 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 
 /**
  * Fetch filtered airfoil list for selection panel
+ * Fetches in batches to overcome Supabase row limits
  */
 const fetchFilteredAirfoilsList = async () => {
   if (filteredAirfoilsList.value.length > 0) {
@@ -218,27 +219,44 @@ const fetchFilteredAirfoilsList = async () => {
 
   isLoadingFilteredList.value = true
   try {
-    const params: SearchParams = {
-      includeName: includeName.value.trim() || undefined,
-      excludeName: excludeName.value.trim() || undefined,
-      thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
-        ? percentageToDecimal(thicknessMin.value)
-        : undefined,
-      thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
-        ? percentageToDecimal(thicknessMax.value)
-        : undefined,
-      camberMin: camberEnabled.value && camberMin.value !== undefined
-        ? percentageToDecimal(camberMin.value)
-        : undefined,
-      camberMax: camberEnabled.value && camberMax.value !== undefined
-        ? percentageToDecimal(camberMax.value)
-        : undefined,
-      page: 1,
-      limit: 10000, // Get all matching airfoils
+    // Fetch in batches to get all results (Supabase has row limits)
+    const batchSize = 1000
+    let allAirfoils: Airfoil[] = []
+    let page = 1
+    let hasMore = true
+
+    while (hasMore) {
+      const params: SearchParams = {
+        includeName: includeName.value.trim() || undefined,
+        excludeName: excludeName.value.trim() || undefined,
+        thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
+          ? percentageToDecimal(thicknessMin.value)
+          : undefined,
+        thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
+          ? percentageToDecimal(thicknessMax.value)
+          : undefined,
+        camberMin: camberEnabled.value && camberMin.value !== undefined
+          ? percentageToDecimal(camberMin.value)
+          : undefined,
+        camberMax: camberEnabled.value && camberMax.value !== undefined
+          ? percentageToDecimal(camberMax.value)
+          : undefined,
+        page,
+        limit: batchSize,
+      }
+
+      const result = await searchAirfoils(params)
+      
+      if (result.data.length > 0) {
+        allAirfoils = [...allAirfoils, ...result.data]
+        page++
+        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
+      } else {
+        hasMore = false
+      }
     }
 
-    const result = await searchAirfoils(params)
-    filteredAirfoilsList.value = result.data
+    filteredAirfoilsList.value = allAirfoils
   } catch (error) {
     console.error('Error fetching filtered airfoils list:', error)
     filteredAirfoilsList.value = []

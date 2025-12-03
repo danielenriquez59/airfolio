@@ -178,7 +178,7 @@ const formatPercentage = (value: number | null | undefined): string => {
           @change.stop="toggleSelection(airfoil.id)"
         />
         <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium text-gray-900 truncate">
+          <div class="text-sm font-medium text-gray-900 truncate uppercase">
             {{ airfoil.name }}
           </div>
           <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
