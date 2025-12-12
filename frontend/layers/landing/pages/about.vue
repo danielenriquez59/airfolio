@@ -142,13 +142,11 @@ useHead({
                 rel="noopener noreferrer"
                 class="text-indigo-600 hover:text-indigo-800 underline"
               >bigfoil.com</a>, 
-              which have served as valuable references for the airfoil analysis community. Thank you. 
-              <br>
-              <br>
-              <div class="flex justify-end">
-                <span class="mr-24">- Daniel E.</span>
-              </div>
+              which have served as valuable references for the airfoil analysis community. Thank you.
             </p>
+            <div class="flex justify-end mt-4">
+              <span class="mr-24">- Daniel E.</span>
+            </div>
           </div>
         </div>
       </section>

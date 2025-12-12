@@ -372,178 +372,171 @@ useHead({
       </p>
     </div>
 
-    <!-- Geometry Filters Section -->
+    <!-- Airfoil Comparison Selection Section -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Filters</h2>
-      <p class="text-sm text-gray-600 mb-4">
-        Filter airfoils by geometry parameters before running analysis.
-      </p>
-
-      <div class="space-y-4">
-        <!-- Include Name Filter -->
-        <div class="flex items-center gap-4 flex-wrap">
-          <label class="text-sm font-medium text-gray-700 min-w-[140px]">
-            Include Foils with
-          </label>
-          <div class="flex items-center gap-2 flex-1">
-            <VInput
-              :model-value="includeName"
-              type="text"
-              maxlength="8"
-              placeholder="e.g., NACA"
-              size="sm"
-              wrapper-class="max-w-[120px]"
-              :class="{ 'border-red-500': includeName && !includeNameValid }"
-              @update:model-value="(val: string | number | undefined) => { includeName = sanitizeNameInput(String(val || '')) }"
-            />
-            <span class="text-sm text-gray-600">in the name</span>
-          </div>
-          <p v-if="includeName && !includeNameValid" class="text-xs text-red-600 mt-1">
-            Only alphanumeric characters allowed (max 8)
-          </p>
-        </div>
-
-        <!-- Exclude Name Filter -->
-        <div class="flex items-center gap-4 flex-wrap">
-          <label class="text-sm font-medium text-gray-700 min-w-[140px]">
-            Exclude Foils with
-          </label>
-          <div class="flex items-center gap-2 flex-1">
-            <VInput
-              :model-value="excludeName"
-              type="text"
-              maxlength="8"
-              placeholder="e.g., TEST"
-              size="sm"
-              wrapper-class="max-w-[120px]"
-              :class="{ 'border-red-500': excludeName && !excludeNameValid }"
-              @update:model-value="(val: string | number | undefined) => { excludeName = sanitizeNameInput(String(val || '')) }"
-            />
-            <span class="text-sm text-gray-600">in the name</span>
-          </div>
-          <p v-if="excludeName && !excludeNameValid" class="text-xs text-red-600 mt-1">
-            Only alphanumeric characters allowed (max 8)
-          </p>
-        </div>
-
-        <!-- Thickness Filter -->
-        <div class="flex items-start gap-4 flex-wrap">
-          <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
-            <input
-              v-model="thicknessEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <span class="text-sm font-medium text-gray-700">Thickness</span>
-          </label>
-          <div v-if="thicknessEnabled" class="flex items-center gap-3 flex-1">
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-              <VInput
-                v-model.number="thicknessMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="0"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-              <VInput
-                v-model.number="thicknessMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="100"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-          </div>
-        </div>
-
-        <!-- Camber Filter -->
-        <div class="flex items-start gap-4 flex-wrap">
-          <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
-            <input
-              v-model="camberEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <span class="text-sm font-medium text-gray-700">Camber</span>
-          </label>
-          <div v-if="camberEnabled" class="flex items-center gap-3 flex-1">
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-              <VInput
-                v-model.number="camberMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="0"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-              <VInput
-                v-model.number="camberMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="100"
-                size="sm"
-                wrapper-class="w-24"
-              />
-            </div>
-            <span class="text-gray-400">%</span>
-          </div>
-        </div>
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Airfoil Comparison Selection</h2>
+      
+      <!-- Toggle Switch Row -->
+      <div class="mb-4 pb-4 border-b border-gray-200">
+        <VToggle
+          :model-value="selectionMode === 'specific'"
+          left-label="All matching airfoils"
+          right-label="Selected airfoils only"
+          @update:model-value="(val: boolean) => { selectionMode = val ? 'specific' : 'all' }"
+        />
       </div>
 
-      <!-- Airfoil Count Display -->
-      <div class="mt-4 pt-4 border-t border-gray-200">
-        <div class="flex items-center gap-2 mb-4">
+      <!-- Matching Airfoils Count (only visible in "All matching airfoils" mode) -->
+      <div v-if="selectionMode === 'all'" class="mb-4">
+        <div class="flex items-center gap-2">
           <span class="text-sm text-gray-600">Matching airfoils:</span>
           <span v-if="isLoadingCount" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></span>
           <span v-else class="text-sm font-semibold text-gray-900">{{ matchedCount }} airfoil{{ matchedCount !== 1 ? 's' : '' }}</span>
         </div>
+      </div>
 
-        <!-- Selection Mode Toggle -->
-        <div class="space-y-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="selectionMode"
-              type="radio"
-              value="all"
-              class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-            />
-            <span class="text-sm text-gray-700">All matching airfoils</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="selectionMode"
-              type="radio"
-              value="specific"
-              class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-            />
-            <span class="text-sm text-gray-700">Select specific airfoils (up to 300)</span>
-          </label>
+      <!-- Conditional Content -->
+      <!-- Show filters when "All matching airfoils" mode -->
+      <div v-if="selectionMode === 'all'" class="space-y-4">
+        <!-- Geometry Filters (Thickness and Camber) -->
+        <div class="space-y-4">
+          <!-- Thickness Filter -->
+          <div class="flex items-start gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
+              <input
+                v-model="thicknessEnabled"
+                type="checkbox"
+                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <span class="text-sm font-medium text-gray-700">Thickness</span>
+            </label>
+            <div v-if="thicknessEnabled" class="flex items-center gap-3 flex-1">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
+                <VInput
+                  v-model.number="thicknessMin"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
+                <VInput
+                  v-model.number="thicknessMax"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="100"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+            </div>
+          </div>
+
+          <!-- Camber Filter -->
+          <div class="flex items-start gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
+              <input
+                v-model="camberEnabled"
+                type="checkbox"
+                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <span class="text-sm font-medium text-gray-700">Camber</span>
+            </label>
+            <div v-if="camberEnabled" class="flex items-center gap-3 flex-1">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
+                <VInput
+                  v-model.number="camberMin"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
+                <VInput
+                  v-model.number="camberMax"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="100"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Name Filters (Include and Exclude) -->
+        <div class="pt-4 border-t border-gray-200 space-y-4">
+          <!-- Include Name Filter -->
+          <div class="flex items-center gap-4 flex-wrap">
+            <label class="text-sm font-medium text-gray-700 min-w-[140px]">
+              Include Foils with
+            </label>
+            <div class="flex items-center gap-2 flex-1">
+              <VInput
+                :model-value="includeName"
+                type="text"
+                maxlength="8"
+                placeholder="e.g., NACA"
+                size="sm"
+                wrapper-class="max-w-[120px]"
+                :class="{ 'border-red-500': includeName && !includeNameValid }"
+                @update:model-value="(val: string | number | undefined) => { includeName = sanitizeNameInput(String(val || '')) }"
+              />
+              <span class="text-sm text-gray-600">in the name</span>
+            </div>
+            <p v-if="includeName && !includeNameValid" class="text-xs text-red-600 mt-1">
+              Only alphanumeric characters allowed (max 8)
+            </p>
+          </div>
+
+          <!-- Exclude Name Filter -->
+          <div class="flex items-center gap-4 flex-wrap">
+            <label class="text-sm font-medium text-gray-700 min-w-[140px]">
+              Exclude Foils with
+            </label>
+            <div class="flex items-center gap-2 flex-1">
+              <VInput
+                :model-value="excludeName"
+                type="text"
+                maxlength="8"
+                placeholder="e.g., TEST"
+                size="sm"
+                wrapper-class="max-w-[120px]"
+                :class="{ 'border-red-500': excludeName && !excludeNameValid }"
+                @update:model-value="(val: string | number | undefined) => { excludeName = sanitizeNameInput(String(val || '')) }"
+              />
+              <span class="text-sm text-gray-600">in the name</span>
+            </div>
+            <p v-if="excludeName && !excludeNameValid" class="text-xs text-red-600 mt-1">
+              Only alphanumeric characters allowed (max 8)
+            </p>
+          </div>
         </div>
       </div>
 
-      <!-- Airfoil Selection Panel (shown when specific mode is selected) -->
-      <div v-if="selectionMode === 'specific'" class="mt-4">
+      <!-- Show selection panel when "Selected airfoils only" mode -->
+      <div v-else-if="selectionMode === 'specific'">
         <CompareAirfoilSelectionPanel
           v-model="preAnalysisSelectedAirfoils"
           :airfoils="displayedAirfoils"

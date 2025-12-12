@@ -23,7 +23,7 @@ const navigation = {
 
 <template>
   <footer class="bg-white border-t border-gray-200">
-    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+    <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
       <div class="xl:grid xl:grid-cols-3 xl:gap-8">
         <!-- Logo and Description -->
         <div class="space-y-8">

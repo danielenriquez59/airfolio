@@ -168,14 +168,13 @@ const formatPercentage = (value: number | null | undefined): string => {
             ? 'opacity-50 cursor-not-allowed'
             : ''
         ]"
-        @click="toggleSelection(airfoil.id)"
+        @click.prevent="toggleSelection(airfoil.id)"
       >
         <input
           type="checkbox"
           :checked="isSelected(airfoil.id)"
           :disabled="selectedCount >= maxSelection && !isSelected(airfoil.id)"
           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-50"
-          @change.stop="toggleSelection(airfoil.id)"
         />
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium text-gray-900 truncate uppercase">
