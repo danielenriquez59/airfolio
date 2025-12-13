@@ -41,7 +41,7 @@ onMounted(() => {
 
 <template>
   <section class="py-16 bg-gray-50">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-12">
         <h2 class="text-3xl font-bold text-gray-900">Discover Airfoils</h2>
         <p class="mt-4 text-lg text-gray-600">

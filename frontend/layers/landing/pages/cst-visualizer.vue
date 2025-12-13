@@ -237,7 +237,7 @@ const performanceData = computed(() => {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-8 max-w-7xl">
+  <div class="max-w-6xl mx-auto px-4 py-8">
     <PageHeader
       title="CST Generator"
       subtitle="Generate and analyze airfoils in CST (Class Shape Transformation) format"

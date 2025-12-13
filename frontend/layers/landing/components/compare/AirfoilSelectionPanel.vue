@@ -156,7 +156,7 @@ const formatPercentage = (value: number | null | undefined): string => {
 
     <!-- Airfoil List -->
     <div v-else class="max-h-96 overflow-y-auto space-y-1">
-      <label
+      <div
         v-for="airfoil in displayedAirfoils"
         :key="airfoil.id"
         :class="[
@@ -168,13 +168,13 @@ const formatPercentage = (value: number | null | undefined): string => {
             ? 'opacity-50 cursor-not-allowed'
             : ''
         ]"
-        @click.prevent="toggleSelection(airfoil.id)"
+        @click="toggleSelection(airfoil.id)"
       >
         <input
           type="checkbox"
           :checked="isSelected(airfoil.id)"
           :disabled="selectedCount >= maxSelection && !isSelected(airfoil.id)"
-          class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-50"
+          class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-50 pointer-events-none"
         />
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium text-gray-900 truncate uppercase">
@@ -189,7 +189,7 @@ const formatPercentage = (value: number | null | undefined): string => {
             </span>
           </div>
         </div>
-      </label>
+      </div>
     </div>
 
     <!-- Validation Message -->

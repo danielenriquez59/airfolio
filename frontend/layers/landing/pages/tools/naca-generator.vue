@@ -207,7 +207,7 @@ const performanceData = computed(() => {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-0 max-w-7xl">
+  <div class="max-w-6xl mx-auto px-4 py-0">
     <PageHeader
       title="NACA Generator"
       subtitle="Generate and analyze NACA 4-digit and 5-digit series airfoils"

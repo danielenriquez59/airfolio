@@ -46,7 +46,7 @@ const filterEnabled = reactive({
   minCMAtZero: props.filters.minCMAtZero !== null,
   minMaxLD: props.filters.minMaxLD !== null,
   minCLMax: props.filters.minCLMax !== null,
-  // Design CL and AOA are paired - enabled if EITHER has a value initially
+  // Design CL and α are paired - enabled if EITHER has a value initially
   targetDesign: props.filters.targetCL !== null || props.filters.targetAOA !== null,
 })
 
@@ -126,7 +126,7 @@ watch(() => filterEnabled.minMaxLD, (enabled) => {
 watch(() => filterEnabled.minCLMax, (enabled) => {
   emit('update-filter', 'minCLMax', enabled ? minCLMax.value : null)
 })
-// Design CL and AOA are paired - update both together
+// Design CL and α are paired - update both together
 watch(() => filterEnabled.targetDesign, (enabled) => {
   emit('update-filter', 'targetCL', enabled ? targetCL.value : null)
   emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
@@ -188,7 +188,7 @@ const handleResetFilters = () => {
       </div>
 
       <div class="space-y-4">
-        <!-- Target CL and Target AOA (Paired Filter) -->
+        <!-- Target CL and Target α (Paired Filter) -->
         <div>
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
             <input
@@ -196,7 +196,7 @@ const handleResetFilters = () => {
               v-model="filterEnabled.targetDesign"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Design CL & AOA
+            Design CL & α
           </label>
           <div class="grid grid-cols-2 gap-4">
             <!-- Target CL -->
@@ -217,9 +217,9 @@ const handleResetFilters = () => {
               </p>
             </div>
 
-            <!-- Target AOA -->
+            <!-- Target α -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design AOA (deg)</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design α (deg)</label>
               <VInput
                 :model-value="targetAOA ?? undefined"
                 @update:model-value="targetAOA = $event as number | null"

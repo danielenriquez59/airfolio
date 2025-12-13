@@ -22,7 +22,7 @@ defineProps<{
     class="px-4 xl:px-0 py-5 sm:py-20 bg-skin-fill text-skin-base"
     :class="feature.theme"
   >
-    <div class="container mx-auto">
+    <div class="max-w-6xl mx-auto">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-20">
         <div
           :class="

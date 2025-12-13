@@ -11,8 +11,8 @@ defineProps<{
 
 <template>
   <section id="about" class="bg-blue-100 py-6 sm:py-20 px-4 sm:px-0">
-    <div class="container mx-auto lg:text-center">
-      <div class="max-w-4xl mx-auto">
+    <div class="max-w-6xl mx-auto lg:text-center">
+      <div class="max-w-6xl mx-auto">
         <h2 class="text-3xl font-bold text-blue-600">
           {{ title }}
         </h2>

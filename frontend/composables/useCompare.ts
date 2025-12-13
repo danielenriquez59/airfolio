@@ -103,8 +103,8 @@ function findZeroAlphaIndex(alpha: number[]): number {
 /**
  * Calculate summary metrics for an airfoil
  */
-export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
-  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha)
+export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null) {
+  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null')
   
   if (metricsCache.has(cacheKey)) {
     return metricsCache.get(cacheKey)
@@ -140,6 +140,13 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
   // L/D at alpha = 0°
   const ldAtZero = LD[zeroAlphaIdx]
   
+  // L/D at design alpha (if provided)
+  let ldAtDesignAlpha: number | undefined
+  if (designAlpha !== null && designAlpha !== undefined) {
+    const designAlphaIdx = findClosestIndex(alpha, designAlpha)
+    ldAtDesignAlpha = LD[designAlphaIdx]
+  }
+  
   const result = {
     maxLD,
     maxLDAlpha,
@@ -149,6 +156,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData) {
     minCD,
     cmAtZero,
     ldAtZero,
+    ldAtDesignAlpha,
   }
   
   metricsCache.set(cacheKey, result)
@@ -388,7 +396,7 @@ export const useCompare = () => {
    */
   const getSummaryData = computed(() => {
     return getSelectedAirfoilsData.value.map(airfoil => {
-      const metrics = calculateSummaryMetrics(airfoil)
+      const metrics = calculateSummaryMetrics(airfoil, state.filters.targetAOA)
       return {
         name: airfoil.name,
         ...metrics,

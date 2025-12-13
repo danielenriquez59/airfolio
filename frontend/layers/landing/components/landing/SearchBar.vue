@@ -202,7 +202,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 <template>
   <div class="bg-white border-b border-gray-200 shadow-sm">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <!-- Search Input Row -->
       <div class="flex items-center gap-4 mb-4">
         <div class="flex-1">

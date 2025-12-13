@@ -609,7 +609,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="!hasURLParams || state.allAirfoils.size === 0" class="max-w-4xl mx-auto">
+  <div v-if="!hasURLParams || state.allAirfoils.size === 0" class="max-w-6xl mx-auto">
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 mb-2">Airfoil Comparison</h1>
       <p class="text-lg text-gray-600">
@@ -855,7 +855,7 @@ onMounted(async () => {
   </div>
 
   <!-- Loading State -->
-  <div v-if="isLoading && hasURLParams" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  <div v-if="isLoading && hasURLParams" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="text-center">
       <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       <p class="mt-4 text-gray-600">Loading analysis data...</p>
@@ -863,7 +863,7 @@ onMounted(async () => {
   </div>
 
   <!-- Error State -->
-  <div v-else-if="error" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  <div v-else-if="error" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="bg-red-50 border border-red-200 rounded-lg p-6">
       <h2 class="text-lg font-semibold text-red-900 mb-2">Error Loading Data</h2>
       <p class="text-red-800">{{ error }}</p>
@@ -877,7 +877,7 @@ onMounted(async () => {
   </div>
 
   <!-- Main Content: Plots & Table -->
-  <div v-else-if="state.allAirfoils.size > 0" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div v-else-if="state.allAirfoils.size > 0" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <!-- Sidebar: Filters & Selection -->
       <div class="lg:col-span-1">
@@ -949,6 +949,7 @@ onMounted(async () => {
               <CompareSummaryTable
                 v-if="getSummaryData.length > 0"
                 :summary-data="getSummaryData"
+                :design-alpha="state.filters.targetAOA"
               />
               <div v-else class="text-center py-12 text-gray-500">
                 <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>

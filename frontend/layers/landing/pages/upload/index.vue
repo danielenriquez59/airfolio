@@ -199,7 +199,7 @@ const resetForm = () => {
 
 <template>
   <div class="min-h-screen bg-white py-12">
-    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
       <!-- Header with Help Button -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-2">

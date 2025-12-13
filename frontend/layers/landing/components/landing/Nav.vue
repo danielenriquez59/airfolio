@@ -13,7 +13,7 @@ const auth = useAuthStore()
 </script>
 
 <template>
-  <nav class="container mx-auto flex items-center justify-between" aria-label="Global">
+  <nav class="max-w-6xl mx-auto flex items-center justify-between" aria-label="Global">
     <div class="flex lg:flex-1">
       <Logo />
     </div>

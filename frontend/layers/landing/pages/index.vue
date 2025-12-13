@@ -21,7 +21,7 @@ useHead({
     <LandingFeaturedAirfoils />
     
     <section id="support" class="py-16 bg-white">
-      <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 class="text-3xl font-bold text-gray-900 mb-6">"I love this, how can I support?"</h2>
         
         <!-- <p class="text-gray-700 leading-relaxed mb-6">
