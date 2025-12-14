@@ -148,8 +148,12 @@ useHead({
       </div>
 
       <!-- Loading State (Initial Load) -->
-      <div v-if="isLoading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <AirfoilCardSkeleton
+          v-for="i in 20"
+          :key="`skeleton-${i}`"
+          thumbnail
+        />
       </div>
 
       <!-- Empty State -->

@@ -112,13 +112,8 @@ const handleClick = () => {
     </template>
 
     <VCardBody class="px-2 md:px-4">
-      <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      </div>
-
       <!-- Error State -->
-      <div v-else-if="error" class="text-center py-12 text-red-600">
+      <div v-if="error" class="text-center py-12 text-red-600">
         <p>{{ error }}</p>
       </div>
 
