@@ -3,6 +3,7 @@ import type { SearchParams } from '~/composables/useAirfoilSearch'
 import { useDebounceFn } from '@vueuse/core'
 import type { Database } from '~/types/database.types'
 import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
+import SummaryScatterPlot from '~/layers/landing/components/compare/SummaryScatterPlot.vue'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -945,13 +946,18 @@ onMounted(async () => {
             </div>
 
             <!-- Summary Table Tab -->
-            <div v-if="activeTab === 'table'">
+            <div v-if="activeTab === 'table'" class="space-y-6">
               <CompareSummaryTable
                 v-if="getSummaryData.length > 0"
                 :summary-data="getSummaryData"
                 :design-alpha="state.filters.targetAOA"
               />
-              <div v-else class="text-center py-12 text-gray-500">
+              <SummaryScatterPlot
+                v-if="getSummaryData.length > 0"
+                :summary-data="getSummaryData"
+                :design-alpha="state.filters.targetAOA"
+              />
+              <div v-if="getSummaryData.length === 0" class="text-center py-12 text-gray-500">
                 <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>
               </div>
             </div>

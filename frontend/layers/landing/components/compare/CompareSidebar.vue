@@ -471,25 +471,23 @@ const handleResetFilters = () => {
 
     <!-- Airfoil Selection Section -->
     <div class="bg-white rounded-lg shadow p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Selection</h2>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="text-xs text-indigo-600 hover:text-indigo-800"
-            @click="handleSelectAll"
-          >
-            Select All
-          </button>
-          <span class="text-gray-300">|</span>
-          <button
-            type="button"
-            class="text-xs text-indigo-600 hover:text-indigo-800"
-            @click="handleDeselectAll"
-          >
-            Deselect All
-          </button>
-        </div>
+      <h2 class="text-lg font-semibold text-gray-900 mb-2">Analyzed Airfoils</h2>
+      <div class="flex gap-2 mb-4">
+        <button
+          type="button"
+          class="text-xs text-indigo-600 hover:text-indigo-800"
+          @click="handleSelectAll"
+        >
+          Show All
+        </button>
+        <span class="text-gray-300">|</span>
+        <button
+          type="button"
+          class="text-xs text-indigo-600 hover:text-indigo-800"
+          @click="handleDeselectAll"
+        >
+          Hide All
+        </button>
       </div>
 
       <div v-if="filteredAirfoils.length === 0" class="text-sm text-gray-500 text-center py-4">
