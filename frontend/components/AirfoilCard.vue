@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
 import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
+import { useBreakpoints } from '@vueuse/core'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
@@ -26,6 +27,16 @@ const category = ref<Category | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
+
+// Detect mobile breakpoint (below md: 768px)
+const breakpoints = useBreakpoints({
+  mobile: 0,
+  desktop: 768, // md breakpoint
+})
+const isMobile = breakpoints.smaller('desktop')
+
+// Dynamic aspect ratio: 2.5 for mobile, 4 for desktop
+const aspectRatio = computed(() => 3.5)
 
 // Fetch airfoil data and categories
 onMounted(async () => {
@@ -81,7 +92,7 @@ const handleClick = () => {
     @click="handleClick"
   >
     <template #header>
-      <div class="px-4">
+      <div class="px-2 md:px-4">
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
             <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
@@ -100,7 +111,7 @@ const handleClick = () => {
       </div>
     </template>
 
-    <VCardBody>
+    <VCardBody class="px-2 md:px-4">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-8">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -155,7 +166,7 @@ const handleClick = () => {
         </div>
 
         <!-- Geometry Visualization -->
-        <div class="mt-4">
+        <div class="mt-4 -mx-2 md:mx-0">
           <AirfoilGeometry
             v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
             :upper-x="airfoil.upper_x_coordinates"
@@ -163,7 +174,7 @@ const handleClick = () => {
             :lower-x="airfoil.lower_x_coordinates"
             :lower-y="airfoil.lower_y_coordinates"
             :name="thumbnail ? undefined : airfoil.name"
-            :aspect-ratio="3"
+            :aspect-ratio="aspectRatio"
             :show-grid="!thumbnail"
             :show-legend="false"
           />
@@ -175,7 +186,7 @@ const handleClick = () => {
     </VCardBody>
 
     <!-- Footer with source link if available -->
-    <VCardFooter v-if="airfoil?.source_url" class="pt-0">
+    <VCardFooter v-if="airfoil?.source_url" class="pt-0 px-2 md:px-4">
       <a
         :href="airfoil.source_url"
         target="_blank"

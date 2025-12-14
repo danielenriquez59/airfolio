@@ -42,7 +42,7 @@ const formatPercent = (value: number | undefined): string => {
         :lower-x="lowerX"
         :lower-y="lowerY"
         :name="name"
-        :aspect-ratio="3"
+        :aspect-ratio="4"
         :show-grid="true"
       />
     </div>

@@ -248,7 +248,7 @@ useHead({
       </div>
 
       <!-- Airfoil Details -->
-      <div v-else-if="airfoil" class="max-w-6xl mx-auto">
+      <div v-else-if="airfoil" class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
           <h1 class="text-4xl font-bold text-gray-900 uppercase tracking-wide mb-2">
