@@ -836,7 +836,7 @@ onMounted(async () => {
             ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500'
             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
         ]"
-        @click="handleRunAnalysis"
+        @click="paramsFormRef?.submit()"
       >
         <span v-if="isLoading" class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
         <span>{{ isLoading ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
