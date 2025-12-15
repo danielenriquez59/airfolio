@@ -79,6 +79,10 @@ const filteredAirfoilsList = ref<Airfoil[]>([]) // Cached list of geometry-filte
 const isLoadingFilteredList = ref(false) // Loading state for fetching filtered list
 const selectionSearch = ref<string>('') // Search within filtered airfoils
 
+// Background loading state for all airfoils (no filters)
+const allAirfoilsList = ref<Airfoil[]>([]) // Cached list of ALL airfoils (no filters)
+const isLoadingAllAirfoils = ref(false) // Loading state for background fetch
+
 // Analysis submission state
 const isSubmittingAnalysis = ref(false)
 const analysisError = ref<string | null>(null)
@@ -444,12 +448,96 @@ const updateAirfoilCount = useDebounceFn(async () => {
 }, 300)
 
 /**
+ * Fetch all airfoils in the background (no filters)
+ * This runs immediately on page mount to reduce perceived loading time
+ * when users switch to "Selected airfoils only" mode
+ */
+const fetchAllAirfoilsInBackground = async () => {
+  // Don't refetch if already loaded or currently loading
+  if (allAirfoilsList.value.length > 0 || isLoadingAllAirfoils.value) {
+    return
+  }
+
+  isLoadingAllAirfoils.value = true
+  try {
+    // Fetch in batches to get all results (Supabase has row limits)
+    const batchSize = 1000
+    let allAirfoils: Airfoil[] = []
+    let page = 1
+    let hasMore = true
+
+    while (hasMore) {
+      // Fetch with no filters - just get all airfoils
+      const params: SearchParams = {
+        page,
+        limit: batchSize,
+        // No filters - get everything
+        thicknessMin: 0,
+        thicknessMax: 1,
+        camberMin: 0,
+        camberMax: 1,
+      }
+      const result = await searchAirfoils(params)
+      
+      if (result.data.length > 0) {
+        allAirfoils = [...allAirfoils, ...result.data]
+        page++
+        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
+      } else {
+        hasMore = false
+      }
+    }
+
+    allAirfoilsList.value = allAirfoils
+  } catch (error) {
+    console.error('Error fetching all airfoils in background:', error)
+    // Silently fail - this is background loading, don't block UI
+  } finally {
+    isLoadingAllAirfoils.value = false
+  }
+}
+
+/**
  * Fetch filtered airfoil list for selection panel
  * Fetches in batches to overcome Supabase row limits
+ * Optimized to use cached allAirfoilsList when no filters are applied
  */
 const fetchFilteredAirfoilsList = async () => {
   if (filteredAirfoilsList.value.length > 0) {
     return // Already cached
+  }
+
+  // Check if no filters are applied
+  const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+                       !includeName.value.trim() && !excludeName.value.trim()
+  
+  // If no filters and we have cached all airfoils, use that instead
+  if (hasNoFilters && allAirfoilsList.value.length > 0) {
+    filteredAirfoilsList.value = allAirfoilsList.value
+    return
+  }
+  
+  // If no filters but background load is still in progress, wait for it
+  if (hasNoFilters && isLoadingAllAirfoils.value) {
+    // Show loading state while waiting
+    isLoadingFilteredList.value = true
+    
+    // Wait for background load to complete (with timeout)
+    const maxWaitTime = 10000 // 10 seconds max wait
+    const startTime = Date.now()
+    while (isLoadingAllAirfoils.value && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    // If background load completed, use cached data
+    if (allAirfoilsList.value.length > 0) {
+      filteredAirfoilsList.value = allAirfoilsList.value
+      isLoadingFilteredList.value = false
+      return
+    }
+    
+    // If timeout or background load failed, continue with normal fetch
+    isLoadingFilteredList.value = false
   }
 
   isLoadingFilteredList.value = true
@@ -497,10 +585,34 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 // Watch selection mode - fetch list when switching to specific
 watch(selectionMode, async (newMode) => {
   if (newMode === 'specific') {
-    await fetchFilteredAirfoilsList()
+    // Check if we have cached all airfoils and no filters are applied
+    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+                         !includeName.value.trim() && !excludeName.value.trim()
+    
+    if (hasNoFilters && allAirfoilsList.value.length > 0) {
+      // Use cached data immediately - no loading needed!
+      filteredAirfoilsList.value = allAirfoilsList.value
+    } else {
+      // Either filters are applied, or we need to wait for background load
+      // fetchFilteredAirfoilsList will handle both cases intelligently
+      await fetchFilteredAirfoilsList()
+    }
   } else {
     // Clear selection when switching back to 'all'
     preAnalysisSelectedAirfoils.value = []
+  }
+})
+
+// Watch for background load completion - update filtered list if user is in specific mode with no filters
+watch([allAirfoilsList, isLoadingAllAirfoils], ([airfoils, isLoading]) => {
+  if (!isLoading && airfoils.length > 0 && selectionMode.value === 'specific') {
+    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+                         !includeName.value.trim() && !excludeName.value.trim()
+    
+    if (hasNoFilters && filteredAirfoilsList.value.length === 0) {
+      // Background load completed, use cached data
+      filteredAirfoilsList.value = airfoils
+    }
   }
 })
 
@@ -594,6 +706,10 @@ useHead({
 
 // Load data on mount
 onMounted(async () => {
+  // Start background loading of all airfoils immediately (non-blocking)
+  // This reduces perceived loading time when users switch to "Selected airfoils only" mode
+  fetchAllAirfoilsInBackground()
+  
   loadParamsFromURL()
   loadPerformanceFiltersFromURL()
   
