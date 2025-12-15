@@ -701,7 +701,7 @@ const handleRunAnalysis = async () => {
 }
 
 useHead({
-  title: 'Airfoil Comparison - NeuralFoil Powered | Airfolio',
+  title: 'Performance Compare - NeuralFoil Powered | Airfolio',
   meta: [
     {
       name: 'description',
@@ -734,7 +734,7 @@ onMounted(async () => {
 <template>
   <div v-if="!hasURLParams || state.allAirfoils.size === 0" class="max-w-6xl mx-auto">
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Airfoil Comparison</h1>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Compare</h1>
       <p class="text-lg text-gray-600">
         Configure geometry filters and flow conditions to run a
         <a

@@ -373,11 +373,11 @@ watch(() => props.showPointsOnHover, (newVal) => {
 
 <template>
   <ClientOnly>
-    <div class="w-full relative overflow-hidden" :style="props.height ? { height: `${props.height}px`, maxHeight: `${props.height}px` } : {}">
-      <!-- Control Buttons -->
+    <div class="w-full">
+      <!-- Control Buttons - Above Legend -->
       <div
         v-if="zoomable || showPointsOnHover"
-        class="absolute top-2 right-2 z-10 flex gap-2"
+        class="flex gap-2 justify-end mb-2"
       >
         <button
           v-if="zoomable"
@@ -401,11 +401,14 @@ watch(() => props.showPointsOnHover, (newVal) => {
         </button>
       </div>
 
-      <Scatter
-        ref="chartRef"
-        :data="chartData"
-        :options="chartOptions"
-      />
+      <!-- Chart Container -->
+      <div class="relative overflow-hidden" :style="props.height ? { height: `${props.height}px`, maxHeight: `${props.height}px` } : {}">
+        <Scatter
+          ref="chartRef"
+          :data="chartData"
+          :options="chartOptions"
+        />
+      </div>
     </div>
   </ClientOnly>
 </template>

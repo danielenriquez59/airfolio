@@ -13,7 +13,8 @@ const navigation: NavigationItem[] = [
     title: 'Tools',
     to: '#',
     children: [
-      { title: 'Compare', to: '/performance' },
+      { title: 'Performance Compare', to: '/performance' },
+      { title: 'Geometry Compare', to: '/geometry-compare' },
       { title: 'Upload', to: '/upload' },
       { title: 'CST Generator', to: '/cst-visualizer' },
       { title: 'NACA Generator', to: '/tools/naca-generator' },
