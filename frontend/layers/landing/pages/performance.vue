@@ -45,6 +45,9 @@ const error = ref<string | null>(null)
 const dataContext = ref<{
   Re?: number
   Mach?: number
+  nCrit?: number
+  alphaMin?: number
+  alphaMax?: number
   source?: string
 }>({})
 
@@ -402,6 +405,9 @@ const loadAnalysisData = async () => {
     dataContext.value = {
       Re: conditions.Re,
       Mach: conditions.Mach,
+      nCrit: conditions.n_crit,
+      alphaMin: conditions.alpha_range[0],
+      alphaMax: conditions.alpha_range[1],
       source: 'Analysis API',
     }
 

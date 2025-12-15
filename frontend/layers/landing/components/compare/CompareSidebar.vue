@@ -9,6 +9,9 @@ interface Props {
   dataContext?: {
     Re?: number
     Mach?: number
+    nCrit?: number
+    alphaMin?: number
+    alphaMax?: number
     source?: string
   }
   filterRanges?: {
@@ -158,7 +161,17 @@ const handleResetFilters = () => {
           <span class="text-gray-600">Mach Number:</span>
           <span class="font-semibold text-gray-900">{{ dataContext.Mach }}</span>
         </div>
-        <div v-if="dataContext && (dataContext.Re || dataContext.Mach !== undefined)" class="pt-2 mt-2 border-t border-gray-200"></div>
+        <div v-if="dataContext && dataContext.nCrit !== undefined" class="flex justify-between">
+          <span class="text-gray-600">N_crit:</span>
+          <span class="font-semibold text-gray-900">{{ dataContext.nCrit }}</span>
+        </div>
+        <div v-if="dataContext && (dataContext.alphaMin !== undefined || dataContext.alphaMax !== undefined)" class="flex justify-between">
+          <span class="text-gray-600">Alpha Range:</span>
+          <span class="font-semibold text-gray-900">
+            {{ dataContext.alphaMin !== undefined ? dataContext.alphaMin : '—' }}° to {{ dataContext.alphaMax !== undefined ? dataContext.alphaMax : '—' }}°
+          </span>
+        </div>
+        <div v-if="dataContext && (dataContext.Re || dataContext.Mach !== undefined || dataContext.nCrit !== undefined || dataContext.alphaMin !== undefined || dataContext.alphaMax !== undefined)" class="pt-2 mt-2 border-t border-gray-200"></div>
         <div class="flex justify-between">
           <span class="text-gray-600">Total Airfoils:</span>
           <span class="font-semibold text-gray-900">{{ totalCount }}</span>
