@@ -73,6 +73,12 @@ const formatPercent = (value: number | null | undefined): string => {
   return `${(value * 100).toFixed(0)}%`
 }
 
+// Helper function to get display name (display_name if available, otherwise name)
+const getDisplayName = (airfoil: Airfoil | null): string => {
+  if (!airfoil) return ''
+  return airfoil.display_name || airfoil.name
+}
+
 const handleClick = () => {
   if (props.onClick) {
     props.onClick()
@@ -96,7 +102,7 @@ const handleClick = () => {
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
             <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
-              {{ airfoil?.name.toUpperCase() || 'Loading...' }}
+              {{ airfoil ? getDisplayName(airfoil).toUpperCase() : 'Loading...' }}
             </h3>
             <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
               {{ airfoil.description }}
@@ -168,7 +174,7 @@ const handleClick = () => {
             :upper-y="airfoil.upper_y_coordinates"
             :lower-x="airfoil.lower_x_coordinates"
             :lower-y="airfoil.lower_y_coordinates"
-            :name="thumbnail ? undefined : airfoil.name"
+            :name="thumbnail ? undefined : getDisplayName(airfoil)"
             :aspect-ratio="aspectRatio"
             :show-grid="!thumbnail"
             :show-legend="false"

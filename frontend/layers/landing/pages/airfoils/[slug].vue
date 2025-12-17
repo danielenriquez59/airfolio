@@ -59,6 +59,12 @@ watchEffect(() => {
 
 const airfoilSlug = computed(() => route.params.slug as string)
 
+// Helper function to get display name (display_name if available, otherwise name)
+const getDisplayName = (airfoil: Airfoil | null): string => {
+  if (!airfoil) return ''
+  return airfoil.display_name || airfoil.name
+}
+
 // Helper function to create URL-friendly slug from airfoil name
 const createSlug = (name: string): string => {
   return encodeURIComponent(name)
@@ -216,13 +222,13 @@ onMounted(async () => {
 
 useHead({
   title: airfoil.value 
-    ? `${airfoil.value.name} - Airfoil Details | Airfolio` 
+    ? `${getDisplayName(airfoil.value)} - Airfoil Details | Airfolio` 
     : 'Airfoil Details - Airfolio',
   meta: [
     {
       name: 'description',
       content: airfoil.value 
-        ? `View geometry, performance data, and analysis results for ${airfoil.value.name}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
+        ? `View geometry, performance data, and analysis results for ${getDisplayName(airfoil.value)}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
         : 'View detailed airfoil geometry, performance data, and analysis results.'
     }
   ]
@@ -252,7 +258,7 @@ useHead({
         <!-- Header -->
         <div class="mb-8">
           <h1 class="text-4xl font-bold text-gray-900 uppercase tracking-wide mb-2">
-            {{ airfoil.name.toUpperCase() }}
+            {{ getDisplayName(airfoil).toUpperCase() }}
           </h1>
           <p v-if="airfoil.description" class="text-lg text-gray-600">
             {{ airfoil.description }}
@@ -267,7 +273,7 @@ useHead({
             :upper-y="airfoil.upper_y_coordinates"
             :lower-x="airfoil.lower_x_coordinates"
             :lower-y="airfoil.lower_y_coordinates"
-            :name="airfoil.name"
+            :name="getDisplayName(airfoil)"
             :aspect-ratio="3"
             :show-grid="true"
             :zoomable="true"

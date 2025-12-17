@@ -46,6 +46,7 @@ export type Database = {
           category: string | null
           created_at: string | null
           description: string | null
+          display_name: string | null
           file_path: string
           id: string
           le_radius: number | null
@@ -69,6 +70,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          display_name?: string | null
           file_path: string
           id?: string
           le_radius?: number | null
@@ -92,6 +94,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           description?: string | null
+          display_name?: string | null
           file_path?: string
           id?: string
           le_radius?: number | null
