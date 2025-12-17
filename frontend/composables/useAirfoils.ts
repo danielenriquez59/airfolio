@@ -148,6 +148,62 @@ export const useAirfoils = () => {
     }
   }
 
+  /**
+   * Fetch all airfoils without pagination (for management view)
+   * Fetches in batches to handle large datasets
+   */
+  const fetchAllAirfoils = async (): Promise<Airfoil[]> => {
+    let allAirfoils: Airfoil[] = []
+    let from = 0
+    const batchSize = 1000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('airfoils')
+        .select('*')
+        .order('name', { ascending: true })
+        .range(from, from + batchSize - 1)
+
+      if (error) {
+        console.error('Error fetching airfoils:', error)
+        throw error
+      }
+
+      if (data && data.length > 0) {
+        allAirfoils = [...allAirfoils, ...data]
+        from += batchSize
+        hasMore = data.length === batchSize
+      } else {
+        hasMore = false
+      }
+    }
+
+    return allAirfoils
+  }
+
+  /**
+   * Update airfoil fields (display_name, description)
+   */
+  const updateAirfoil = async (
+    id: string,
+    updates: Partial<Pick<Airfoil, 'display_name' | 'description'>>
+  ): Promise<Airfoil> => {
+    const { data, error } = await supabase
+      .from('airfoils')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating airfoil:', error)
+      throw error
+    }
+
+    return data
+  }
+
   return {
     fetchAirfoil,
     fetchAirfoilByName,
@@ -155,6 +211,8 @@ export const useAirfoils = () => {
     fetchAirfoilMetadata,
     fetchAirfoils,
     fetchRandomAirfoils,
+    fetchAllAirfoils,
+    updateAirfoil,
   }
 }
 

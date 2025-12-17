@@ -18,6 +18,7 @@ const navigation: NavigationItem[] = [
       { title: 'Upload', to: '/upload' },
       { title: 'CST Generator', to: '/cst-visualizer' },
       { title: 'NACA Generator', to: '/tools/naca-generator' },
+      { title: 'Airfoil Manager', to: '/airfoils-manager' },
     ],
   },
   { title: 'About', to: '/about' },
