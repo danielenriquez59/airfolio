@@ -111,7 +111,7 @@ const sortLowerCoordinates = (
  * @param coordinates CST coordinates
  * @param airfoilName Name for the exported file
  */
-export const exportLednicer = (
+export const exportCSTLednicer = (
   coordinates: CSTCoordinates,
   airfoilName: string = 'CST_Airfoil'
 ) => {
@@ -156,7 +156,7 @@ export const exportLednicer = (
  * @param coordinates CST coordinates
  * @param airfoilName Name for the exported file
  */
-export const exportSelig = (
+export const exportCSTSelig = (
   coordinates: CSTCoordinates,
   airfoilName: string = 'CST_Airfoil'
 ) => {
@@ -202,8 +202,8 @@ export const exportSelig = (
 export const useCSTExport = () => {
   return {
     exportCSTParameters,
-    exportLednicer,
-    exportSelig,
+    exportCSTLednicer,
+    exportCSTSelig,
   }
 }
 

@@ -17,7 +17,7 @@ useSeoMeta({
 })
 
 const { generateNACA4, generateNACA5, generateNACA4Name, generateNACA5Name } = useNACAGenerator()
-const { exportNACAParameters, exportLednicer, exportSelig } = useNACAExport()
+const { exportNACAParameters, exportNACALednicer, exportNACASelig } = useNACAExport()
 const config = useRuntimeConfig()
 
 // State
@@ -94,14 +94,14 @@ const handleExportParameters = () => {
 const handleExportLednicer = () => {
   if (!nacaCoordinates.value) return
 
-  exportLednicer(nacaCoordinates.value, currentNacaName.value)
+  exportNACALednicer(nacaCoordinates.value, currentNacaName.value)
 }
 
 // Handle export coordinates in Selig format
 const handleExportSelig = () => {
   if (!nacaCoordinates.value) return
 
-  exportSelig(nacaCoordinates.value, currentNacaName.value)
+  exportNACASelig(nacaCoordinates.value, currentNacaName.value)
 }
 
 // Handle analysis

@@ -17,7 +17,7 @@ useSeoMeta({
 })
 
 const { generateCSTCoordinates } = useCSTParameters()
-const { exportCSTParameters, exportLednicer, exportSelig } = useCSTExport()
+const { exportCSTParameters, exportCSTLednicer, exportCSTSelig } = useCSTExport()
 const config = useRuntimeConfig()
 
 // State
@@ -120,14 +120,14 @@ const handleExportParameters = () => {
 const handleExportLednicer = () => {
   if (!cstCoordinates.value) return
 
-  exportLednicer(cstCoordinates.value, 'CST_Airfoil')
+  exportCSTLednicer(cstCoordinates.value, 'CST_Airfoil')
 }
 
 // Handle export coordinates in Selig format
 const handleExportSelig = () => {
   if (!cstCoordinates.value) return
 
-  exportSelig(cstCoordinates.value, 'CST_Airfoil')
+  exportCSTSelig(cstCoordinates.value, 'CST_Airfoil')
 }
 
 // Handle analysis

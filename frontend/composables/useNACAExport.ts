@@ -109,7 +109,7 @@ const sortLowerCoordinates = (
  * @param coordinates NACA coordinates
  * @param airfoilName Name for the exported file
  */
-export const exportLednicer = (
+export const exportNACALednicer = (
   coordinates: NACACoordinates,
   airfoilName: string = 'NACA_Airfoil'
 ) => {
@@ -148,7 +148,7 @@ export const exportLednicer = (
  * @param coordinates NACA coordinates
  * @param airfoilName Name for the exported file
  */
-export const exportSelig = (
+export const exportNACASelig = (
   coordinates: NACACoordinates,
   airfoilName: string = 'NACA_Airfoil'
 ) => {
@@ -188,8 +188,8 @@ export const exportSelig = (
 export const useNACAExport = () => {
   return {
     exportNACAParameters,
-    exportLednicer,
-    exportSelig,
+    exportNACALednicer,
+    exportNACASelig,
   }
 }
 
