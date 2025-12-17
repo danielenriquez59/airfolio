@@ -226,7 +226,7 @@ const getChartOptions = (
 // Generate datasets for legend-only chart (using CL data as base)
 const legendChartData = computed(() => {
   const datasets = props.airfoils.map((airfoil, idx) => ({
-    label: airfoil.name,
+    label: airfoil.name.toUpperCase(),
     data: [], // Empty data array - we only want the legend
     borderColor: colors[idx % colors.length],
     backgroundColor: colors[idx % colors.length] + '20',

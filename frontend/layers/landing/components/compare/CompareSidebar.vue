@@ -519,7 +519,7 @@ const handleResetFilters = () => {
             class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             @change="emit('toggle-selection', name)"
           />
-          <span class="text-sm text-gray-700 flex-1">{{ name }}</span>
+          <span class="text-sm text-gray-700 flex-1">{{ name.toUpperCase() }}</span>
         </label>
       </div>
     </div>

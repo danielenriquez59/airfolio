@@ -84,3 +84,5 @@ pnpm build
 ```
 
 Checkout the [deployment documentation](https://v3.nuxtjs.org/docs/deployment).
+
+App is hosting frontend on Netlify and Backend on Render. 
