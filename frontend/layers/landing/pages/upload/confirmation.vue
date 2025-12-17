@@ -60,10 +60,11 @@ onMounted(async () => {
     uploadData.value = data
 
     // Call validation endpoint to get calculated properties
+    // Use normalized name for validation (uniqueness check)
     const response = await $fetch(`${config.public.backendUrl}/api/airfoils/validate`, {
       method: 'POST',
       body: {
-        name: data.name,
+        name: data.name, // Normalized name for uniqueness check
         upper_surface: data.upperSurface,
         lower_surface: data.lowerSurface,
       },
@@ -92,7 +93,8 @@ const handleConfirm = async () => {
   try {
     // Call create endpoint
     const body: any = {
-      name: uploadData.value.name,
+      name: uploadData.value.name, // Normalized name (alphanumeric only)
+      display_name: uploadData.value.displayName || uploadData.value.name, // User-entered display name, fallback to name
       description: uploadData.value.description,
       upper_surface: uploadData.value.upperSurface,
       lower_surface: uploadData.value.lowerSurface,
@@ -170,7 +172,7 @@ const handleBack = async () => {
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ uploadData.name }}</h2>
+              <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ uploadData.displayName.toUpperCase() || uploadData.name.toUpperCase() }}</h2> 
               <p v-if="uploadData.description" class="text-gray-600 mb-4">{{ uploadData.description }}</p>
               <p v-if="uploadData.sourceUrl" class="text-sm text-gray-500">
                 Source: <a :href="uploadData.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800">

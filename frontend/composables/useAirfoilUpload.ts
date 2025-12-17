@@ -13,11 +13,13 @@ interface CoordinatePair {
 }
 
 interface UploadData {
-  name: string
+  name: string // Normalized name (alphanumeric only)
+  displayName?: string // User-entered display name (any characters) - optional for backward compatibility
   description?: string
   upperSurface: CoordinatePair[]
   lowerSurface: CoordinatePair[]
   sourceUrl?: string
+  categoryId?: string // Optional category ID
 }
 
 interface ValidationError {
@@ -56,7 +58,15 @@ function validateMonotonic(xCoords: number[]): { valid: boolean; message?: strin
 }
 
 /**
- * Validate airfoil name format (alphanumeric, spaces, and hyphens only, max 12 characters)
+ * Generate normalized name from display name (alphanumeric only, lowercase)
+ */
+function generateNormalizedName(displayName: string): string {
+  // Remove all non-alphanumeric characters and convert to lowercase
+  return displayName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+}
+
+/**
+ * Validate airfoil display name format (any characters allowed, but must not be empty)
  */
 function validateNameFormat(name: string): { valid: boolean; message?: string } {
   if (!name || name.trim().length === 0) {
@@ -65,17 +75,12 @@ function validateNameFormat(name: string): { valid: boolean; message?: string } 
 
   const trimmedName = name.trim()
   
-  if (trimmedName.length > 12) {
+  // Check if normalized name would be empty
+  const normalizedName = generateNormalizedName(trimmedName)
+  if (normalizedName.length === 0) {
     return {
       valid: false,
-      message: 'Airfoil name must be 12 characters or less',
-    }
-  }
-
-  if (!/^[a-zA-Z0-9\s-]+$/.test(trimmedName)) {
-    return {
-      valid: false,
-      message: 'Airfoil name can only contain letters, numbers, spaces, and hyphens',
+      message: 'Airfoil name must contain at least one letter or number',
     }
   }
 
@@ -201,21 +206,23 @@ export const useAirfoilUpload = () => {
 
   /**
    * Validate airfoil name (format and uniqueness)
+   * Checks uniqueness against normalized name
    */
-  const validateAirfoilName = async (name: string): Promise<{ valid: boolean; message?: string }> => {
+  const validateAirfoilName = async (displayName: string): Promise<{ valid: boolean; message?: string }> => {
     // Validate format first
-    const formatCheck = validateNameFormat(name)
+    const formatCheck = validateNameFormat(displayName)
     if (!formatCheck.valid) {
       return formatCheck
     }
 
-    const trimmedName = name.trim()
+    // Generate normalized name for uniqueness check
+    const normalizedName = generateNormalizedName(displayName.trim())
 
-    // Check against database for uniqueness
+    // Check against database for uniqueness using normalized name
     const { data, error } = await supabase
       .from('airfoils')
       .select('id')
-      .eq('name', trimmedName)
+      .eq('name', normalizedName)
       .single()
 
     if (error && error.code === 'PGRST116') {
@@ -433,6 +440,7 @@ export const useAirfoilUpload = () => {
     retrieveTemporaryData,
     clearTemporaryData,
     parseCSV,
+    generateNormalizedName,
   }
 }
 
