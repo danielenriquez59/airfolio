@@ -39,9 +39,19 @@ interface AxisOption {
 interface Props {
   summaryData: SummaryRow[]
   designAlpha?: number | null
+  xAxis?: keyof SummaryRow
+  yAxis?: keyof SummaryRow
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  xAxis: 'thickness',
+  yAxis: 'maxLD',
+})
+
+const emit = defineEmits<{
+  (e: 'update:xAxis', value: keyof SummaryRow): void
+  (e: 'update:yAxis', value: keyof SummaryRow): void
+}>()
 
 // Color palette for points
 const colors = [
@@ -83,9 +93,16 @@ const axisOptions = computed(() => {
   return options
 })
 
-// Default selections
-const xAxisKey = ref<keyof SummaryRow>('thickness')
-const yAxisKey = ref<keyof SummaryRow>('maxLD')
+// Computed properties for v-model binding
+const xAxisKey = computed({
+  get: () => props.xAxis,
+  set: (val) => emit('update:xAxis', val),
+})
+
+const yAxisKey = computed({
+  get: () => props.yAxis,
+  set: (val) => emit('update:yAxis', val),
+})
 
 /**
  * Check if a value is valid for plotting

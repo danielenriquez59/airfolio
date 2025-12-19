@@ -135,12 +135,39 @@ watch(() => filterEnabled.targetDesign, (enabled) => {
   emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
 })
 
+// Search functionality for Analyzed Airfoils
+const searchQuery = ref('')
+
+// Filter the airfoils based on search query
+const visibleAirfoils = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return props.filteredAirfoils
+  }
+  const query = searchQuery.value.toLowerCase()
+  return props.filteredAirfoils.filter(name => 
+    name.toLowerCase().includes(query)
+  )
+})
+
 const handleSelectAll = () => {
-  emit('select-all')
+  if (searchQuery.value.trim()) {
+    // Select all visible airfoils
+    const newSelection = new Set([...props.selectedAirfoils, ...visibleAirfoils.value])
+    emit('set-selected', Array.from(newSelection))
+  } else {
+    emit('select-all')
+  }
 }
 
 const handleDeselectAll = () => {
-  emit('deselect-all')
+  if (searchQuery.value.trim()) {
+    // Deselect all visible airfoils
+    const visibleSet = new Set(visibleAirfoils.value)
+    const newSelection = props.selectedAirfoils.filter(name => !visibleSet.has(name))
+    emit('set-selected', newSelection)
+  } else {
+    emit('deselect-all')
+  }
 }
 
 const handleResetFilters = () => {
@@ -485,6 +512,22 @@ const handleResetFilters = () => {
     <!-- Airfoil Selection Section -->
     <div class="bg-white rounded-lg shadow p-4">
       <h2 class="text-lg font-semibold text-gray-900 mb-2">Analyzed Airfoils</h2>
+      
+      <!-- Search Bar -->
+      <div class="mb-3">
+        <div class="relative rounded-md shadow-sm">
+          <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+            <Icon name="heroicons:magnifying-glass" class="h-4 w-4 text-gray-400" />
+          </div>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="block w-full rounded-md border-gray-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            placeholder="Search airfoils..."
+          />
+        </div>
+      </div>
+
       <div class="flex gap-2 mb-4">
         <button
           type="button"
@@ -509,7 +552,7 @@ const handleResetFilters = () => {
 
       <div v-else class="space-y-2 max-h-96 overflow-y-auto">
         <label
-          v-for="name in filteredAirfoils"
+          v-for="name in visibleAirfoils"
           :key="name"
           class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer"
         >

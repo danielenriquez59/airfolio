@@ -34,6 +34,10 @@ const {
 // Active tab: 'plots', 'table', or 'scatter'
 const activeTab = ref<'plots' | 'table' | 'scatter'>('plots')
 
+// Scatter Plot State (persisted across tab switches)
+const scatterXAxis = ref('thickness')
+const scatterYAxis = ref('maxLD')
+
 // Performance mode state
 const performanceMode = ref<'performance' | 'detail'>('performance')
 
@@ -1096,6 +1100,8 @@ onMounted(async () => {
                 v-if="getSummaryData.length > 0"
                 :summary-data="getSummaryData"
                 :design-alpha="state.filters.targetAOA"
+                v-model:x-axis="scatterXAxis"
+                v-model:y-axis="scatterYAxis"
               />
               <div v-else class="text-center py-12 text-gray-500">
                 <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>

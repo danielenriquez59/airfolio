@@ -114,6 +114,9 @@ const generateChartData = (
 // Tooltip enabled state
 const tooltipsEnabled = ref(true)
 
+// Plots expanded state (1 column vs 2 columns)
+const plotsExpanded = ref(false)
+
 // Chart options
 const getChartOptions = (
   yLabel: string,
@@ -318,6 +321,11 @@ const handleExportCSV = () => {
 const toggleTooltips = () => {
   tooltipsEnabled.value = !tooltipsEnabled.value
 }
+
+// Toggle plots view
+const togglePlotsView = () => {
+  plotsExpanded.value = !plotsExpanded.value
+}
 </script>
 
 <template>
@@ -359,6 +367,19 @@ const toggleTooltips = () => {
       </button>
       <button
         type="button"
+        @click="togglePlotsView"
+        :class="[
+          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+          plotsExpanded
+            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
+            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+        ]"
+      >
+        <Icon :name="plotsExpanded ? 'heroicons:squares-2x2' : 'heroicons:arrows-pointing-out'" class="h-4 w-4" />
+        {{ plotsExpanded ? 'Compact Plots' : 'Enlarge Plots' }}
+      </button>
+      <button
+        type="button"
         @click="resetZoom"
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
@@ -376,8 +397,8 @@ const toggleTooltips = () => {
       </button>
     </div>
 
-    <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens, 1 column when expanded -->
+    <div :class="['grid gap-6', plotsExpanded ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2']">
       <!-- CL vs α -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="h-64">
