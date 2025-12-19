@@ -4,6 +4,7 @@ import { useDebounceFn } from '@vueuse/core'
 import type { Database } from '~/types/database.types'
 import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
 import SummaryScatterPlot from '~/layers/landing/components/compare/SummaryScatterPlot.vue'
+import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab.vue'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -31,8 +32,8 @@ const {
   getFilterRanges,
 } = useCompare()
 
-// Active tab: 'plots', 'table', or 'scatter'
-const activeTab = ref<'plots' | 'table' | 'scatter'>('plots')
+// Active tab: 'plots', 'table', 'scatter', or 'notes'
+const activeTab = ref<'plots' | 'table' | 'scatter' | 'notes'>('plots')
 
 // Scatter Plot State (persisted across tab switches)
 const scatterXAxis = ref('thickness')
@@ -1065,6 +1066,17 @@ onMounted(async () => {
               >
                 Scatter Plot
               </button>
+              <button
+                :class="[
+                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                  activeTab === 'notes'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                ]"
+                @click="activeTab = 'notes'"
+              >
+                Notes
+              </button>
             </nav>
           </div>
 
@@ -1106,6 +1118,11 @@ onMounted(async () => {
               <div v-else class="text-center py-12 text-gray-500">
                 <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>
               </div>
+            </div>
+
+            <!-- Notes Tab -->
+            <div v-if="activeTab === 'notes'">
+              <CompareNotesTab storage-key="notes" />
             </div>
           </div>
         </div>
