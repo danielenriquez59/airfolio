@@ -16,7 +16,7 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const supportEmail = config.public.supportEmail
 const { fetchAirfoilByName } = useAirfoils()
-const { downloadLednicer, downloadSelig } = useAirfoilDownload()
+const { downloadLednicer, downloadSelig, downloadOpenVSP } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
 const { fetchCategories } = useCategories()
 
@@ -25,6 +25,36 @@ const category = ref<Category | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
+
+// Download format selection
+const selectedFormat = ref<{ value: string; text: string } | null>(null)
+const downloadFormats = [
+  { value: 'lednicer', text: 'Lednicer Format' },
+  { value: 'selig', text: 'Selig Format' },
+  { value: 'openvsp', text: 'OpenVSP AF Format' },
+]
+
+// Handle download based on selected format
+const handleDownload = () => {
+  if (!airfoil.value || !selectedFormat.value) return
+  
+  try {
+    switch (selectedFormat.value.value) {
+      case 'lednicer':
+        downloadLednicer(airfoil.value)
+        break
+      case 'selig':
+        downloadSelig(airfoil.value)
+        break
+      case 'openvsp':
+        downloadOpenVSP(airfoil.value)
+        break
+    }
+  } catch (err: any) {
+    console.error('Download error:', err)
+    alert(err.message || 'Failed to download airfoil')
+  }
+}
 
 // Modal state
 const showAnalysisModal = ref(false)
@@ -369,23 +399,22 @@ useHead({
                   <div
                     v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
                   >
-                    <dt class="text-sm text-gray-500">Download</dt>
-                    <dd class="flex flex-col gap-2">
+                    <dt class="text-sm text-gray-500">Download Airfoil Coordinates</dt>
+                    <dd class="flex items-center gap-2">
+                      <VSelect
+                        v-model="selectedFormat"
+                        :items="downloadFormats"
+                        placeholder="Select format..."
+                        class="flex-1"
+                      />
                       <button
                         type="button"
-                        @click="() => downloadLednicer(airfoil!)"
-                        class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
+                        @click="handleDownload"
+                        :disabled="!selectedFormat"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
                       >
-                        Download Lednicer Format
                         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        @click="() => downloadSelig(airfoil!)"
-                        class="text-left text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 cursor-pointer"
-                      >
-                        Download Selig Format
-                        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+                        Download
                       </button>
                     </dd>
                   </div>
