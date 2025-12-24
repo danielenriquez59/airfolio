@@ -11,6 +11,7 @@ const navigation = {
     { name: 'About', href: '/about' },
   ],
   resources: [
+    { name: 'Bug Report', href: '/contact' },
   //   { name: 'Documentation', href: '/docs' },
   ],
   // legal: [
@@ -55,8 +56,9 @@ const navigation = {
                 <li v-for="item in navigation.resources" :key="item.name">
                   <NuxtLink
                     :to="item.href"
-                    class="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                    class="group flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors"
                   >
+                    <BugIcon v-if="item.name === 'Bug Report'" size="16" class="mr-2 opacity-70 group-hover:opacity-100 transition-opacity" />
                     {{ item.name }}
                   </NuxtLink>
                 </li>
