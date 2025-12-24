@@ -18,6 +18,7 @@ const navigation: NavigationItem[] = [
       { title: 'Upload', to: '/upload' },
       { title: 'CST Generator', to: '/cst-visualizer' },
       { title: 'NACA Generator', to: '/tools/naca-generator' },
+      { title: 'Schrenk Lift Distribution', to: '/tools/schrenk-calculator' },
     ],
   },
   { title: 'About', to: '/about' },
