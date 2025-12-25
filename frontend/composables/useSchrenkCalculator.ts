@@ -25,7 +25,7 @@ export const calculateWingData = (params: WingParameters): CalculationResult => 
   const semi_span_in = semi_span_ft * 12
 
   // Lift Calculations
-  const factor = max_weight_lb < 1500 ? 1.05 : 1.10
+  const factor = 1 //max_weight_lb < 1500 ? 1.05 : 1.10
   const lift_lb = factor * load_factor_n * max_weight_lb - tail_lift_lb
   const qCL = lift_lb / wing_area_sqft
 
@@ -36,7 +36,7 @@ export const calculateWingData = (params: WingParameters): CalculationResult => 
 
   // --- 1. Generate Stations ---
   // Create stations from root (0) to tip. Python uses 18 stations.
-  let rawStations = linspace(0.0, semi_span_in, 18)
+  let rawStations = linspace(0.0, semi_span_in, 50)
   
   // Ensure critical stations are included
   rawStations.push(wing_root_station_in)
@@ -266,6 +266,8 @@ export const calculateWingData = (params: WingParameters): CalculationResult => 
       ellipse_height_cl,
       max_shear_root: rootPoint ? rootPoint.ult_shear_lb : 0,
       max_moment_root: rootPoint ? rootPoint.ult_moment_lb_in : 0,
+      limit_shear_root: rootPoint ? rootPoint.total_limit_shear_lb : 0,
+      limit_moment_root: rootPoint ? rootPoint.total_limit_moment_lb_in : 0,
     },
     // Sort ascending (0 -> Tip) for Charts
     schrenkData: [...schrenkPoints].sort((a, b) => a.station_in - b.station_in),

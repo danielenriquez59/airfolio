@@ -40,14 +40,28 @@ const fmt = (n: number, d = 2) => n.toLocaleString(undefined, { minimumFractionD
       </div>
     </div>
     <div class="mt-4 pt-4 border-t border-blue-800">
-      <div class="text-xs text-blue-300 mb-1">Loads at Root (Ult)</div>
-      <div class="flex justify-between items-end mb-1">
-        <span class="text-sm">Shear:</span>
-        <span class="font-bold">{{ fmt(summary.max_shear_root, 0) }} lb</span>
+      <div class="text-xs text-blue-300 mb-2">Loads at Root</div>
+      <div class="mb-3">
+        <div class="text-xs text-blue-400 mb-1">Limit</div>
+        <div class="flex justify-between items-end mb-1">
+          <span class="text-sm">Shear:</span>
+          <span class="font-bold">{{ fmt(summary.limit_shear_root, 0) }} lb</span>
+        </div>
+        <div class="flex justify-between items-end">
+          <span class="text-sm">Moment:</span>
+          <span class="font-bold">{{ fmt(summary.limit_moment_root, 0) }} lb-in</span>
+        </div>
       </div>
-      <div class="flex justify-between items-end">
-        <span class="text-sm">Moment:</span>
-        <span class="font-bold">{{ fmt(summary.max_moment_root, 0) }} lb-in</span>
+      <div>
+        <div class="text-xs text-blue-400 mb-1">Ultimate</div>
+        <div class="flex justify-between items-end mb-1">
+          <span class="text-sm">Shear:</span>
+          <span class="font-bold">{{ fmt(summary.max_shear_root, 0) }} lb</span>
+        </div>
+        <div class="flex justify-between items-end">
+          <span class="text-sm">Moment:</span>
+          <span class="font-bold">{{ fmt(summary.max_moment_root, 0) }} lb-in</span>
+        </div>
       </div>
     </div>
   </div>

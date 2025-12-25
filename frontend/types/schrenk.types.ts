@@ -50,6 +50,8 @@ export interface CalculationResult {
     ellipse_height_cl: number
     max_shear_root: number
     max_moment_root: number
+    limit_shear_root: number
+    limit_moment_root: number
   }
   schrenkData: SchrenkPoint[]
   loadData: CombinedLoadPoint[]
