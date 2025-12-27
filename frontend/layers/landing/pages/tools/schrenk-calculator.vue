@@ -58,7 +58,7 @@ const infoExpanded = ref(false)
         }"
       >
         <p class="text-slate-700 leading-relaxed mb-4">
-          The Schrenk lift calculator predicts how lift is distributed across a tapered wing by averaging the actual chord distribution with an ideal elliptical lift distribution. It calculates shear forces and bending moments at multiple spanwise stations to determine structural loads for aircraft design. It can account for a single point mass along the span. These load values help size wing spars and skins to handle both aerodynamic forces and wing weight inertia during high-g maneuvers. Ultimate loads are calculated as 1.5 Limit loads.
+          The Schrenk lift calculator predicts how lift is distributed across a tapered wing by averaging the actual chord distribution with an ideal elliptical lift distribution. It calculates shear forces and bending moments at multiple spanwise stations to determine structural loads for aircraft design. It can account for a single point mass along the span. These load values help size wing spars and skins to handle both aerodynamic forces and wing weight inertia during high-g maneuvers. Ultimate loads are calculated as 1.5 Limit loads. The Hunsaker distribution utilizes the load obtained from constraining fixed total weight, fixed max stress, and fixed wing loading. 
         </p>
         <div class="pt-4 border-t border-blue-200 space-y-2">
           <p class="text-sm font-semibold text-slate-700 mb-2">References:</p>
