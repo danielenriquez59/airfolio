@@ -9,10 +9,10 @@ definePageMeta({
 
 // SEO
 useSeoMeta({
-  title: 'Schrenk Lift Distribution Calculator - Engineering Design Tool',
-  description: 'Calculate Schrenk lift distribution, shear forces, and bending moments for aircraft wing design. Engineering design tool for aerodynamic and structural analysis.',
-  ogTitle: 'Schrenk Lift Distribution Calculator - Engineering Design Tool',
-  ogDescription: 'Calculate Schrenk lift distribution, shear forces, and bending moments for aircraft wing design.',
+  title: 'Structural Loading Calculator - Engineering Design Tool',
+  description: 'Calculate the root shear and moment given a lift distribution. Engineering design tool for aerodynamic and structural analysis.',
+  ogTitle: 'Structural Loading Calculator - Engineering Design Tool',
+  ogDescription: 'Calculate the root shear and moment given a lift distribution.',
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
@@ -42,8 +42,8 @@ const infoExpanded = ref(false)
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <PageHeader
-      title="Schrenk Lift Distribution"
-      subtitle="Structural loading calculator"
+      title="Structural Loading Calculator"
+      subtitle="Calculate the root shear and moment given a lift distribution"
     />
 
     <!-- Info Section -->
