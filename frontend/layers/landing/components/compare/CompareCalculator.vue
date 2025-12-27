@@ -317,3 +317,4 @@ const formatNumber = (value: number, decimals = 6): string => {
   </div>
 </template>
 
+

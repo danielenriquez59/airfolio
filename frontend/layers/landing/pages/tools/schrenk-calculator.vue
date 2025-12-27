@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { WingParameters } from '~/types/schrenk.types'
-import { useSchrenkCalculator } from '~/composables/useSchrenkCalculator'
+import { useSchrenkCalculator, type LiftDistributionType } from '~/composables/useSchrenkCalculator'
 import Collapsible from '~/layers/ui/components/Collapsible/Collapsible.vue'
 
 definePageMeta({
@@ -32,9 +32,10 @@ const defaultParams: WingParameters = {
 }
 
 const params = ref<WingParameters>({ ...defaultParams })
+const distributionType = ref<LiftDistributionType>('elliptic')
 const { calculateWingData } = useSchrenkCalculator()
 
-const results = computed(() => calculateWingData(params.value))
+const results = computed(() => calculateWingData(params.value, distributionType.value))
 const infoExpanded = ref(false)
 </script>
 
@@ -59,7 +60,8 @@ const infoExpanded = ref(false)
         <p class="text-slate-700 leading-relaxed mb-4">
           The Schrenk lift calculator predicts how lift is distributed across a tapered wing by averaging the actual chord distribution with an ideal elliptical lift distribution. It calculates shear forces and bending moments at multiple spanwise stations to determine structural loads for aircraft design. It can account for a single point mass along the span. These load values help size wing spars and skins to handle both aerodynamic forces and wing weight inertia during high-g maneuvers. Ultimate loads are calculated as 1.5 Limit loads.
         </p>
-        <div class="pt-4 border-t border-blue-200">
+        <div class="pt-4 border-t border-blue-200 space-y-2">
+          <p class="text-sm font-semibold text-slate-700 mb-2">References:</p>
           <a
             href="https://mar2013.lightaircraftassociation.co.uk/2010/Engineering/Design/schrenk%20approximation.pdf"
             target="_blank"
@@ -67,7 +69,16 @@ const infoExpanded = ref(false)
             class="text-sm text-blue-700 hover:text-blue-800 underline flex items-center gap-2 font-medium"
           >
             <Icon name="heroicons:document-text" class="h-4 w-4" />
-            Reference for this tool
+            Schrenk Approximation Reference
+          </a>
+          <a
+            href="https://digitalcommons.usu.edu/mae_stures/21/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-sm text-blue-700 hover:text-blue-800 underline flex items-center gap-2 font-medium"
+          >
+            <Icon name="heroicons:document-text" class="h-4 w-4" />
+            Minimum Induced Drag for Tapered Wings Including Structural Constraints (Hunsaker Distribution)
           </a>
         </div>
       </Collapsible>
@@ -76,6 +87,27 @@ const infoExpanded = ref(false)
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <!-- Left Sidebar: Inputs -->
       <div class="lg:col-span-3 space-y-6">
+        <!-- Distribution Type Selector -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div class="flex items-center gap-2 mb-3 text-slate-900 font-semibold">
+            <Icon name="heroicons:chart-bar" class="h-5 w-5 text-blue-600" />
+            <h2>Lift Distribution</h2>
+          </div>
+          <div class="space-y-2">
+            <label for="distribution-type" class="block text-sm font-medium text-slate-700">
+              Distribution Type
+            </label>
+            <select
+              id="distribution-type"
+              v-model="distributionType"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
+            >
+              <option value="elliptic">Elliptic</option>
+              <option value="hunsaker">Hunsaker</option>
+            </select>
+          </div>
+        </div>
+
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
             <Icon name="heroicons:calculator" class="h-5 w-5 text-blue-600" />

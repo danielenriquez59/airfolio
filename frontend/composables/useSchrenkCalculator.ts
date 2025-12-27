@@ -1,12 +1,14 @@
 import type { WingParameters, SchrenkPoint, CombinedLoadPoint, CalculationResult } from '~/types/schrenk.types'
 
+export type LiftDistributionType = 'elliptic' | 'hunsaker'
+
 // Helper for linear interpolation space
 const linspace = (start: number, stop: number, num: number): number[] => {
   const step = (stop - start) / (num - 1)
   return Array.from({ length: num }, (_, i) => start + (step * i))
 }
 
-export const calculateWingData = (params: WingParameters): CalculationResult => {
+export const calculateWingData = (params: WingParameters, distributionType: LiftDistributionType = 'elliptic'): CalculationResult => {
   const {
     span_ft,
     wing_area_sqft,
@@ -53,12 +55,22 @@ export const calculateWingData = (params: WingParameters): CalculationResult => 
     else if (station >= semi_span_in) chord = tip_chord
     else chord = root_chord - (root_chord - tip_chord) * (station / semi_span_in)
 
-    // Ellipse Height
+    // Lift Distribution Height (Elliptic or Hunsaker)
     const y_ft = station / 12.0
     const two_y_over_b = (2 * y_ft) / span_ft
     let ellipse = 0
     if (Math.abs(two_y_over_b) < 1.0) {
-      ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * Math.sqrt(1 - Math.pow(two_y_over_b, 2))
+      const eta = 1 - Math.pow(two_y_over_b, 2)
+      
+      if (distributionType === 'hunsaker') {
+        // Hunsaker distribution
+        const a = 0.13564322
+        const eta_cubed = Math.pow(eta, 3)
+        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * ((1 - 3 * a) * eta + 4 * a * eta_cubed)
+      } else {
+        // Elliptic distribution (default)
+        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * Math.sqrt(eta)
+      }
     }
 
     const cCla = (chord + ellipse) / 2
