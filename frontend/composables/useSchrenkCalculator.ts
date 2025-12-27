@@ -60,16 +60,15 @@ export const calculateWingData = (params: WingParameters, distributionType: Lift
     const two_y_over_b = (2 * y_ft) / span_ft
     let ellipse = 0
     if (Math.abs(two_y_over_b) < 1.0) {
-      const eta = 1 - Math.pow(two_y_over_b, 2)
+      const eta = Math.sqrt(1 - Math.pow(two_y_over_b, 2))
       
       if (distributionType === 'hunsaker') {
         // Hunsaker distribution
-        const a = 0.13564322
-        const eta_cubed = Math.pow(eta, 3)
-        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * ((1 - 3 * a) * eta + 4 * a * eta_cubed)
+        const a = 0.13564
+        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * ((1 - 3 * a) * eta + 4 * a * Math.pow(eta, 3))
       } else {
         // Elliptic distribution (default)
-        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * Math.sqrt(eta)
+        ellipse = (4 * wing_area_sqft) / (Math.PI * span_ft) * eta
       }
     }
 
