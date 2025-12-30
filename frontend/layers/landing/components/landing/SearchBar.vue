@@ -116,6 +116,16 @@ const debouncedUpdate = useDebounceFn(() => {
   updateURL()
 }, 300)
 
+// Debounced update for search input (500ms delay)
+const debouncedSearchUpdate = useDebounceFn(() => {
+  updateURL()
+}, 500)
+
+// Watch search query for search-as-you-type
+watch(searchQuery, () => {
+  debouncedSearchUpdate()
+})
+
 // Watch number inputs with debouncing
 watch([thicknessMin, thicknessMax], () => {
   if (thicknessEnabled.value) {

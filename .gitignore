@@ -46,3 +46,4 @@ yarn-error.log*
 *.bak
 *.swo
 schrenk-lift*
+.claude*
