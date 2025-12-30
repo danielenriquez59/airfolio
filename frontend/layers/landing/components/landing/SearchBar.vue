@@ -208,6 +208,28 @@ const handleKeydown = (event: KeyboardEvent) => {
     handleSearch()
   }
 }
+
+// Check if any filters are active
+const hasActiveFilters = computed(() => {
+  return searchQuery.value.trim() !== '' ||
+    thicknessEnabled.value ||
+    camberEnabled.value ||
+    categoryEnabled.value
+})
+
+// Clear all filters
+const clearFilters = () => {
+  searchQuery.value = ''
+  thicknessEnabled.value = false
+  thicknessMin.value = undefined
+  thicknessMax.value = undefined
+  camberEnabled.value = false
+  camberMin.value = undefined
+  camberMax.value = undefined
+  categoryEnabled.value = false
+  selectedCategoryIds.value = []
+  updateURL()
+}
 </script>
 
 <template>
@@ -363,6 +385,18 @@ const handleKeydown = (event: KeyboardEvent) => {
               {{ formatCategoryName(category.name) }}
             </option>
           </select>
+        </div>
+
+        <!-- Clear Filters Button -->
+        <div v-if="hasActiveFilters" class="md:col-span-2 flex justify-start mt-2">
+          <button
+            type="button"
+            @click="clearFilters"
+            class="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:scale-105 active:scale-95 transition-all duration-150"
+          >
+            <Icon name="heroicons:x-mark" class="h-4 w-4" />
+            Clear Filters
+          </button>
         </div>
       </div>
         </Transition>

@@ -11,6 +11,30 @@ import {
   Filler,
 } from 'chart.js'
 
+// Plugin to draw a horizontal line at y=0
+const zeroLinePlugin = {
+  id: 'zeroLine',
+  afterDatasetsDraw(chart: any) {
+    const yScale = chart.scales.y
+    if (!yScale) return
+
+    const zeroPixel = yScale.getPixelForValue(0)
+    const ctx = chart.ctx
+    const xMin = chart.chartArea.left
+    const xMax = chart.chartArea.right
+
+    ctx.save()
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([5, 5])
+    ctx.beginPath()
+    ctx.moveTo(xMin, zeroPixel)
+    ctx.lineTo(xMax, zeroPixel)
+    ctx.stroke()
+    ctx.restore()
+  },
+}
+
 // Register Chart.js components
 ChartJS.register(
   LinearScale,
@@ -19,7 +43,8 @@ ChartJS.register(
   ChartTitle,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  zeroLinePlugin
 )
 
 // Register zoom plugin only on client side
@@ -298,7 +323,7 @@ const chartOptions = computed(() => {
         min: ranges.xMin,
         max: ranges.xMax,
         title: {
-          display: true,
+          display: false,
           text: 'Chord (x/c)',
           font: {
             size: 12,
@@ -309,6 +334,7 @@ const chartOptions = computed(() => {
           color: 'rgba(0, 0, 0, 0.1)',
         },
         ticks: {
+          display: false,
           stepSize: 10,
           callback: function(value: any) {
             const num = typeof value === 'number' ? value : parseFloat(value)
@@ -322,7 +348,7 @@ const chartOptions = computed(() => {
         min: props.aspectRatio === null ? ranges.yMin : ranges.yMin - 0.001,
         max: props.aspectRatio === null ? ranges.yMax : ranges.yMax + 0.001,
         title: {
-          display: true,
+          display: false,
           text: 'Thickness (y/c)',
           font: {
             size: 12,
@@ -333,6 +359,7 @@ const chartOptions = computed(() => {
           color: 'rgba(0, 0, 0, 0.1)',
         },
         ticks: {
+          display: false,
           stepSize: 5,
           callback: function(value: any) {
             const num = typeof value === 'number' ? value : parseFloat(value)
