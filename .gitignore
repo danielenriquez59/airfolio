@@ -45,3 +45,5 @@ yarn-error.log*
 *.tmp
 *.bak
 *.swo
+schrenk-lift*
+.claude*

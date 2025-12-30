@@ -171,9 +171,134 @@ export const useAirfoilDownload = () => {
     triggerDownload(content, filename)
   }
 
+  /**
+   * Check if airfoil is symmetric by comparing upper and lower Y coordinates
+   * Returns true if the airfoil appears symmetric (within tolerance)
+   */
+  const isSymmetric = (
+    upperX: number[],
+    upperY: number[],
+    lowerX: number[],
+    lowerY: number[]
+  ): boolean => {
+    // If counts don't match, likely not symmetric
+    if (upperX.length !== lowerX.length) return false
+    
+    const tolerance = 1e-4
+    
+    // Create sorted pairs for both surfaces
+    const upperPairs = upperX.map((x, i) => [x, upperY[i]] as [number, number])
+      .sort((a, b) => a[0] - b[0])
+    const lowerPairs = lowerX.map((x, i) => [x, lowerY[i]] as [number, number])
+      .sort((a, b) => a[0] - b[0])
+    
+    // Check if corresponding X values match and Y values are negatives
+    for (let i = 0; i < upperPairs.length; i++) {
+      const [upperXVal, upperYVal] = upperPairs[i]
+      const [lowerXVal, lowerYVal] = lowerPairs[i]
+      
+      // Check if X values match
+      if (Math.abs(upperXVal - lowerXVal) > tolerance) {
+        return false
+      }
+      
+      // Check if Y values are approximately negatives
+      if (Math.abs(upperYVal + lowerYVal) > tolerance) {
+        return false
+      }
+    }
+    
+    return true
+  }
+
+  /**
+   * Download airfoil in OpenVSP AF format
+   * Format:
+   * {AIRFOIL_NAME} GEOM AIRFOIL FILE
+   * {description or name}
+   * {sym_flag}	Sym Flag (0 - No, 1 - Yes)
+   * {num_upper}	Num Pnts Upper
+   * {num_lower}	Num Pnts Lower
+   * {upper coordinates - LE to TE}
+   * {empty line}
+   * {lower coordinates - LE to TE}
+   */
+  const downloadOpenVSP = (airfoil: Airfoil) => {
+    if (
+      !airfoil.upper_x_coordinates ||
+      !airfoil.upper_y_coordinates ||
+      !airfoil.lower_x_coordinates ||
+      !airfoil.lower_y_coordinates
+    ) {
+      throw new Error('Airfoil geometry data is missing')
+    }
+
+    if (
+      !airfoil.upper_surface_nodes ||
+      !airfoil.lower_surface_nodes
+    ) {
+      throw new Error('Surface node counts are missing')
+    }
+
+    // Sort coordinates: LE to TE for both surfaces
+    // Upper: ascending X (LE to TE)
+    // Lower: ascending X (LE to TE)
+    const upperCoords = sortLowerCoordinates(
+      airfoil.upper_x_coordinates,
+      airfoil.upper_y_coordinates
+    )
+    const lowerCoords = sortLowerCoordinates(
+      airfoil.lower_x_coordinates,
+      airfoil.lower_y_coordinates
+    )
+
+    // Check if symmetric
+    const symFlag = isSymmetric(
+      airfoil.upper_x_coordinates,
+      airfoil.upper_y_coordinates,
+      airfoil.lower_x_coordinates,
+      airfoil.lower_y_coordinates
+    ) ? 1 : 0
+
+    // Build file content
+    const lines: string[] = []
+    
+    // Header: "{name} GEOM AIRFOIL FILE"
+    lines.push(`${airfoil.name.toUpperCase()} GEOM AIRFOIL FILE`)
+    
+    // Description or name (use display_name if available, otherwise name)
+    const displayName = airfoil.display_name || airfoil.name
+    lines.push(displayName)
+    
+    // Symmetry flag
+    lines.push(`${symFlag}\tSym Flag (0 - No, 1 - Yes)`)
+    
+    // Point counts
+    lines.push(`${airfoil.upper_surface_nodes}\tNum Pnts Upper`)
+    lines.push(`${airfoil.lower_surface_nodes}\tNum Pnts Lower`)
+    
+    // Upper surface coordinates (LE to TE)
+    upperCoords.forEach(([x, y]) => {
+      lines.push(`${x.toFixed(6)}  ${y.toFixed(6)}`)
+    })
+    
+    // Empty line
+    lines.push('')
+    
+    // Lower surface coordinates (LE to TE)
+    lowerCoords.forEach(([x, y]) => {
+      lines.push(`${x.toFixed(6)}  ${y.toFixed(6)}`)
+    })
+
+    const content = lines.join('\n')
+    const filename = `${sanitizeFilename(airfoil.name)}.af`
+    triggerDownload(content, filename)
+  }
+
   return {
     downloadLednicer,
     downloadSelig,
+    downloadOpenVSP,
   }
 }
 

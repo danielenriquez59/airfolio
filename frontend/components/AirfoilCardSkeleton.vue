@@ -73,3 +73,5 @@ const aspectRatio = 3.5
   </VCard>
 </template>
 
+
+

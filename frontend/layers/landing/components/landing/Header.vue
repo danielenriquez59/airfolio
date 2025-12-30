@@ -9,18 +9,20 @@ defineProps<{
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
   { title: 'Airfoils', to: '/search' },
-  {
-    title: 'Tools',
-    to: '#',
-    children: [
-      { title: 'Performance Compare', to: '/performance' },
-      { title: 'Geometry Compare', to: '/geometry-compare' },
-      { title: 'Upload', to: '/upload' },
-      { title: 'CST Generator', to: '/cst-visualizer' },
-      { title: 'NACA Generator', to: '/tools/naca-generator' },
-      { title: 'Airfoil Manager', to: '/airfoils-manager' },
+    {
+      title: 'Tools',
+      to: '#',
+      children: [
+        { title: 'Performance Compare', to: '/performance' },
+        { title: 'Geometry Compare', to: '/geometry-compare' },
+        { title: 'Upload', to: '/upload' },
+        { title: 'CST Generator', to: '/cst-visualizer' },
+        { title: 'NACA Generator', to: '/tools/naca-generator' },
+        { title: 'Structural Loading Calculator', to: '/tools/schrenk-calculator' },
+        { title: 'Spar Inertia Calculator', to: '/tools/spar-inertia-calculator' },
+        { title: 'Airfoil Manager', to: '/airfoils-manager' },
     ],
-  },
+    },
   { title: 'About', to: '/about' },
 ]
 </script>

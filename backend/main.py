@@ -96,11 +96,13 @@ class AirfoilValidationResponse(BaseModel):
 
 class AirfoilCreateRequest(BaseModel):
     """Request to create a new airfoil"""
-    name: str = Field(..., min_length=1, description="Airfoil name")
+    name: str = Field(..., min_length=1, description="Normalized airfoil name (alphanumeric only)")
+    display_name: Optional[str] = Field(None, description="Display name (any characters, defaults to name if not provided)")
     description: Optional[str] = None
     upper_surface: List[CoordinatePair] = Field(..., description="Upper surface coordinates")
     lower_surface: List[CoordinatePair] = Field(..., description="Lower surface coordinates")
     source_url: Optional[str] = None
+    category: Optional[str] = Field(None, description="Category ID or name")
 
 
 class AirfoilCreateResponse(BaseModel):
@@ -574,16 +576,37 @@ async def create_airfoil(request: AirfoilCreateRequest):
         
         # Prepare data for insertion
         airfoil_id = str(uuid.uuid4())
-        file_path = f"airfoils/{request.name.replace(' ', '_')}.dat"
+        # Normalized name is already alphanumeric only, so no need to replace spaces
+        file_path = f"airfoils/{request.name}.dat"
+        
+        # Handle category - if it's a UUID, fetch the category name, otherwise use as-is
+        category_value = None
+        if request.category:
+            # Check if it's a UUID (category ID)
+            try:
+                uuid.UUID(request.category)  # Validate UUID format
+                # Fetch category name from database
+                if supabase:
+                    category_response = supabase.table('categories').select('name').eq('id', request.category).single().execute()
+                    if category_response.data:
+                        category_value = category_response.data.get('name')
+            except ValueError:
+                # Not a UUID, use as category name directly
+                category_value = request.category
         
         airfoil_data = {
             'id': airfoil_id,
-            'name': request.name,
+            'name': request.name,  # Normalized name (alphanumeric only)
+            'display_name': request.display_name or request.name,  # Use display_name if provided, otherwise fallback to name
             'description': request.description,
             'source_url': request.source_url,
             'file_path': file_path,
             **calculated_properties,
         }
+        
+        # Add category if provided
+        if category_value:
+            airfoil_data['category'] = category_value
         
         # Insert into database
         response = supabase.table('airfoils').insert(airfoil_data).execute()

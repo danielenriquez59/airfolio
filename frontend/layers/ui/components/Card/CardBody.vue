@@ -10,7 +10,7 @@ const props = withDefaults(
 </script>
 
 <template>
-  <div class="px-4 py-3 text-gray-600">
+  <div class="px-4 py-1 text-gray-600">
     <slot />
   </div>
 </template>

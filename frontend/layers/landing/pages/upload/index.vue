@@ -29,6 +29,7 @@ const {
   validateAirfoilName,
   generateDataHash,
   storeTemporaryData,
+  generateNormalizedName,
 } = useAirfoilUpload()
 
 const { fetchCategories } = useCategories()
@@ -165,8 +166,12 @@ const handleSubmit = async () => {
       }))
       .filter(c => !isNaN(c.x) && !isNaN(c.y)) as Array<{ x: number; y: number }>
 
+    const displayName = airfoilName.value.trim()
+    const normalizedName = generateNormalizedName(displayName)
+
     const uploadData = {
-      name: airfoilName.value.trim(),
+      name: normalizedName,
+      displayName: displayName,
       description: description.value.trim() || undefined,
       upperSurface: upper,
       lowerSurface: lower,
@@ -233,9 +238,6 @@ const resetForm = () => {
             wrapper-class="w-full"
             size="lg"
           />
-          <p class="mt-1 text-xs text-gray-500">
-            Alphanumeric characters, hyphens, and spaces allowed. Maximum 12 characters.
-          </p>
           <p v-if="errors.name" class="mt-1 text-sm text-red-600">
             {{ errors.name }}
           </p>
