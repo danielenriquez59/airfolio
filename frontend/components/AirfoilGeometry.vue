@@ -114,8 +114,8 @@ const defaultColors = [
 // Chart instance reference for zoom reset
 const chartRef = ref<InstanceType<typeof Scatter> | null>(null)
 
-// Marker visibility state
-const showMarkers = ref(props.showPointsOnHover)
+// Marker visibility state (hidden by default)
+const showMarkers = ref(false)
 
 // Process coordinate data
 const chartData = computed(() => {
@@ -403,11 +403,10 @@ watch(() => props.showPointsOnHover, (newVal) => {
     <div class="w-full">
       <!-- Control Buttons - Above Legend -->
       <div
-        v-if="zoomable || showPointsOnHover"
+        v-if="zoomable"
         class="flex gap-2 justify-end mb-2"
       >
         <button
-          v-if="zoomable"
           type="button"
           @click="resetZoom"
           class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
@@ -416,8 +415,11 @@ watch(() => props.showPointsOnHover, (newVal) => {
           <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
           <span>Reset Zoom</span>
         </button>
+      </div>
+
+      <!-- Markers Button (independent from control buttons) -->
+      <div class="flex gap-2 justify-end mb-2">
         <button
-          v-if="showPointsOnHover"
           type="button"
           @click="toggleMarkers"
           class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"

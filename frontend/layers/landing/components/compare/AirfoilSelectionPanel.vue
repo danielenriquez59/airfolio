@@ -20,16 +20,26 @@ const emit = defineEmits<{
 }>()
 
 const searchQuery = ref('')
+const showSelectedOnly = ref(false)
 
 // Filter airfoils based on search query
 const displayedAirfoils = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.airfoils
+  let filtered = props.airfoils
+
+  // Filter by selected-only mode
+  if (showSelectedOnly.value) {
+    filtered = filtered.filter(airfoil => props.modelValue.includes(airfoil.id))
   }
-  const searchTerm = searchQuery.value.trim().toLowerCase()
-  return props.airfoils.filter(airfoil =>
-    airfoil.name.toLowerCase().includes(searchTerm)
-  )
+
+  // Filter by search query
+  if (searchQuery.value.trim()) {
+    const searchTerm = searchQuery.value.trim().toLowerCase()
+    filtered = filtered.filter(airfoil =>
+      airfoil.name.toLowerCase().includes(searchTerm)
+    )
+  }
+
+  return filtered
 })
 
 // Selected count
@@ -139,8 +149,21 @@ const formatPercentage = (value: number | null | undefined): string => {
         >
           Deselect All
         </button>
+        <span class="text-gray-300">|</span>
+        <button
+          type="button"
+          :class="[
+            'text-xs font-medium',
+            showSelectedOnly
+              ? 'text-indigo-600 hover:text-indigo-800'
+              : 'text-indigo-600 hover:text-indigo-800'
+          ]"
+          @click="showSelectedOnly = !showSelectedOnly"
+        >
+          {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
+        </button>
       </div>
-      <div v-if="searchQuery.trim()" class="text-xs text-gray-500">
+      <div v-if="searchQuery.trim() || showSelectedOnly" class="text-xs text-gray-500">
         Showing {{ displayedAirfoils.length }} of {{ airfoils.length }}
       </div>
     </div>

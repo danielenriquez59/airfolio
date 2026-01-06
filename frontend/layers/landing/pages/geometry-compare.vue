@@ -235,7 +235,6 @@ onMounted(() => {
                 :show-legend="true"
                 :aspect-ratio="3"
                 :zoomable="true"
-                :show-points-on-hover="true"
               />
             </div>
 
