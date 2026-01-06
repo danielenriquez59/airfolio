@@ -24,6 +24,7 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 const defaultInputs: SparInputs = {
   chordLength: 1000,      // mm
   skinThickness: 5,       // mm
+  skinOffset: 0,          // mm
   sparLocation: 0.3,      // 30% chord
   sparWidth: 50,          // mm
   sparWallThickness: 5,   // mm

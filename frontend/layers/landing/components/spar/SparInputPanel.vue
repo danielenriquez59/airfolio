@@ -28,11 +28,11 @@ const lengthStep = computed(() => {
 })
 const thicknessStep = computed(() => {
   switch (props.modelValue.unitSystem) {
-    case 'mm': return 0.1
-    case 'in': return 0.01
-    case 'm': return 0.001
-    case 'ft': return 0.01
-    default: return 0.1
+    case 'mm': return 0.001
+    case 'in': return 0.0001
+    case 'm': return 0.00001
+    case 'ft': return 0.0001
+    default: return 0.001
   }
 })
 </script>
@@ -86,6 +86,15 @@ const thicknessStep = computed(() => {
           :unit="lengthUnit"
           :step="thicknessStep"
           tooltip="Thickness of the airfoil skin material"
+        />
+        <SchrenkInputGroup
+          label="Skin Offset"
+          name="skinOffset"
+          :model-value="modelValue.skinOffset"
+          @update:model-value="updateValue('skinOffset', $event)"
+          :unit="lengthUnit"
+          :step="thicknessStep"
+          tooltip="Offset added to skin thickness"
         />
       </div>
 
