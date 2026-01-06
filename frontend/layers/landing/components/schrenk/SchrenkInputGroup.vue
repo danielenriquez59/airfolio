@@ -33,10 +33,10 @@ const handleInput = (event: Event) => {
     </label>
     <div class="relative rounded-md shadow-sm">
       <input
-        :type="'number'"
+        type="number"
         :name="name"
         :value="modelValue"
-        :step="step"
+        step="any"
         @input="handleInput"
         class="block w-full rounded-md border-slate-300 py-2 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
       />
