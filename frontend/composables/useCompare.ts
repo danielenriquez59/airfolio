@@ -481,6 +481,18 @@ export const useCompare = () => {
     applyFilters()
   }
 
+  /**
+   * Reset all analysis data and clear caches
+   */
+  const resetAnalysis = () => {
+    state.allAirfoils.clear()
+    state.filteredAirfoils = []
+    state.selectedAirfoils = []
+    state.filters = { ...DEFAULT_FILTERS }
+    ldCache.clear()
+    metricsCache.clear()
+  }
+
   return {
     state: readonly(state),
     normalizeAnalysisResults,
@@ -492,6 +504,7 @@ export const useCompare = () => {
     getSelectedAirfoilsData,
     getSummaryData,
     resetFilters,
+    resetAnalysis,
     applyFilters,
     getFilterRanges,
     clearCache: () => {

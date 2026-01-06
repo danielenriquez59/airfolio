@@ -30,6 +30,7 @@ const {
   getSelectedAirfoilsData,
   getSummaryData,
   resetFilters,
+  resetAnalysis,
   getFilterRanges,
 } = useCompare()
 
@@ -71,7 +72,7 @@ const camberMin = ref<number | undefined>()
 const camberMax = ref<number | undefined>()
 
 // Analysis parameters
-const reynoldsNumber = ref<number>(100)
+const reynoldsNumber = ref<number>(500)
 const machNumber = ref<number>(0)
 const alphaMin = ref<number>(-5)
 const alphaMax = ref<number>(20)
@@ -1024,6 +1025,7 @@ onMounted(async () => {
           @select-all="selectAllFiltered"
           @deselect-all="deselectAll"
           @reset-filters="resetFilters"
+          @reset-analysis="() => { resetAnalysis(); router.push('/performance') }"
           @update-performance-mode="performanceMode = $event"
         />
       </div>

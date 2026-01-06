@@ -32,6 +32,7 @@ const emit = defineEmits<{
   'select-all': []
   'deselect-all': []
   'reset-filters': []
+  'reset-analysis': []
   'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
@@ -137,16 +138,26 @@ watch(() => filterEnabled.targetDesign, (enabled) => {
 
 // Search functionality for Analyzed Airfoils
 const searchQuery = ref('')
+const showSelectedOnly = ref(false)
 
-// Filter the airfoils based on search query
+// Filter the airfoils based on search query and selected-only mode
 const visibleAirfoils = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.filteredAirfoils
+  let result = props.filteredAirfoils
+
+  // Filter to show only selected airfoils if in that mode
+  if (showSelectedOnly.value) {
+    result = result.filter(name => props.selectedAirfoils.includes(name))
   }
-  const query = searchQuery.value.toLowerCase()
-  return props.filteredAirfoils.filter(name => 
-    name.toLowerCase().includes(query)
-  )
+
+  // Further filter by search query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(name =>
+      name.toLowerCase().includes(query)
+    )
+  }
+
+  return result
 })
 
 const handleSelectAll = () => {
@@ -170,8 +181,20 @@ const handleDeselectAll = () => {
   }
 }
 
+const handleShowSelected = () => {
+  showSelectedOnly.value = !showSelectedOnly.value
+  // Clear search when toggling selected view
+  if (showSelectedOnly.value) {
+    searchQuery.value = ''
+  }
+}
+
 const handleResetFilters = () => {
   emit('reset-filters')
+}
+
+const handleResetAnalysis = () => {
+  emit('reset-analysis')
 }
 </script>
 
@@ -544,6 +567,19 @@ const handleResetFilters = () => {
         >
           Hide All
         </button>
+        <span class="text-gray-300">|</span>
+        <button
+          type="button"
+          :class="[
+            'text-xs transition-colors',
+            showSelectedOnly
+              ? 'text-red-600 hover:text-red-800'
+              : 'text-indigo-600 hover:text-indigo-800'
+          ]"
+          @click="handleShowSelected"
+        >
+          {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
+        </button>
       </div>
 
       <div v-if="filteredAirfoils.length === 0" class="text-sm text-gray-500 text-center py-4">
@@ -564,6 +600,17 @@ const handleResetFilters = () => {
           />
           <span class="text-sm text-gray-700 flex-1">{{ name.toUpperCase() }}</span>
         </label>
+      </div>
+
+      <!-- Reset Analysis Button -->
+      <div class="pt-4 border-t border-gray-200 mt-4">
+        <button
+          type="button"
+          class="w-full px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+          @click="handleResetAnalysis"
+        >
+          Reset Analysis
+        </button>
       </div>
     </div>
   </div>
