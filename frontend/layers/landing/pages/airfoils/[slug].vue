@@ -307,7 +307,7 @@ useHead({
             :aspect-ratio="3"
             :show-grid="true"
             :zoomable="true"
-            :show-points-on-hover="true"
+            :show-points-on-hover="false"
           />
           <div v-else class="text-center py-8 text-gray-400">
             Geometry data not available
