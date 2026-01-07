@@ -39,7 +39,7 @@ const results = ref<ControlSurfaceResponse | null>(null)
 
 // Flap configurations (up to 3)
 const flapConfigs = ref<FlapConfig[]>([
-  { deflection: 0, hinge_point: 0.75 }, // Default: original airfoil
+  { deflection: 5, hinge_point: 0.75 }, // Default: 5 degree deflection
 ])
 
 // Flow conditions
@@ -75,7 +75,7 @@ const isValidConfig = computed(() => {
 
 // Prepare geometries for display
 const geometriesForDisplay = computed(() => {
-  if (!airfoil.value || !results.value) return []
+  if (!airfoil.value) return []
 
   const geometries: Array<{
     name: string
@@ -86,7 +86,7 @@ const geometriesForDisplay = computed(() => {
     color: string
   }> = []
 
-  // Add original airfoil
+  // Always add original airfoil
   geometries.push({
     name: 'Original',
     upperX: airfoil.value.upper_x_coordinates || [],
@@ -96,20 +96,22 @@ const geometriesForDisplay = computed(() => {
     color: '#3B82F6', // Blue
   })
 
-  // Add deflected configurations
-  const colors = ['#EF4444', '#10B981', '#F59E0B'] // Red, Green, Amber
-  results.value.results.forEach((result, index) => {
-    if (result.deflection !== 0) {
-      geometries.push({
-        name: `δ=${result.deflection}° @ ${(result.hinge_point * 100).toFixed(0)}%`,
-        upperX: result.geometry.upper_x,
-        upperY: result.geometry.upper_y,
-        lowerX: result.geometry.lower_x,
-        lowerY: result.geometry.lower_y,
-        color: colors[index % colors.length],
-      })
-    }
-  })
+  // Add deflected configurations if results are available
+  if (results.value) {
+    const colors = ['#EF4444', '#10B981', '#F59E0B'] // Red, Green, Amber
+    results.value.results.forEach((result, index) => {
+      if (result.deflection !== 0) {
+        geometries.push({
+          name: `δ=${result.deflection}° @ ${(result.hinge_point * 100).toFixed(0)}%`,
+          upperX: result.geometry.upper_x,
+          upperY: result.geometry.upper_y,
+          lowerX: result.geometry.lower_x,
+          lowerY: result.geometry.lower_y,
+          color: colors[index % colors.length],
+        })
+      }
+    })
+  }
 
   return geometries
 })
@@ -214,7 +216,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
+  <div class="min-h-screen bg-white py-12">
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mb-8">
@@ -323,6 +325,16 @@ onMounted(async () => {
           <p class="mt-2 text-xs text-gray-500">
             Deflection range: -30° to +30° | Hinge point range: 50% to 90% chord
           </p>
+
+          <!-- Airfoil Geometry -->
+          <div class="mt-6">
+            <h3 class="text-md font-semibold text-gray-900 mb-4">Airfoil Geometry Comparison</h3>
+            <AirfoilGeometry
+              :geometries="geometriesForDisplay"
+              :show-legend="true"
+              :aspect-ratio="3.5"
+            />
+          </div>
         </div>
 
         <!-- Flow Conditions -->
@@ -406,23 +418,23 @@ onMounted(async () => {
               />
             </div>
           </div>
-        </div>
 
-        <!-- Submit Button -->
-        <div class="flex justify-center">
-          <button
-            type="button"
-            @click="handleAnalysis"
-            :disabled="!isValidConfig || isAnalyzing"
-            class="px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-          >
-            <Icon
-              v-if="isAnalyzing"
-              name="heroicons:arrow-path"
-              class="h-5 w-5 animate-spin"
-            />
-            <span>{{ isAnalyzing ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
-          </button>
+          <!-- Submit Button -->
+          <div class="mt-6 flex justify-center">
+            <button
+              type="button"
+              @click="handleAnalysis"
+              :disabled="!isValidConfig || isAnalyzing"
+              class="px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <Icon
+                v-if="isAnalyzing"
+                name="heroicons:arrow-path"
+                class="h-5 w-5 animate-spin"
+              />
+              <span>{{ isAnalyzing ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Analysis Error -->
@@ -432,16 +444,6 @@ onMounted(async () => {
 
         <!-- Results -->
         <div v-if="results" class="space-y-8">
-          <!-- Geometry Overlay -->
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Airfoil Geometry Comparison</h2>
-            <AirfoilGeometry
-              :geometries="geometriesForDisplay"
-              :show-legend="true"
-              height="500"
-            />
-          </div>
-
           <!-- Performance Plots -->
           <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Performance Comparison</h2>

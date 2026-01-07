@@ -1008,6 +1008,21 @@ onMounted(async () => {
 
   <!-- Main Content: Plots & Table -->
   <div v-else-if="state.allAirfoils.size > 0" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Compare</h1>
+      <p class="text-lg text-gray-600">
+        Configure geometry filters and flow conditions to run a
+        <a
+          href="https://github.com/peterdsharpe/NeuralFoil"
+          target="_blank"
+          rel="noopener"
+          class="text-indigo-600 underline hover:text-indigo-800"
+        >NeuralFoil</a>
+        powered aerodynamic airfoil comparison!
+      </p>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <!-- Sidebar: Filters & Selection -->
       <div class="lg:col-span-1">
