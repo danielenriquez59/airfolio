@@ -132,6 +132,9 @@ export const useAirfoilDownload = () => {
     const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
     lines.push(`${upperCountStr}  ${lowerCountStr}`)
 
+    // Blank line after counts
+    lines.push('')
+
     // Upper surface coordinates (ascending X, LE to TE)
     upperCoords.forEach(([x, y]) => {
       lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
