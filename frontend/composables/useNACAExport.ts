@@ -83,6 +83,30 @@ const formatCoord = (num: number): string => {
 }
 
 /**
+ * Remove duplicate points from coordinate array
+ * Two points are considered duplicates if both x and y are within tolerance
+ */
+const removeDuplicates = (
+  coords: Array<[number, number]>,
+  tolerance: number = 5e-5
+): Array<[number, number]> => {
+  const result: Array<[number, number]> = []
+
+  for (const coord of coords) {
+    const isDuplicate = result.some(existing =>
+      Math.abs(existing[0] - coord[0]) < tolerance &&
+      Math.abs(existing[1] - coord[1]) < tolerance
+    )
+
+    if (!isDuplicate) {
+      result.push(coord)
+    }
+  }
+
+  return result
+}
+
+/**
  * Sort upper surface coordinates by X descending (TE to LE)
  */
 const sortUpperCoordinates = (
@@ -113,9 +137,14 @@ export const exportNACALednicer = (
   coordinates: NACACoordinates,
   airfoilName: string = 'NACA_Airfoil'
 ) => {
-  // Sort coordinates
-  const upperCoords = sortUpperCoordinates(coordinates.upperX, coordinates.upperY)
-  const lowerCoords = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
+  // Sort coordinates and remove duplicates
+  // Both surfaces: ascending X (LE to TE)
+  const upperCoordsSorted = sortLowerCoordinates(coordinates.upperX, coordinates.upperY)
+  const lowerCoordsSorted = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
+
+  // Remove duplicates from both surfaces
+  const upperCoords = removeDuplicates(upperCoordsSorted)
+  const lowerCoords = removeDuplicates(lowerCoordsSorted)
 
   // Build file content
   const lines: string[] = []
@@ -124,16 +153,20 @@ export const exportNACALednicer = (
   lines.push(airfoilName.toUpperCase())
 
   // Upper and lower counts (with periods and spacing)
+  // Use actual counts after duplicate removal
   const upperCountStr = (upperCoords.length.toString() + '.').padStart(8)
   const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
   lines.push(`${upperCountStr}  ${lowerCountStr}`)
 
-  // Upper surface coordinates (descending X)
+  // Upper surface coordinates (ascending X, LE to TE)
   upperCoords.forEach(([x, y]) => {
     lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
   })
 
-  // Lower surface coordinates (ascending X)
+  // Blank line between upper and lower surfaces
+  lines.push('')
+
+  // Lower surface coordinates (ascending X, LE to TE)
   lowerCoords.forEach(([x, y]) => {
     lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
   })
@@ -152,11 +185,15 @@ export const exportNACASelig = (
   coordinates: NACACoordinates,
   airfoilName: string = 'NACA_Airfoil'
 ) => {
-  // Sort coordinates
+  // Sort coordinates and remove duplicates
   // Upper: descending X (TE to LE)
   // Lower: ascending X (LE to TE)
-  const upperCoords = sortUpperCoordinates(coordinates.upperX, coordinates.upperY)
-  const lowerCoords = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
+  const upperCoordsSorted = sortUpperCoordinates(coordinates.upperX, coordinates.upperY)
+  const lowerCoordsSorted = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
+
+  // Remove duplicates from both surfaces
+  const upperCoords = removeDuplicates(upperCoordsSorted)
+  const lowerCoords = removeDuplicates(lowerCoordsSorted)
 
   // Build file content
   const lines: string[] = []
