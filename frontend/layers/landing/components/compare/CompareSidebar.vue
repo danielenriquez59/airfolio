@@ -40,6 +40,7 @@ const emit = defineEmits<{
 const maxCMRoughness = ref(props.filters.maxCMRoughness)
 const minCMAtZero = ref(props.filters.minCMAtZero)
 const minMaxLD = ref(props.filters.minMaxLD)
+const maxMaxLD = ref(props.filters.maxMaxLD)
 const minCLMax = ref(props.filters.minCLMax)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
@@ -48,7 +49,7 @@ const targetAOA = ref(props.filters.targetAOA)
 const filterEnabled = reactive({
   maxCMRoughness: props.filters.maxCMRoughness !== null,
   minCMAtZero: props.filters.minCMAtZero !== null,
-  minMaxLD: props.filters.minMaxLD !== null,
+  maxLD: props.filters.minMaxLD !== null || props.filters.maxMaxLD !== null,
   minCLMax: props.filters.minCLMax !== null,
   // Design CL and α are paired - enabled if EITHER has a value initially
   targetDesign: props.filters.targetCL !== null || props.filters.targetAOA !== null,
@@ -67,7 +68,24 @@ const minCMAtZeroSlider = computed({
 
 const minMaxLDSlider = computed({
   get: () => minMaxLD.value ?? (props.filterRanges?.maxLD.min ?? 0),
-  set: (val) => { minMaxLD.value = val }
+  set: (val) => {
+    minMaxLD.value = val
+    // Ensure max is always >= min
+    if (maxMaxLD.value !== null && val > maxMaxLD.value) {
+      maxMaxLD.value = val
+    }
+  }
+})
+
+const maxMaxLDSlider = computed({
+  get: () => maxMaxLD.value ?? (props.filterRanges?.maxLD.max ?? 0),
+  set: (val) => {
+    maxMaxLD.value = val
+    // Ensure min is always <= max
+    if (minMaxLD.value !== null && val < minMaxLD.value) {
+      minMaxLD.value = val
+    }
+  }
 })
 
 const minCLMaxSlider = computed({
@@ -82,15 +100,16 @@ watch(
     maxCMRoughness.value = newFilters.maxCMRoughness
     minCMAtZero.value = newFilters.minCMAtZero
     minMaxLD.value = newFilters.minMaxLD
+    maxMaxLD.value = newFilters.maxMaxLD
     minCLMax.value = newFilters.minCLMax
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
-    
+
     // DO NOT recalculate enabled state from values - let user control it via checkbox
     // Only update enabled state if ALL values for a filter become null (filter was cleared externally)
     if (newFilters.maxCMRoughness === null) filterEnabled.maxCMRoughness = false
     if (newFilters.minCMAtZero === null) filterEnabled.minCMAtZero = false
-    if (newFilters.minMaxLD === null) filterEnabled.minMaxLD = false
+    if (newFilters.minMaxLD === null && newFilters.maxMaxLD === null) filterEnabled.maxLD = false
     if (newFilters.minCLMax === null) filterEnabled.minCLMax = false
     if (newFilters.targetCL === null && newFilters.targetAOA === null) filterEnabled.targetDesign = false
   },
@@ -105,7 +124,10 @@ watch(minCMAtZero, (val) => {
   emit('update-filter', 'minCMAtZero', filterEnabled.minCMAtZero ? val : null)
 })
 watch(minMaxLD, (val) => {
-  emit('update-filter', 'minMaxLD', filterEnabled.minMaxLD ? val : null)
+  emit('update-filter', 'minMaxLD', filterEnabled.maxLD ? val : null)
+})
+watch(maxMaxLD, (val) => {
+  emit('update-filter', 'maxMaxLD', filterEnabled.maxLD ? val : null)
 })
 watch(minCLMax, (val) => {
   emit('update-filter', 'minCLMax', filterEnabled.minCLMax ? val : null)
@@ -124,8 +146,9 @@ watch(() => filterEnabled.maxCMRoughness, (enabled) => {
 watch(() => filterEnabled.minCMAtZero, (enabled) => {
   emit('update-filter', 'minCMAtZero', enabled ? minCMAtZero.value : null)
 })
-watch(() => filterEnabled.minMaxLD, (enabled) => {
+watch(() => filterEnabled.maxLD, (enabled) => {
   emit('update-filter', 'minMaxLD', enabled ? minMaxLD.value : null)
+  emit('update-filter', 'maxMaxLD', enabled ? maxMaxLD.value : null)
 })
 watch(() => filterEnabled.minCLMax, (enabled) => {
   emit('update-filter', 'minCLMax', enabled ? minCLMax.value : null)
@@ -300,54 +323,92 @@ const handleResetAnalysis = () => {
           </div>
         </div>
 
-        <!-- Min Max L/D -->
+        <!-- Max L/D Range -->
         <div v-if="filterRanges">
           <div class="flex items-center justify-between mb-1">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                v-model="filterEnabled.minMaxLD"
+                v-model="filterEnabled.maxLD"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              Min Max L/D
+              Max L/D Range
             </label>
             <span class="text-sm font-semibold text-indigo-600">
-              {{ minMaxLD !== null && minMaxLD !== undefined ? minMaxLD.toFixed(2) : 'No limit' }}
+              <template v-if="minMaxLD !== null || maxMaxLD !== null">
+                {{ minMaxLD !== null ? minMaxLD.toFixed(1) : filterRanges.maxLD.min.toFixed(1) }} - {{ maxMaxLD !== null ? maxMaxLD.toFixed(1) : filterRanges.maxLD.max.toFixed(1) }}
+              </template>
+              <template v-else>No limit</template>
             </span>
           </div>
-          <input
-            v-model.number="minMaxLDSlider"
-            type="range"
-            :min="filterRanges.maxLD.min"
-            :max="filterRanges.maxLD.max"
-            step="0.1"
-            :disabled="!filterEnabled.minMaxLD"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
+          <!-- Min slider -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs text-gray-600">
+              <span>Min</span>
+              <span>{{ minMaxLD !== null ? minMaxLD.toFixed(1) : filterRanges.maxLD.min.toFixed(1) }}</span>
+            </div>
+            <input
+              v-model.number="minMaxLDSlider"
+              type="range"
+              :min="filterRanges.maxLD.min"
+              :max="filterRanges.maxLD.max"
+              step="0.1"
+              :disabled="!filterEnabled.maxLD"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
+          <!-- Max slider -->
+          <div class="space-y-1 mt-2">
+            <div class="flex justify-between text-xs text-gray-600">
+              <span>Max</span>
+              <span>{{ maxMaxLD !== null ? maxMaxLD.toFixed(1) : filterRanges.maxLD.max.toFixed(1) }}</span>
+            </div>
+            <input
+              v-model.number="maxMaxLDSlider"
+              type="range"
+              :min="filterRanges.maxLD.min"
+              :max="filterRanges.maxLD.max"
+              step="0.1"
+              :disabled="!filterEnabled.maxLD"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(2) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(2) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(1) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(1) }}</span>
           </div>
         </div>
         <div v-else>
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
-              v-model="filterEnabled.minMaxLD"
+              v-model="filterEnabled.maxLD"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Min Max L/D
+            Max L/D Range
           </label>
-          <VInput
-            :model-value="minMaxLD ?? undefined"
-            @update:model-value="minMaxLD = $event as number | null"
-            type="number"
-            step="0.1"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.minMaxLD"
-          />
+          <div class="grid grid-cols-2 gap-2">
+            <VInput
+              :model-value="minMaxLD ?? undefined"
+              @update:model-value="minMaxLD = $event as number | null"
+              type="number"
+              step="0.1"
+              placeholder="Min"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.maxLD"
+            />
+            <VInput
+              :model-value="maxMaxLD ?? undefined"
+              @update:model-value="maxMaxLD = $event as number | null"
+              type="number"
+              step="0.1"
+              placeholder="Max"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.maxLD"
+            />
+          </div>
         </div>
 
         <!-- Min CL Max -->

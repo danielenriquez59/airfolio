@@ -32,6 +32,7 @@ export interface FilterState {
   maxCMRoughness: number | null // smoothness_CM ≤
   minCMAtZero: number | null // Min CM at α = 0°
   minMaxLD: number | null // Min Max L/D
+  maxMaxLD: number | null // Max Max L/D
   minCLMax: number | null // Min CL Max
   targetCL: number | null
   targetAOA: number | null
@@ -50,6 +51,7 @@ const DEFAULT_FILTERS: FilterState = {
   maxCMRoughness: null,
   minCMAtZero: null,
   minMaxLD: null,
+  maxMaxLD: null,
   minCLMax: null,
   targetCL: null,
   targetAOA: null,
@@ -186,11 +188,17 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
     }
   }
   
-  // Min Max L/D
-  if (filters.minMaxLD !== null) {
+  // Min/Max L/D Range
+  if (filters.minMaxLD !== null || filters.maxMaxLD !== null) {
     const LD = calculateLD(CL, CD)
     const maxLD = Math.max(...LD.filter(v => isFinite(v)))
-    if (!isFinite(maxLD) || maxLD < filters.minMaxLD) {
+    if (!isFinite(maxLD)) {
+      return false
+    }
+    if (filters.minMaxLD !== null && maxLD < filters.minMaxLD) {
+      return false
+    }
+    if (filters.maxMaxLD !== null && maxLD > filters.maxMaxLD) {
       return false
     }
   }

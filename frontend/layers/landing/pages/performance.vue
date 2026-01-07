@@ -183,6 +183,9 @@ const loadPerformanceFiltersFromURL = () => {
   if (query.minMaxLD) {
     updateFilter('minMaxLD', parseFloat(query.minMaxLD as string))
   }
+  if (query.maxMaxLD) {
+    updateFilter('maxMaxLD', parseFloat(query.maxMaxLD as string))
+  }
   if (query.minCLMax) {
     updateFilter('minCLMax', parseFloat(query.minCLMax as string))
   }
@@ -253,6 +256,9 @@ const updateURL = () => {
   }
   if (state.filters.minMaxLD !== null) {
     query.minMaxLD = state.filters.minMaxLD.toString()
+  }
+  if (state.filters.maxMaxLD !== null) {
+    query.maxMaxLD = state.filters.maxMaxLD.toString()
   }
   if (state.filters.minCLMax !== null) {
     query.minCLMax = state.filters.minCLMax.toString()
