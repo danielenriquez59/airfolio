@@ -26,6 +26,34 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
 
+// Geometry tab state
+const activeGeometryTab = ref<'plot' | 'points' | 'bezier'>('plot')
+
+// Compute coordinate table data
+const coordinateTableData = computed(() => {
+  if (!airfoil.value) return []
+
+  const upperX = airfoil.value.upper_x_coordinates || []
+  const upperY = airfoil.value.upper_y_coordinates || []
+  const lowerX = airfoil.value.lower_x_coordinates || []
+  const lowerY = airfoil.value.lower_y_coordinates || []
+
+  const maxLength = Math.max(upperX.length, lowerX.length)
+  const rows = []
+
+  for (let i = 0; i < maxLength; i++) {
+    rows.push({
+      index: i + 1,
+      upperX: upperX[i] !== undefined ? upperX[i].toFixed(6) : '-',
+      upperY: upperY[i] !== undefined ? upperY[i].toFixed(6) : '-',
+      lowerX: lowerX[i] !== undefined ? lowerX[i].toFixed(6) : '-',
+      lowerY: lowerY[i] !== undefined ? lowerY[i].toFixed(6) : '-',
+    })
+  }
+
+  return rows
+})
+
 // Download format selection
 const selectedFormat = ref<{ value: string; text: string } | null>(null)
 const downloadFormats = [
@@ -297,20 +325,134 @@ useHead({
 
         <!-- Geometry Visualization -->
         <div class="mb-8">
-          <AirfoilGeometry
-            v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-            :upper-x="airfoil.upper_x_coordinates"
-            :upper-y="airfoil.upper_y_coordinates"
-            :lower-x="airfoil.lower_x_coordinates"
-            :lower-y="airfoil.lower_y_coordinates"
-            :name="getDisplayName(airfoil)"
-            :aspect-ratio="3"
-            :show-grid="true"
-            :zoomable="true"
-            :show-points-on-hover="false"
-          />
-          <div v-else class="text-center py-8 text-gray-400">
-            Geometry data not available
+          <div class="bg-white rounded-lg shadow">
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+              <nav class="flex -mb-px">
+                <button
+                  type="button"
+                  :class="[
+                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                    activeGeometryTab === 'plot'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  ]"
+                  @click="activeGeometryTab = 'plot'"
+                >
+                  Plot
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                    activeGeometryTab === 'points'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  ]"
+                  @click="activeGeometryTab = 'points'"
+                >
+                  Points
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                    activeGeometryTab === 'bezier'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  ]"
+                  @click="activeGeometryTab = 'bezier'"
+                >
+                  Bezier Fit
+                </button>
+              </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6">
+              <!-- Plot Tab -->
+              <div v-if="activeGeometryTab === 'plot'" class="h-[400px]">
+                <AirfoilGeometry
+                  v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                  :upper-x="airfoil.upper_x_coordinates"
+                  :upper-y="airfoil.upper_y_coordinates"
+                  :lower-x="airfoil.lower_x_coordinates"
+                  :lower-y="airfoil.lower_y_coordinates"
+                  :name="getDisplayName(airfoil)"
+                  :aspect-ratio="3"
+                  :show-grid="true"
+                  :zoomable="true"
+                  :show-points-on-hover="false"
+                />
+                <div v-else class="text-center py-8 text-gray-400">
+                  Geometry data not available
+                </div>
+              </div>
+
+              <!-- Points Tab -->
+              <div v-else-if="activeGeometryTab === 'points'" class="h-[400px] overflow-auto">
+                <div v-if="coordinateTableData.length > 0" class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Index
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Upper X
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Upper Y
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Lower X
+                        </th>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Lower Y
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="row in coordinateTableData" :key="row.index" class="hover:bg-gray-50">
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {{ row.index }}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {{ row.upperX }}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {{ row.upperY }}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {{ row.lowerX }}
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                          {{ row.lowerY }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                  Coordinate data not available
+                </div>
+              </div>
+
+              <!-- Bezier Fit Tab -->
+              <div v-else-if="activeGeometryTab === 'bezier'">
+                <BezierFitTab
+                  v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                  :upper-x="airfoil.upper_x_coordinates"
+                  :upper-y="airfoil.upper_y_coordinates"
+                  :lower-x="airfoil.lower_x_coordinates"
+                  :lower-y="airfoil.lower_y_coordinates"
+                  :airfoil-name="getDisplayName(airfoil)"
+                />
+                <div v-else class="h-[400px] flex items-center justify-center text-gray-400">
+                  Geometry data not available for Bezier fitting
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
