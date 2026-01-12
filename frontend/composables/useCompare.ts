@@ -3,7 +3,7 @@
  * Handles filtering, selection, and data normalization for the compare page
  */
 
-import { computed, reactive, readonly } from 'vue'
+import { computed, reactive, readonly, watch } from 'vue'
 import { useAirfoils } from './useAirfoils'
 import type { Database } from '~/types/database.types'
 
@@ -353,6 +353,15 @@ export const useCompare = () => {
     state.filters[key] = value
     applyFilters()
   }
+
+  // Watch filters for changes and auto-apply
+  watch(
+    () => state.filters,
+    () => {
+      applyFilters()
+    },
+    { deep: true }
+  )
 
   /**
    * Set selected airfoils
