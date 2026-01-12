@@ -34,6 +34,7 @@ export interface FilterState {
   minMaxLD: number | null // Min Max L/D
   maxMaxLD: number | null // Max Max L/D
   minCLMax: number | null // Min CL Max
+  maxCLMax: number | null // Max CL Max
   targetCL: number | null
   targetAOA: number | null
   targetCLTolerance: number // Default ±0.1
@@ -53,6 +54,7 @@ const DEFAULT_FILTERS: FilterState = {
   minMaxLD: null,
   maxMaxLD: null,
   minCLMax: null,
+  maxCLMax: null,
   targetCL: null,
   targetAOA: null,
   targetCLTolerance: 0.1,
@@ -203,14 +205,20 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
     }
   }
   
-  // Min CL Max
-  if (filters.minCLMax !== null) {
+  // Min/Max CL Max Range
+  if (filters.minCLMax !== null || filters.maxCLMax !== null) {
     const clMax = Math.max(...CL.filter(v => isFinite(v)))
-    if (!isFinite(clMax) || clMax < filters.minCLMax) {
+    if (!isFinite(clMax)) {
+      return false
+    }
+    if (filters.minCLMax !== null && clMax < filters.minCLMax) {
+      return false
+    }
+    if (filters.maxCLMax !== null && clMax > filters.maxCLMax) {
       return false
     }
   }
-  
+
   // Target CL and AOA (with tolerances)
   if (filters.targetCL !== null && filters.targetAOA !== null) {
     const targetAlphaIdx = findClosestIndex(alpha, filters.targetAOA)
