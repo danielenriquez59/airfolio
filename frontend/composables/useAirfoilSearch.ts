@@ -5,6 +5,9 @@ import type { Database } from '~/types/database.types'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
+export type SortField = 'name' | 'thickness' | 'camber'
+export type SortDirection = 'asc' | 'desc'
+
 export interface SearchParams {
   query?: string
   includeName?: string
@@ -14,6 +17,8 @@ export interface SearchParams {
   camberMin?: number
   camberMax?: number
   categoryIds?: string[]
+  sortBy?: SortField
+  sortDir?: SortDirection
   page?: number
   limit?: number
 }
@@ -43,6 +48,8 @@ export const useAirfoilSearch = () => {
       camberMin,
       camberMax,
       categoryIds,
+      sortBy = 'name',
+      sortDir = 'asc',
       page = 1,
       limit = 20,
     } = params
@@ -91,8 +98,10 @@ export const useAirfoilSearch = () => {
     // For exclude filter, we need to fetch all matching results first, then filter client-side
     // because Supabase PostgREST doesn't directly support NOT ILIKE
     const needsExcludeFilter = excludeName && excludeName.trim()
-    
-    let orderedQuery = supabaseQuery.order('name', { ascending: true })
+
+    // Map sort field to database column
+    const sortColumn = sortBy === 'thickness' ? 'thickness_pct' : sortBy === 'camber' ? 'camber_pct' : 'name'
+    let orderedQuery = supabaseQuery.order(sortColumn, { ascending: sortDir === 'asc' })
     
     if (!needsExcludeFilter) {
       // Normal pagination when no exclude filter

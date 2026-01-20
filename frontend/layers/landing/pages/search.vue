@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import type { SearchParams } from '~/composables/useAirfoilSearch'
+import type { SearchParams, SortField, SortDirection } from '~/composables/useAirfoilSearch'
 import { useInfiniteScroll } from '@vueuse/core'
+import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -57,6 +58,41 @@ const categoryIds = computed(() => {
   return val.split(',')
 })
 
+// Sort parameters from URL
+const sortBy = computed(() => (route.query.sortBy as SortField) || 'name')
+const sortDir = computed(() => (route.query.sortDir as SortDirection) || 'asc')
+
+const sortOptions: { value: SortField; label: string }[] = [
+  { value: 'name', label: 'Name' },
+  { value: 'thickness', label: 'Thickness' },
+  { value: 'camber', label: 'Camber' },
+]
+
+const currentSortLabel = computed(() => {
+  const option = sortOptions.find(o => o.value === sortBy.value)
+  return option?.label || 'Name'
+})
+
+const router = useRouter()
+
+const updateSort = (field: SortField) => {
+  router.push({
+    query: {
+      ...route.query,
+      sortBy: field,
+    },
+  })
+}
+
+const toggleSortDirection = () => {
+  router.push({
+    query: {
+      ...route.query,
+      sortDir: sortDir.value === 'asc' ? 'desc' : 'asc',
+    },
+  })
+}
+
 const hasMore = computed(() => currentPage.value < totalPages.value)
 
 // Perform search with current filters
@@ -77,6 +113,8 @@ const performSearch = async (reset = false) => {
       camberMin: camberMin.value,
       camberMax: camberMax.value,
       categoryIds: categoryIds.value,
+      sortBy: sortBy.value,
+      sortDir: sortDir.value,
       page: currentPage.value,
       limit: 20,
     }
@@ -139,12 +177,72 @@ useHead({
 
 <template>
   <div>
-      <!-- Header with Results Count -->
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Search Results</h1>
-        <p v-if="!isLoading" class="text-sm text-gray-600 mt-1">
-          Airfoils Found: <span class="font-semibold">{{ totalCount }}</span>
-        </p>
+      <!-- Header with Results Count and Sort Controls -->
+      <div class="mb-6 flex items-start justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Search Results</h1>
+          <p v-if="!isLoading" class="text-sm text-gray-600 mt-1">
+            Airfoils Found: <span class="font-semibold">{{ totalCount }}</span>
+          </p>
+        </div>
+
+        <!-- Sort Controls -->
+        <div class="flex">
+          <!-- Sort By Dropdown -->
+          <Menu as="div" class="relative">
+            <MenuButton
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+            >
+              <span class="text-gray-500">Sort:</span>
+              {{ currentSortLabel }}
+              <Icon name="heroicons:chevron-down" class="w-4 h-4 text-gray-400" />
+            </MenuButton>
+
+            <transition
+              enter-active-class="transition duration-100 ease-out"
+              enter-from-class="transform scale-95 opacity-0"
+              enter-to-class="transform scale-100 opacity-100"
+              leave-active-class="transition duration-75 ease-in"
+              leave-from-class="transform scale-100 opacity-100"
+              leave-to-class="transform scale-95 opacity-0"
+            >
+              <MenuItems
+                class="absolute right-0 z-10 mt-1 w-36 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+              >
+                <div class="py-1">
+                  <MenuItem
+                    v-for="option in sortOptions"
+                    :key="option.value"
+                    v-slot="{ active }"
+                  >
+                    <button
+                      class="w-full text-left px-4 py-2 text-sm"
+                      :class="[
+                        active ? 'bg-gray-100' : '',
+                        sortBy === option.value ? 'text-indigo-600 font-medium' : 'text-gray-700'
+                      ]"
+                      @click="updateSort(option.value)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </MenuItem>
+                </div>
+              </MenuItems>
+            </transition>
+          </Menu>
+
+          <!-- Sort Direction Toggle -->
+          <button
+            class="inline-flex items-center px-2.5 py-1.5 text-gray-700 bg-white border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+            :title="sortDir === 'asc' ? 'Ascending' : 'Descending'"
+            @click="toggleSortDirection"
+          >
+            <Icon
+              :name="sortDir === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
+              class="w-4 h-4"
+            />
+          </button>
+        </div>
       </div>
 
       <!-- Loading State (Initial Load) -->
