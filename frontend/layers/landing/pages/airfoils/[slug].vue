@@ -541,7 +541,32 @@ useHead({
                   <div
                     v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
                   >
-                    <dt class="text-sm text-gray-500">Download Airfoil Coordinates</dt>
+                    <dt class="text-sm text-gray-500 flex items-center gap-1">
+                      Download Airfoil Coordinates
+                      <div class="relative group">
+                        <Icon
+                          name="heroicons:information-circle"
+                          class="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help"
+                        />
+                        <div class="absolute left-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          <div class="space-y-2">
+                            <div>
+                              <span class="font-semibold">Lednicer:</span>
+                              <span class="text-gray-300"> Upper and lower surfaces listed separately with point counts in the header.</span>
+                            </div>
+                            <div>
+                              <span class="font-semibold">Selig:</span>
+                              <span class="text-gray-300"> Continuous loop from upper TE around LE to lower TE. Most common format for XFOIL.</span>
+                            </div>
+                            <div>
+                              <span class="font-semibold">OpenVSP AF:</span>
+                              <span class="text-gray-300"> Includes header with symmetry flag and point counts. Used by OpenVSP.</span>
+                            </div>
+                          </div>
+                          <div class="absolute left-3 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </dt>
                     <dd class="flex items-center gap-2">
                       <VSelect
                         v-model="selectedFormat"
