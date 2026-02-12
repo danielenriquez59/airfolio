@@ -107,6 +107,7 @@ const handleClick = () => {
             <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
               {{ airfoil.description }}
             </p>
+            <div v-else class="mt-0 h-[2.5rem]"></div>
           </div>
           <div v-if="category" class="ml-2">
             <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full whitespace-nowrap">
