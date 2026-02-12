@@ -36,7 +36,6 @@ export interface FilterState {
   minCLMax: number | null // Min CL Max
   maxCLMax: number | null // Max CL Max
   minLDWidth: number | null // Min L/D Width (°)
-  ldWidthLevel: number // Width level percentage (50-99), default 50
   targetCL: number | null
   targetAOA: number | null
   targetCLTolerance: number // Default ±0.1
@@ -58,7 +57,6 @@ const DEFAULT_FILTERS: FilterState = {
   minCLMax: null,
   maxCLMax: null,
   minLDWidth: null,
-  ldWidthLevel: 50,
   targetCL: null,
   targetAOA: null,
   targetCLTolerance: 0.1,
@@ -155,8 +153,10 @@ function findZeroAlphaIndex(alpha: number[]): number {
 /**
  * Calculate summary metrics for an airfoil
  */
-export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null, ldWidthLevel: number = 50) {
-  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null') + ldWidthLevel
+const LD_WIDTH_LEVEL = 80
+
+export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null) {
+  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null')
   
   if (metricsCache.has(cacheKey)) {
     return metricsCache.get(cacheKey)
@@ -200,7 +200,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
   }
 
   // L/D Width at configured level
-  const ldWidth = calculateLDWidth(LD, alpha, ldWidthLevel)
+  const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
 
   const result = {
     maxLD,
@@ -274,7 +274,7 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
   // Min L/D Width
   if (filters.minLDWidth !== null) {
     const LD = calculateLD(CL, CD)
-    const ldWidth = calculateLDWidth(LD, alpha, filters.ldWidthLevel)
+    const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
     if (ldWidth === undefined || ldWidth < filters.minLDWidth) {
       return false
     }
@@ -508,7 +508,7 @@ export const useCompare = () => {
    */
   const getSummaryData = computed(() => {
     return getSelectedAirfoilsData.value.map(airfoil => {
-      const metrics = calculateSummaryMetrics(airfoil, state.filters.targetAOA, state.filters.ldWidthLevel)
+      const metrics = calculateSummaryMetrics(airfoil, state.filters.targetAOA)
       return {
         name: airfoil.name,
         ...metrics,
@@ -566,7 +566,7 @@ export const useCompare = () => {
         clMaxValues.push(clMax)
       }
 
-      const ldWidth = calculateLDWidth(LD, alpha, state.filters.ldWidthLevel)
+      const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
       if (ldWidth !== undefined && isFinite(ldWidth)) {
         ldWidthValues.push(ldWidth)
       }

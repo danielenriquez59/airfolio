@@ -45,7 +45,6 @@ const maxMaxLD = ref(props.filters.maxMaxLD)
 const minCLMax = ref(props.filters.minCLMax)
 const maxCLMax = ref(props.filters.maxCLMax)
 const minLDWidth = ref(props.filters.minLDWidth)
-const ldWidthLevel = ref(props.filters.ldWidthLevel)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
 
@@ -131,7 +130,6 @@ watch(
     minCLMax.value = newFilters.minCLMax
     maxCLMax.value = newFilters.maxCLMax
     minLDWidth.value = newFilters.minLDWidth
-    ldWidthLevel.value = newFilters.ldWidthLevel
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
 
@@ -168,9 +166,6 @@ watch(maxCLMax, (val) => {
 })
 watch(minLDWidth, (val) => {
   emit('update-filter', 'minLDWidth', filterEnabled.ldWidth ? val : null)
-})
-watch(ldWidthLevel, (val) => {
-  emit('update-filter', 'ldWidthLevel', val)
 })
 watch(targetCL, (val) => {
   emit('update-filter', 'targetCL', filterEnabled.targetDesign ? val : null)
@@ -532,7 +527,7 @@ const handleResetAnalysis = () => {
               <div class="group relative">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                  Width of L/D curve at {{ ldWidthLevel }}% of max L/D. Wider = more forgiving.
+                  Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
                   <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
@@ -543,25 +538,6 @@ const handleResetAnalysis = () => {
               </template>
               <template v-else>No limit</template>
             </span>
-          </div>
-          <!-- Width Level slider (always active - affects metric calculation) -->
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs text-gray-600">
-              <span>Width Level</span>
-              <span>{{ ldWidthLevel }}%</span>
-            </div>
-            <input
-              v-model.number="ldWidthLevel"
-              type="range"
-              :min="50"
-              :max="99"
-              step="1"
-              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-            />
-            <div class="flex justify-between">
-              <span class="text-xs text-gray-500">50%</span>
-              <span class="text-xs text-gray-500">99%</span>
-            </div>
           </div>
           <!-- Min Width slider -->
           <div class="space-y-1 mt-2">
@@ -593,34 +569,69 @@ const handleResetAnalysis = () => {
             />
             L/D Width
           </label>
-          <div class="space-y-2">
-            <div>
-              <label class="block text-xs text-gray-600 mb-1">Width Level (%)</label>
-              <VInput
-                :model-value="ldWidthLevel"
-                @update:model-value="ldWidthLevel = $event as number"
-                type="number"
-                :min="50"
-                :max="99"
-                step="1"
-                size="sm"
-                wrapper-class="w-full"
+          <VInput
+            :model-value="minLDWidth ?? undefined"
+            @update:model-value="minLDWidth = $event as number | null"
+            type="number"
+            step="0.1"
+            placeholder="No limit"
+            size="sm"
+            wrapper-class="w-full"
+            :disabled="!filterEnabled.ldWidth"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Width of L/D curve at 80% of max L/D
+          </p>
+        </div>
+
+        <!-- Min CM at α = 0° -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.minCMAtZero"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-            </div>
-            <div>
-              <label class="block text-xs text-gray-600 mb-1">Min Width (°)</label>
-              <VInput
-                :model-value="minLDWidth ?? undefined"
-                @update:model-value="minLDWidth = $event as number | null"
-                type="number"
-                step="0.1"
-                placeholder="No limit"
-                size="sm"
-                wrapper-class="w-full"
-                :disabled="!filterEnabled.ldWidth"
-              />
-            </div>
+              Min CM at α = 0°
+            </label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ minCMAtZero !== null && minCMAtZero !== undefined ? minCMAtZero.toFixed(3) : 'No limit' }}
+            </span>
           </div>
+          <input
+            v-model.number="minCMAtZeroSlider"
+            type="range"
+            :min="filterRanges.cmAtZero.min"
+            :max="filterRanges.cmAtZero.max"
+            step="0.01"
+            :disabled="!filterEnabled.minCMAtZero"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
+          </div>
+        </div>
+        <div v-else class="py-4">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.minCMAtZero"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            Min CM at α = 0°
+          </label>
+          <VInput
+            :model-value="minCMAtZero ?? undefined"
+            @update:model-value="minCMAtZero = $event as number | null"
+            type="number"
+            step="0.01"
+            placeholder="No limit"
+            size="sm"
+            wrapper-class="w-full"
+            :disabled="!filterEnabled.minCMAtZero"
+          />
         </div>
 
         <!-- Max CM Roughness -->
@@ -684,56 +695,6 @@ const handleResetAnalysis = () => {
             size="sm"
             wrapper-class="w-full"
             :disabled="!filterEnabled.maxCMRoughness"
-          />
-        </div>
-
-        <!-- Min CM at α = 0° -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.minCMAtZero"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              Min CM at α = 0°
-            </label>
-            <span class="text-sm font-semibold text-indigo-600">
-              {{ minCMAtZero !== null && minCMAtZero !== undefined ? minCMAtZero.toFixed(3) : 'No limit' }}
-            </span>
-          </div>
-          <input
-            v-model.number="minCMAtZeroSlider"
-            type="range"
-            :min="filterRanges.cmAtZero.min"
-            :max="filterRanges.cmAtZero.max"
-            step="0.01"
-            :disabled="!filterEnabled.minCMAtZero"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
-          </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.minCMAtZero"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            Min CM at α = 0°
-          </label>
-          <VInput
-            :model-value="minCMAtZero ?? undefined"
-            @update:model-value="minCMAtZero = $event as number | null"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.minCMAtZero"
           />
         </div>
 
