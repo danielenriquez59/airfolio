@@ -252,7 +252,7 @@ const performanceData = computed(() => {
             v-if="geometries.length > 0"
             :geometries="geometries"
             :show-legend="false"
-            :aspect-ratio="2.5"
+            :aspect-ratio="7"
             :zoomable="true"
             :height="400"
           />

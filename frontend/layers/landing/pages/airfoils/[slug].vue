@@ -379,7 +379,7 @@ useHead({
                   :lower-x="airfoil.lower_x_coordinates"
                   :lower-y="airfoil.lower_y_coordinates"
                   :name="getDisplayName(airfoil)"
-                  :aspect-ratio="3"
+                  :aspect-ratio="7"
                   :show-grid="true"
                   :zoomable="true"
                   :show-points-on-hover="false"

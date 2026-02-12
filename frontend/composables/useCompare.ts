@@ -326,25 +326,38 @@ export const useCompare = () => {
     applyFilters()
   }
 
+  // Track airfoils the user has explicitly deselected
+  const userDeselected = new Set<string>()
+
   /**
    * Apply filters to get filtered airfoil list
    */
   const applyFilters = () => {
     const filtered: string[] = []
-    
+
     state.allAirfoils.forEach((airfoil, name) => {
       if (passesFilters(airfoil, state.filters)) {
         filtered.push(name)
       }
     })
-    
+
+    const previousFiltered = new Set(state.filteredAirfoils)
     state.filteredAirfoils = filtered
-    
+
     // Remove selected airfoils that no longer match filters
     state.selectedAirfoils = state.selectedAirfoils.filter(name =>
       filtered.includes(name)
     )
-    
+
+    // Auto-select airfoils that newly entered the filtered set,
+    // unless the user has explicitly deselected them before
+    const newlyFiltered = filtered.filter(name =>
+      !previousFiltered.has(name) && !userDeselected.has(name)
+    )
+    if (newlyFiltered.length > 0) {
+      state.selectedAirfoils = [...new Set([...state.selectedAirfoils, ...newlyFiltered])]
+    }
+
     // If no selection and we have filtered airfoils, select all
     if (state.selectedAirfoils.length === 0 && filtered.length > 0) {
       state.selectedAirfoils = [...filtered]
@@ -375,6 +388,15 @@ export const useCompare = () => {
    * Set selected airfoils
    */
   const setSelectedAirfoils = (names: string[]) => {
+    const selectedSet = new Set(names)
+    // Track any filtered airfoils not in the new selection as explicitly deselected
+    state.filteredAirfoils.forEach(name => {
+      if (selectedSet.has(name)) {
+        userDeselected.delete(name)
+      } else {
+        userDeselected.add(name)
+      }
+    })
     // Only allow selection from filtered airfoils
     state.selectedAirfoils = names.filter(name =>
       state.filteredAirfoils.includes(name)
@@ -388,8 +410,10 @@ export const useCompare = () => {
     const idx = state.selectedAirfoils.indexOf(name)
     if (idx >= 0) {
       state.selectedAirfoils.splice(idx, 1)
+      userDeselected.add(name)
     } else if (state.filteredAirfoils.includes(name)) {
       state.selectedAirfoils.push(name)
+      userDeselected.delete(name)
     }
   }
 
@@ -398,12 +422,14 @@ export const useCompare = () => {
    */
   const selectAllFiltered = () => {
     state.selectedAirfoils = [...state.filteredAirfoils]
+    userDeselected.clear()
   }
 
   /**
    * Deselect all airfoils
    */
   const deselectAll = () => {
+    state.filteredAirfoils.forEach(name => userDeselected.add(name))
     state.selectedAirfoils = []
   }
 
@@ -503,6 +529,7 @@ export const useCompare = () => {
    */
   const resetFilters = () => {
     state.filters = { ...DEFAULT_FILTERS }
+    userDeselected.clear()
     applyFilters()
   }
 
@@ -514,6 +541,7 @@ export const useCompare = () => {
     state.filteredAirfoils = []
     state.selectedAirfoils = []
     state.filters = { ...DEFAULT_FILTERS }
+    userDeselected.clear()
     ldCache.clear()
     metricsCache.clear()
   }

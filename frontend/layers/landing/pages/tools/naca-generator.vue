@@ -263,14 +263,13 @@ const performanceData = computed(() => {
         </div>
         
         <!-- Geometry Plot -->
-        <div class="w-full overflow-hidden h-[300px] md:h-[400px]">
+        <div class="w-full overflow-hidden">
           <AirfoilGeometry
             v-if="geometries.length > 0"
             :geometries="geometries"
             :show-legend="false"
-            :aspect-ratio="2.5"
+            :aspect-ratio="7"
             :zoomable="true"
-            :height="400"
           />
           <div v-else class="flex items-center justify-center h-full text-gray-500">
             <p class="text-sm">No geometry to display</p>

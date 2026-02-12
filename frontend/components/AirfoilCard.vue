@@ -36,7 +36,7 @@ const breakpoints = useBreakpoints({
 const isMobile = breakpoints.smaller('desktop')
 
 // Dynamic aspect ratio: 2.5 for mobile, 4 for desktop
-const aspectRatio = computed(() => 3.5)
+const aspectRatio = computed(() => 5)
 
 // Fetch airfoil data and categories
 onMounted(async () => {
