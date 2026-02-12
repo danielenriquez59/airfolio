@@ -233,7 +233,7 @@ onMounted(() => {
               <AirfoilGeometry
                 :geometries="geometries"
                 :show-legend="true"
-                :aspect-ratio="3"
+                :aspect-ratio="7"
                 :zoomable="true"
               />
             </div>

@@ -341,15 +341,6 @@ const togglePlotsView = () => {
       </p>
     </div>
 
-    <!-- Legend Panel (spans 2 columns) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
-        <div :class="airfoils.length > 100 ? 'h-32' : 'h-16'">
-          <Line :data="legendChartData" :options="legendChartOptions" />
-        </div>
-      </div>
-    </div>
-
     <!-- Reset Zoom, Export, and Tooltip Toggle Buttons -->
     <div class="flex justify-end gap-2">
       <button
@@ -395,6 +386,15 @@ const togglePlotsView = () => {
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export Filtered Data
       </button>
+    </div>
+
+    <!-- Legend Panel (spans 2 columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-lg">
+        <div :class="airfoils.length > 100 ? 'h-16' : 'h-8'">
+          <Line :data="legendChartData" :options="legendChartOptions" />
+        </div>
+      </div>
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens, 1 column when expanded -->

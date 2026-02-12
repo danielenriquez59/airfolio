@@ -16,6 +16,7 @@ interface SummaryRow {
   name: string
   maxLD: number
   maxLDAlpha: number
+  ldWidth?: number
   clMax: number
   clMaxAlpha: number
   clAtZero: number
@@ -72,6 +73,7 @@ const axisOptions = computed(() => {
   const options: AxisOption[] = [
     { key: 'maxLD', label: 'Max L/D' },
     { key: 'maxLDAlpha', label: 'α @ Max L/D (°)' },
+    { key: 'ldWidth', label: 'L/D Width (°)' },
     { key: 'clMax', label: 'CL Max' },
     { key: 'clMaxAlpha', label: 'α @ CL Max (°)' },
     { key: 'clAtZero', label: 'CL @ α=0°' },

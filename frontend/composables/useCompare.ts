@@ -35,6 +35,8 @@ export interface FilterState {
   maxMaxLD: number | null // Max Max L/D
   minCLMax: number | null // Min CL Max
   maxCLMax: number | null // Max CL Max
+  minLDWidth: number | null // Min L/D Width (°)
+  ldWidthLevel: number // Width level percentage (50-99), default 50
   targetCL: number | null
   targetAOA: number | null
   targetCLTolerance: number // Default ±0.1
@@ -55,6 +57,8 @@ const DEFAULT_FILTERS: FilterState = {
   maxMaxLD: null,
   minCLMax: null,
   maxCLMax: null,
+  minLDWidth: null,
+  ldWidthLevel: 50,
   targetCL: null,
   targetAOA: null,
   targetCLTolerance: 0.1,
@@ -79,6 +83,50 @@ export function calculateLD(CL: number[], CD: number[]): number[] {
   
   ldCache.set(cacheKey, result)
   return result
+}
+
+/**
+ * Calculate L/D Width at a given percentage level of the max L/D.
+ * Finds where the L/D curve crosses the threshold on both sides of the peak
+ * and returns the angular width (α2 - α1) in degrees.
+ */
+export function calculateLDWidth(
+  LD: number[],
+  alpha: number[],
+  level: number
+): number | undefined {
+  if (LD.length < 3) return undefined
+
+  const maxLD = Math.max(...LD.filter(v => isFinite(v)))
+  if (!isFinite(maxLD) || maxLD <= 0) return undefined
+
+  const maxLDIdx = LD.findIndex(v => v === maxLD)
+  const threshold = maxLD * (level / 100)
+
+  // Scan left from peak to find where LD drops below threshold
+  let alpha1: number | undefined
+  for (let i = maxLDIdx; i > 0; i--) {
+    if (LD[i] >= threshold && LD[i - 1] < threshold) {
+      // Linear interpolation
+      const frac = (threshold - LD[i - 1]) / (LD[i] - LD[i - 1])
+      alpha1 = alpha[i - 1] + frac * (alpha[i] - alpha[i - 1])
+      break
+    }
+  }
+
+  // Scan right from peak to find where LD drops below threshold
+  let alpha2: number | undefined
+  for (let i = maxLDIdx; i < LD.length - 1; i++) {
+    if (LD[i] >= threshold && LD[i + 1] < threshold) {
+      // Linear interpolation
+      const frac = (threshold - LD[i]) / (LD[i + 1] - LD[i])
+      alpha2 = alpha[i] + frac * (alpha[i + 1] - alpha[i])
+      break
+    }
+  }
+
+  if (alpha1 === undefined || alpha2 === undefined) return undefined
+  return alpha2 - alpha1
 }
 
 /**
@@ -107,8 +155,8 @@ function findZeroAlphaIndex(alpha: number[]): number {
 /**
  * Calculate summary metrics for an airfoil
  */
-export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null) {
-  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null')
+export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null, ldWidthLevel: number = 50) {
+  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null') + ldWidthLevel
   
   if (metricsCache.has(cacheKey)) {
     return metricsCache.get(cacheKey)
@@ -150,7 +198,10 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
     const designAlphaIdx = findClosestIndex(alpha, designAlpha)
     ldAtDesignAlpha = LD[designAlphaIdx]
   }
-  
+
+  // L/D Width at configured level
+  const ldWidth = calculateLDWidth(LD, alpha, ldWidthLevel)
+
   const result = {
     maxLD,
     maxLDAlpha,
@@ -161,6 +212,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
     cmAtZero,
     ldAtZero,
     ldAtDesignAlpha,
+    ldWidth,
   }
   
   metricsCache.set(cacheKey, result)
@@ -215,6 +267,15 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
       return false
     }
     if (filters.maxCLMax !== null && clMax > filters.maxCLMax) {
+      return false
+    }
+  }
+
+  // Min L/D Width
+  if (filters.minLDWidth !== null) {
+    const LD = calculateLD(CL, CD)
+    const ldWidth = calculateLDWidth(LD, alpha, filters.ldWidthLevel)
+    if (ldWidth === undefined || ldWidth < filters.minLDWidth) {
       return false
     }
   }
@@ -447,7 +508,7 @@ export const useCompare = () => {
    */
   const getSummaryData = computed(() => {
     return getSelectedAirfoilsData.value.map(airfoil => {
-      const metrics = calculateSummaryMetrics(airfoil, state.filters.targetAOA)
+      const metrics = calculateSummaryMetrics(airfoil, state.filters.targetAOA, state.filters.ldWidthLevel)
       return {
         name: airfoil.name,
         ...metrics,
@@ -471,6 +532,7 @@ export const useCompare = () => {
         cmAtZero: { min: 0, max: 0 },
         maxLD: { min: 0, max: 0 },
         clMax: { min: 0, max: 0 },
+        ldWidth: { min: 0, max: 0 },
       }
     }
 
@@ -478,29 +540,35 @@ export const useCompare = () => {
     const cmAtZeroValues: number[] = []
     const maxLDValues: number[] = []
     const clMaxValues: number[] = []
+    const ldWidthValues: number[] = []
 
     state.allAirfoils.forEach((airfoil) => {
       const { alpha, CL, CD, CM } = airfoil
-      
+
       if (airfoil.smoothness_CM !== undefined) {
         smoothnessValues.push(airfoil.smoothness_CM)
       }
-      
+
       const zeroAlphaIdx = findZeroAlphaIndex(alpha)
       const cmAtZero = CM[zeroAlphaIdx]
       if (isFinite(cmAtZero)) {
         cmAtZeroValues.push(cmAtZero)
       }
-      
+
       const LD = calculateLD(CL, CD)
       const maxLD = Math.max(...LD.filter(v => isFinite(v)))
       if (isFinite(maxLD)) {
         maxLDValues.push(maxLD)
       }
-      
+
       const clMax = Math.max(...CL.filter(v => isFinite(v)))
       if (isFinite(clMax)) {
         clMaxValues.push(clMax)
+      }
+
+      const ldWidth = calculateLDWidth(LD, alpha, state.filters.ldWidthLevel)
+      if (ldWidth !== undefined && isFinite(ldWidth)) {
+        ldWidthValues.push(ldWidth)
       }
     })
 
@@ -520,6 +588,10 @@ export const useCompare = () => {
       clMax: {
         min: clMaxValues.length > 0 ? Math.min(...clMaxValues) : 0,
         max: clMaxValues.length > 0 ? Math.max(...clMaxValues) : 0,
+      },
+      ldWidth: {
+        min: ldWidthValues.length > 0 ? Math.min(...ldWidthValues) : 0,
+        max: ldWidthValues.length > 0 ? Math.max(...ldWidthValues) : 0,
       },
     }
   })

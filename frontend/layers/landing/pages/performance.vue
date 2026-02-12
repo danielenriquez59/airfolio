@@ -1035,7 +1035,7 @@ onMounted(async () => {
       </p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
       <!-- Sidebar: Filters & Selection -->
       <div class="lg:col-span-1">
         <CompareSidebar
@@ -1122,7 +1122,7 @@ onMounted(async () => {
           </div>
 
           <!-- Tab Content -->
-          <div class="p-6">
+          <div class="p-4">
             <!-- Polar Plots Tab -->
             <div v-if="activeTab === 'plots'">
               <ComparePlots
