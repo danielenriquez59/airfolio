@@ -173,7 +173,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
 function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean {
   const { alpha, CL, CD, CM } = airfoil
   
-  // Max CM Roughness (smoothness_CM ≤)
+  // Max CM Curve Wiggliness
   if (filters.maxCMRoughness !== null) {
     const smoothness = airfoil.smoothness_CM
     if (smoothness === undefined || smoothness > filters.maxCMRoughness) {

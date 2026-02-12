@@ -531,7 +531,7 @@ const handleResetAnalysis = () => {
                 v-model="filterEnabled.maxCMRoughness"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              Max CM Roughness (smoothness_CM ≤)
+              Max CM Curve Wiggliness
             </label>
             <span class="text-sm font-semibold text-indigo-600">
               {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
@@ -561,7 +561,7 @@ const handleResetAnalysis = () => {
               v-model="filterEnabled.maxCMRoughness"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Max CM Roughness (smoothness_CM ≤)
+            Max CM Curve Wiggliness
           </label>
           <VInput
             :model-value="maxCMRoughness ?? undefined"
