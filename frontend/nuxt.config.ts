@@ -97,7 +97,7 @@ export default defineNuxtConfig({
         }
 
         console.log('📡 Fetching airfoils for pre-rendering...')
-        const response = await fetch(`${supabaseUrl}/rest/v1/airfoils?select=name`, {
+        const response = await fetch(`${supabaseUrl}/rest/v1/airfoils?select=name&limit=10000`, {
           headers: {
             apikey: supabaseKey,
             Authorization: `Bearer ${supabaseKey}`,
