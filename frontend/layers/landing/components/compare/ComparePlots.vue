@@ -75,16 +75,24 @@ const generateChartData = (
   showLegend: boolean
 ) => {
   const datasets = props.airfoils.map((airfoil, idx) => {
-    let data: number[]
-    
+    let yData: number[]
+    let xData: number[]
+
     if (metric === 'LD') {
-      data = calculateLD(airfoil.CL, airfoil.CD)
+      yData = calculateLD(airfoil.CL, airfoil.CD)
     } else {
-      data = airfoil[metric]
+      yData = airfoil[metric]
     }
 
-    let chartData = data.map((value, i) => ({
-      x: airfoil.alpha[i],
+    // Use CL as x-axis if toggled (except for CL vs alpha plot)
+    if (xAxisMode.value === 'cl' && metric !== 'CL') {
+      xData = airfoil.CL
+    } else {
+      xData = airfoil.alpha
+    }
+
+    let chartData = yData.map((value, i) => ({
+      x: xData[i],
       y: value,
     }))
 
@@ -117,11 +125,25 @@ const tooltipsEnabled = ref(true)
 // Plots expanded state (1 column vs 2 columns)
 const plotsExpanded = ref(false)
 
+// X-axis mode state (alpha or CL)
+const xAxisMode = ref<'alpha' | 'cl'>('alpha')
+
+// Get x-axis label based on current mode
+const getXAxisLabel = (): string => {
+  return xAxisMode.value === 'cl' ? 'Lift Coefficient (CL)' : 'Angle of Attack α (degrees)'
+}
+
+// Get x-axis suffix for tooltips
+const getXAxisSuffix = (): string => {
+  return xAxisMode.value === 'cl' ? '' : '°'
+}
+
 // Chart options
 const getChartOptions = (
   yLabel: string,
   showLegend: boolean,
-  enableTooltips: boolean = true
+  enableTooltips: boolean = true,
+  isCLPlot: boolean = false
 ): any => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -147,7 +169,10 @@ const getChartOptions = (
       callbacks: {
         title: (context: any[]) => {
           const point = context[0]
-          return `α = ${point.raw.x.toFixed(2)}°`
+          // CL plot always shows alpha
+          const xLabel = isCLPlot || xAxisMode.value === 'alpha' ? 'α' : 'CL'
+          const suffix = (isCLPlot || xAxisMode.value === 'alpha') ? '°' : ''
+          return `${xLabel} = ${point.raw.x.toFixed(2)}${suffix}`
         },
         label: (context: any) => {
           return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
@@ -182,7 +207,7 @@ const getChartOptions = (
       position: 'bottom' as const,
       title: {
         display: true,
-        text: 'Angle of Attack α (degrees)',
+        text: isCLPlot ? 'Angle of Attack α (degrees)' : getXAxisLabel(),
         font: {
           size: 12,
           weight: 'bold' as const,
@@ -285,10 +310,10 @@ const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value, true))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value, false))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value, false))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value, false))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -326,6 +351,11 @@ const toggleTooltips = () => {
 const togglePlotsView = () => {
   plotsExpanded.value = !plotsExpanded.value
 }
+
+// Toggle x-axis mode between alpha and CL
+const toggleXAxisMode = () => {
+  xAxisMode.value = xAxisMode.value === 'alpha' ? 'cl' : 'alpha'
+}
 </script>
 
 <template>
@@ -355,6 +385,19 @@ const togglePlotsView = () => {
       >
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
         {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+      </button>
+      <button
+        type="button"
+        @click="toggleXAxisMode"
+        :class="[
+          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+          xAxisMode === 'cl'
+            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
+            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+        ]"
+      >
+        <Icon name="heroicons:chart-bar" class="h-4 w-4" />
+        {{ xAxisMode === 'cl' ? 'X-Axis: CL' : 'X-Axis: AoA' }}
       </button>
       <button
         type="button"
