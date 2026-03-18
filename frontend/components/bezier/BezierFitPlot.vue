@@ -21,6 +21,13 @@ ChartJS.register(
   Legend
 )
 
+// Register zoom plugin only on client side
+if (process.client) {
+  import('chartjs-plugin-zoom').then((zoomPlugin) => {
+    ChartJS.register(zoomPlugin.default)
+  })
+}
+
 interface Props {
   originalUpperX: number[]
   originalUpperY: number[]
@@ -42,6 +49,9 @@ const props = defineProps<Props>()
 
 // Control polygon visibility state
 const showControlPolygon = ref(true)
+
+// Chart instance reference for zoom reset
+const chartRef = ref<any>(null)
 
 const chartData = computed(() => {
   const datasets: any[] = []
@@ -194,6 +204,31 @@ const chartOptions = computed(() => {
           },
         },
       },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'xy' as const,
+        },
+        pan: {
+          enabled: true,
+          mode: 'xy' as const,
+        },
+        limits: {
+          x: {
+            min: ranges.xMin,
+            max: ranges.xMax,
+          },
+          y: {
+            min: ranges.yMin,
+            max: ranges.yMax,
+          },
+        },
+      },
     },
     scales: {
       x: {
@@ -228,11 +263,30 @@ const chartOptions = computed(() => {
     },
   }
 })
+
+// Reset zoom function
+const resetZoom = () => {
+  if (chartRef.value && chartRef.value.chart) {
+    const chart = chartRef.value.chart as any
+    if (chart && typeof chart.resetZoom === 'function') {
+      chart.resetZoom()
+    }
+  }
+}
 </script>
 
 <template>
   <div class="w-full h-full">
-    <div class="flex justify-end mb-2">
+    <div class="flex justify-end mb-2 gap-2">
+      <button
+        type="button"
+        @click="resetZoom"
+        class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
+        title="Reset Zoom"
+      >
+        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+        Reset Zoom
+      </button>
       <button
         type="button"
         @click="showControlPolygon = !showControlPolygon"
@@ -243,7 +297,7 @@ const chartOptions = computed(() => {
       </button>
     </div>
     <ClientOnly>
-      <Scatter :data="chartData" :options="chartOptions" />
+      <Scatter ref="chartRef" :data="chartData" :options="chartOptions" />
     </ClientOnly>
   </div>
 </template>
