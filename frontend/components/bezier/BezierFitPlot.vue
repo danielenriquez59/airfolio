@@ -32,6 +32,10 @@ interface Props {
   fittedLowerY: number[]
   upperControlPoints: BezierControlPoints
   lowerControlPoints: BezierControlPoints
+  reparamUpperX?: number[]
+  reparamUpperY?: number[]
+  reparamLowerX?: number[]
+  reparamLowerY?: number[]
 }
 
 const props = defineProps<Props>()
@@ -107,6 +111,21 @@ const chartData = computed(() => {
     })
   }
 
+  // Reparametrized points (green scatter)
+  if (props.reparamUpperX && props.reparamUpperY && props.reparamLowerX && props.reparamLowerY) {
+    const reparamUpper = props.reparamUpperX.map((x, i) => ({ x, y: props.reparamUpperY![i] }))
+    const reparamLower = props.reparamLowerX.map((x, i) => ({ x, y: props.reparamLowerY![i] }))
+    datasets.push({
+      label: 'Reparametrized Points',
+      data: [...reparamUpper, ...reparamLower],
+      borderColor: 'rgb(34, 197, 94)',
+      backgroundColor: 'rgb(34, 197, 94)',
+      showLine: false,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    })
+  }
+
   return { datasets }
 })
 
@@ -117,12 +136,16 @@ const axisRanges = computed(() => {
     ...props.originalLowerX,
     ...props.upperControlPoints.x,
     ...props.lowerControlPoints.x,
+    ...(props.reparamUpperX || []),
+    ...(props.reparamLowerX || []),
   ]
   const allY = [
     ...props.originalUpperY,
     ...props.originalLowerY,
     ...props.upperControlPoints.y,
     ...props.lowerControlPoints.y,
+    ...(props.reparamUpperY || []),
+    ...(props.reparamLowerY || []),
   ]
 
   const xMin = Math.min(...allX)

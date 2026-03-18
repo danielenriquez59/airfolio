@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { BezierFitResponse } from '~/composables/useBezierFit'
+import type { BezierFitResponse, ReparametrizedPoints } from '~/composables/useBezierFit'
+import { reparametrizeBezierPoints } from '~/composables/useBezierFit'
 
 interface Props {
   upperX: number[]
@@ -18,11 +19,14 @@ const bezierOrder = ref(6)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const fitResult = ref<BezierFitResponse | null>(null)
+const reparamCount = ref(80)
+const reparamPoints = ref<ReparametrizedPoints | null>(null)
 
 // Run Bezier fit
 const runBezierFit = async () => {
   isLoading.value = true
   error.value = null
+  reparamPoints.value = null
 
   try {
     fitResult.value = await submitBezierFit({
@@ -74,6 +78,43 @@ const exportControlPoints = () => {
   URL.revokeObjectURL(url)
 }
 
+// Reparametrize points
+const runReparametrize = () => {
+  if (!fitResult.value) return
+  reparamPoints.value = reparametrizeBezierPoints(fitResult.value, reparamCount.value)
+}
+
+// Export reparametrized points as .dat (Selig format)
+const exportReparamPoints = () => {
+  if (!reparamPoints.value) return
+
+  const lines: string[] = []
+  lines.push(props.airfoilName)
+
+  // Upper surface: TE -> LE (reverse the arrays)
+  const upperX = [...reparamPoints.value.upper.x].reverse()
+  const upperY = [...reparamPoints.value.upper.y].reverse()
+  for (let i = 0; i < upperX.length; i++) {
+    lines.push(`  ${upperX[i].toFixed(8)}  ${upperY[i].toFixed(8)}`)
+  }
+
+  // Lower surface: LE -> TE (already in order)
+  for (let i = 0; i < reparamPoints.value.lower.x.length; i++) {
+    lines.push(`  ${reparamPoints.value.lower.x[i].toFixed(8)}  ${reparamPoints.value.lower.y[i].toFixed(8)}`)
+  }
+
+  const content = lines.join('\n')
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${props.airfoilName.replace(/[^a-zA-Z0-9_-]/g, '_')}_reparam.dat`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // Available order options
 const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
 </script>
@@ -118,6 +159,36 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export Control Points
       </button>
+
+      <template v-if="fitResult">
+        <div class="flex items-center gap-2">
+          <input
+            v-model.number="reparamCount"
+            type="number"
+            min="5"
+            max="500"
+            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <button
+            type="button"
+            @click="runReparametrize"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <Icon name="heroicons:arrow-path" class="h-4 w-4" />
+            Reparametrize Points
+          </button>
+        </div>
+
+        <button
+          v-if="reparamPoints"
+          type="button"
+          @click="exportReparamPoints"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+          Export Points
+        </button>
+      </template>
     </div>
 
     <!-- Error Display -->
@@ -155,6 +226,10 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           :fitted-lower-y="fitResult.lower_curve.y"
           :upper-control-points="fitResult.upper_control_points"
           :lower-control-points="fitResult.lower_control_points"
+          :reparam-upper-x="reparamPoints?.upper.x"
+          :reparam-upper-y="reparamPoints?.upper.y"
+          :reparam-lower-x="reparamPoints?.lower.x"
+          :reparam-lower-y="reparamPoints?.lower.y"
         />
       </div>
 
