@@ -108,6 +108,49 @@ const handleTooltipsToggled = (enabled: boolean) => {
   tooltipsEnabled.value = enabled
 }
 
+// CSV export helpers
+const copiedToClipboard = ref(false)
+
+const generateCSV = (): string => {
+  const lines: string[] = ['Mach,Re,aoa,CL,CD,CM']
+
+  for (const entry of selectedCacheEntries.value) {
+    const inputs = entry.inputs as any
+    const outputs = entry.outputs as any
+    const mach = inputs?.Mach ?? ''
+    const re = inputs?.Re ?? ''
+    const alphas = outputs?.alpha || []
+    const CLs = outputs?.CL || []
+    const CDs = outputs?.CD || []
+    const CMs = outputs?.CM || []
+
+    for (let i = 0; i < alphas.length; i++) {
+      lines.push(`${mach},${re},${alphas[i]},${CLs[i]},${CDs[i]},${CMs[i]}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+const copyCSVToClipboard = async () => {
+  const csv = generateCSV()
+  await navigator.clipboard.writeText(csv)
+  copiedToClipboard.value = true
+  setTimeout(() => { copiedToClipboard.value = false }, 2000)
+}
+
+const downloadCSV = () => {
+  const csv = generateCSV()
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  const name = airfoil.value ? (airfoil.value.display_name || airfoil.value.name) : 'airfoil'
+  link.download = `${name}_performance.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 // Sync initial tooltip state when component is ready
 watchEffect(() => {
   if (plotsRef.value) {
@@ -622,6 +665,26 @@ useHead({
               :no-card="true"
               @selection-change="handleSelectionChange"
             />
+          </div>
+
+          <!-- Export Buttons -->
+          <div v-if="selectedCacheEntries.length > 0" class="flex gap-2 mb-6">
+            <button
+              type="button"
+              @click="copyCSVToClipboard"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <Icon :name="copiedToClipboard ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
+              {{ copiedToClipboard ? 'Copied!' : 'Copy to Clipboard' }}
+            </button>
+            <button
+              type="button"
+              @click="downloadCSV"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+              Download CSV
+            </button>
           </div>
 
           <!-- Performance Plots -->
