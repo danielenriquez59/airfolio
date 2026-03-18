@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BezierFitResponse, ReparametrizedPoints } from '~/composables/useBezierFit'
 import { reparametrizeBezierPoints } from '~/composables/useBezierFit'
-import { formatCoord, triggerDownload, sanitizeFilename } from '~/composables/useAirfoilDownload'
+import { triggerDownload, sanitizeFilename, buildSeligString, buildLednicerString } from '~/composables/useAirfoilDownload'
 
 interface Props {
   upperX: number[]
@@ -82,31 +82,15 @@ const exportReparamPoints = () => {
   if (!reparamPoints.value) return
 
   const baseName = sanitizeFilename(props.airfoilName)
-  const upper = reparamPoints.value.upper
-  const lower = reparamPoints.value.lower
+  const { upper, lower } = reparamPoints.value
 
   if (exportFormat.value === 'selig') {
-    const lines: string[] = [props.airfoilName, '']
-    // Upper surface: TE -> LE (reverse)
-    for (let i = upper.x.length - 1; i >= 0; i--)
-      lines.push(`${formatCoord(upper.x[i])}  ${formatCoord(upper.y[i])}`)
-    // Lower surface: LE -> TE
-    for (let i = 0; i < lower.x.length; i++)
-      lines.push(`${formatCoord(lower.x[i])}  ${formatCoord(lower.y[i])}`)
-    triggerDownload(lines.join('\n'), `${baseName}_reparam_selig.dat`)
+    const content = buildSeligString(props.airfoilName, upper.x, upper.y, lower.x, lower.y)
+    triggerDownload(content, `${baseName}_reparam_selig.dat`)
   }
   else if (exportFormat.value === 'lednicer') {
-    const upperCount = (upper.x.length.toString() + '.').padStart(8)
-    const lowerCount = (lower.x.length.toString() + '.').padStart(8)
-    const lines: string[] = [props.airfoilName, `${upperCount}  ${lowerCount}`, '']
-    // Upper surface: LE -> TE (ascending X, already in order)
-    for (let i = 0; i < upper.x.length; i++)
-      lines.push(`${formatCoord(upper.x[i])}  ${formatCoord(upper.y[i])}`)
-    lines.push('')
-    // Lower surface: LE -> TE
-    for (let i = 0; i < lower.x.length; i++)
-      lines.push(`${formatCoord(lower.x[i])}  ${formatCoord(lower.y[i])}`)
-    triggerDownload(lines.join('\n'), `${baseName}_reparam_lednicer.dat`)
+    const content = buildLednicerString(props.airfoilName, upper.x, upper.y, lower.x, lower.y)
+    triggerDownload(content, `${baseName}_reparam_lednicer.dat`)
   }
   else if (exportFormat.value === 'csv') {
     const lines: string[] = ['surface,x,y']

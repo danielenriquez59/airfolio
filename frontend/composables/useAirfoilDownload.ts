@@ -28,7 +28,7 @@ export const triggerDownload = (content: string, filename: string) => {
  * Remove duplicate points from coordinate array
  * Two points are considered duplicates if both x and y are within tolerance
  */
-const removeDuplicates = (
+export const removeDuplicates = (
   coords: Array<[number, number]>,
   tolerance: number = 5e-5
 ): Array<[number, number]> => {
@@ -51,7 +51,7 @@ const removeDuplicates = (
 /**
  * Sort upper surface coordinates by X descending (TE to LE)
  */
-const sortUpperCoordinates = (
+export const sortUpperCoordinates = (
   upperX: number[],
   upperY: number[]
 ): Array<[number, number]> => {
@@ -62,7 +62,7 @@ const sortUpperCoordinates = (
 /**
  * Sort lower surface coordinates by X ascending (LE to TE)
  */
-const sortLowerCoordinates = (
+export const sortLowerCoordinates = (
   lowerX: number[],
   lowerY: number[]
 ): Array<[number, number]> => {
@@ -75,6 +75,58 @@ const sortLowerCoordinates = (
  */
 export const sanitizeFilename = (name: string): string => {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+/**
+ * Build Selig format string from raw coordinate arrays.
+ * Upper: TE to LE (descending X), Lower: LE to TE (ascending X).
+ */
+export const buildSeligString = (
+  name: string,
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[]
+): string => {
+  const upperCoords = removeDuplicates(sortUpperCoordinates(upperX, upperY))
+  const lowerCoords = removeDuplicates(sortLowerCoordinates(lowerX, lowerY))
+
+  const lines: string[] = [name, '']
+  upperCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  lowerCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  return lines.join('\n')
+}
+
+/**
+ * Build Lednicer format string from raw coordinate arrays.
+ * Both surfaces: LE to TE (ascending X), separated by blank line, with point counts header.
+ */
+export const buildLednicerString = (
+  name: string,
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[]
+): string => {
+  const upperCoords = removeDuplicates(sortLowerCoordinates(upperX, upperY))
+  const lowerCoords = removeDuplicates(sortLowerCoordinates(lowerX, lowerY))
+
+  const upperCountStr = (upperCoords.length.toString() + '.').padStart(8)
+  const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
+
+  const lines: string[] = [name.toUpperCase(), `${upperCountStr}  ${lowerCountStr}`, '']
+  upperCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  lines.push('')
+  lowerCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  return lines.join('\n')
 }
 
 export const useAirfoilDownload = () => {
