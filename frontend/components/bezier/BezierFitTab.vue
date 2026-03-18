@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BezierFitResponse, ReparametrizedPoints } from '~/composables/useBezierFit'
 import { reparametrizeBezierPoints } from '~/composables/useBezierFit'
+import { formatCoord, triggerDownload, sanitizeFilename } from '~/composables/useAirfoilDownload'
 
 interface Props {
   upperX: number[]
@@ -21,6 +22,7 @@ const error = ref<string | null>(null)
 const fitResult = ref<BezierFitResponse | null>(null)
 const reparamCount = ref(80)
 const reparamPoints = ref<ReparametrizedPoints | null>(null)
+const exportFormat = ref<'selig' | 'lednicer' | 'csv'>('selig')
 
 // Run Bezier fit
 const runBezierFit = async () => {
@@ -66,16 +68,7 @@ const exportControlPoints = () => {
     lines.push(`${x.toFixed(8)}, ${fitResult.value!.lower_control_points.y[i].toFixed(8)}`)
   })
 
-  const content = lines.join('\n')
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${props.airfoilName.replace(/[^a-zA-Z0-9_-]/g, '_')}_bezier_cp.txt`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  triggerDownload(lines.join('\n'), `${sanitizeFilename(props.airfoilName)}_bezier_cp.txt`)
 }
 
 // Reparametrize points
@@ -84,35 +77,45 @@ const runReparametrize = () => {
   reparamPoints.value = reparametrizeBezierPoints(fitResult.value, reparamCount.value)
 }
 
-// Export reparametrized points as .dat (Selig format)
+// Export reparametrized points in selected format
 const exportReparamPoints = () => {
   if (!reparamPoints.value) return
 
-  const lines: string[] = []
-  lines.push(props.airfoilName)
+  const baseName = sanitizeFilename(props.airfoilName)
+  const upper = reparamPoints.value.upper
+  const lower = reparamPoints.value.lower
 
-  // Upper surface: TE -> LE (reverse the arrays)
-  const upperX = [...reparamPoints.value.upper.x].reverse()
-  const upperY = [...reparamPoints.value.upper.y].reverse()
-  for (let i = 0; i < upperX.length; i++) {
-    lines.push(`  ${upperX[i].toFixed(8)}  ${upperY[i].toFixed(8)}`)
+  if (exportFormat.value === 'selig') {
+    const lines: string[] = [props.airfoilName, '']
+    // Upper surface: TE -> LE (reverse)
+    for (let i = upper.x.length - 1; i >= 0; i--)
+      lines.push(`${formatCoord(upper.x[i])}  ${formatCoord(upper.y[i])}`)
+    // Lower surface: LE -> TE
+    for (let i = 0; i < lower.x.length; i++)
+      lines.push(`${formatCoord(lower.x[i])}  ${formatCoord(lower.y[i])}`)
+    triggerDownload(lines.join('\n'), `${baseName}_reparam_selig.dat`)
   }
-
-  // Lower surface: LE -> TE (already in order)
-  for (let i = 0; i < reparamPoints.value.lower.x.length; i++) {
-    lines.push(`  ${reparamPoints.value.lower.x[i].toFixed(8)}  ${reparamPoints.value.lower.y[i].toFixed(8)}`)
+  else if (exportFormat.value === 'lednicer') {
+    const upperCount = (upper.x.length.toString() + '.').padStart(8)
+    const lowerCount = (lower.x.length.toString() + '.').padStart(8)
+    const lines: string[] = [props.airfoilName, `${upperCount}  ${lowerCount}`, '']
+    // Upper surface: LE -> TE (ascending X, already in order)
+    for (let i = 0; i < upper.x.length; i++)
+      lines.push(`${formatCoord(upper.x[i])}  ${formatCoord(upper.y[i])}`)
+    lines.push('')
+    // Lower surface: LE -> TE
+    for (let i = 0; i < lower.x.length; i++)
+      lines.push(`${formatCoord(lower.x[i])}  ${formatCoord(lower.y[i])}`)
+    triggerDownload(lines.join('\n'), `${baseName}_reparam_lednicer.dat`)
   }
-
-  const content = lines.join('\n')
-  const blob = new Blob([content], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${props.airfoilName.replace(/[^a-zA-Z0-9_-]/g, '_')}_reparam.dat`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  else if (exportFormat.value === 'csv') {
+    const lines: string[] = ['surface,x,y']
+    for (let i = 0; i < upper.x.length; i++)
+      lines.push(`upper,${upper.x[i].toFixed(8)},${upper.y[i].toFixed(8)}`)
+    for (let i = 0; i < lower.x.length; i++)
+      lines.push(`lower,${lower.x[i].toFixed(8)},${lower.y[i].toFixed(8)}`)
+    triggerDownload(lines.join('\n'), `${baseName}_reparam.csv`)
+  }
 }
 
 // Available order options
@@ -179,15 +182,24 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           </button>
         </div>
 
-        <button
-          v-if="reparamPoints"
-          type="button"
-          @click="exportReparamPoints"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-          Export Points
-        </button>
+        <div v-if="reparamPoints" class="flex items-center gap-2">
+          <select
+            v-model="exportFormat"
+            class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="selig">Selig (.dat)</option>
+            <option value="lednicer">Lednicer (.dat)</option>
+            <option value="csv">CSV (.csv)</option>
+          </select>
+          <button
+            type="button"
+            @click="exportReparamPoints"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+            Export Points
+          </button>
+        </div>
       </template>
     </div>
 

@@ -5,14 +5,14 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 /**
  * Format a number to fixed-width string (8 characters, 6 decimal places)
  */
-const formatCoord = (num: number): string => {
+export const formatCoord = (num: number): string => {
   return num.toFixed(6).padStart(8, ' ')
 }
 
 /**
  * Trigger browser download for a text file
  */
-const triggerDownload = (content: string, filename: string) => {
+export const triggerDownload = (content: string, filename: string) => {
   const blob = new Blob([content], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -73,7 +73,7 @@ const sortLowerCoordinates = (
 /**
  * Generate filename-safe string from airfoil name
  */
-const sanitizeFilename = (name: string): string => {
+export const sanitizeFilename = (name: string): string => {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
