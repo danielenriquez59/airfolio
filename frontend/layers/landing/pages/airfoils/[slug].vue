@@ -27,7 +27,19 @@ const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
 
 // Geometry tab state
-const activeGeometryTab = ref<'plot' | 'points' | 'bezier'>('plot')
+const activeGeometryTab = ref<'plot' | 'bezier'>('plot')
+const showPoints = ref(false)
+const copiedPoints = ref(false)
+
+const copyPointsToClipboard = async () => {
+  const header = 'Index\tUpper X\tUpper Y\tLower X\tLower Y'
+  const rows = coordinateTableData.value.map(row =>
+    `${row.index}\t${row.upperX}\t${row.upperY}\t${row.lowerX}\t${row.lowerY}`
+  )
+  await navigator.clipboard.writeText([header, ...rows].join('\n'))
+  copiedPoints.value = true
+  setTimeout(() => { copiedPoints.value = false }, 2000)
+}
 
 // Compute coordinate table data
 const coordinateTableData = computed(() => {
@@ -382,19 +394,7 @@ useHead({
                   ]"
                   @click="activeGeometryTab = 'plot'"
                 >
-                  Plot
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                    activeGeometryTab === 'points'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  ]"
-                  @click="activeGeometryTab = 'points'"
-                >
-                  Points
+                  Geometry
                 </button>
                 <button
                   type="button"
@@ -413,71 +413,95 @@ useHead({
 
             <!-- Tab Content -->
             <div class="p-6">
-              <!-- Plot Tab -->
-              <div v-if="activeGeometryTab === 'plot'" class="h-[400px]">
-                <AirfoilGeometry
-                  v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-                  :upper-x="airfoil.upper_x_coordinates"
-                  :upper-y="airfoil.upper_y_coordinates"
-                  :lower-x="airfoil.lower_x_coordinates"
-                  :lower-y="airfoil.lower_y_coordinates"
-                  :name="getDisplayName(airfoil)"
-                  :aspect-ratio="7"
-                  :show-grid="true"
-                  :zoomable="true"
-                  :show-points-on-hover="false"
-                />
-                <div v-else class="text-center py-8 text-gray-400">
-                  Geometry data not available
+              <!-- Geometry Tab -->
+              <div v-if="activeGeometryTab === 'plot'">
+                <div class="flex flex-row w-full">
+                  <AirfoilGeometry
+                    v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                    :upper-x="airfoil.upper_x_coordinates"
+                    :upper-y="airfoil.upper_y_coordinates"
+                    :lower-x="airfoil.lower_x_coordinates"
+                    :lower-y="airfoil.lower_y_coordinates"
+                    :name="getDisplayName(airfoil)"
+                    :aspect-ratio="7"
+                    :show-grid="true"
+                    :zoomable="true"
+                    :show-points-on-hover="false"
+                  />
+                  <div v-else class="text-center py-8 text-gray-400">
+                    Geometry data not available
+                  </div>
                 </div>
-              </div>
 
-              <!-- Points Tab -->
-              <div v-else-if="activeGeometryTab === 'points'" class="h-[400px] overflow-auto">
-                <div v-if="coordinateTableData.length > 0" class="overflow-x-auto">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Index
-                        </th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Upper X
-                        </th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Upper Y
-                        </th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Lower X
-                        </th>
-                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Lower Y
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      <tr v-for="row in coordinateTableData" :key="row.index" class="hover:bg-gray-50">
-                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                          {{ row.index }}
-                        </td>
-                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                          {{ row.upperX }}
-                        </td>
-                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                          {{ row.upperY }}
-                        </td>
-                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                          {{ row.lowerX }}
-                        </td>
-                        <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                          {{ row.lowerY }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div v-else class="h-full flex items-center justify-center text-gray-400">
-                  Coordinate data not available
+                <!-- Coordinate Points Table -->
+                <div v-if="coordinateTableData.length > 0" class="mt-6 w-full">
+                  <div class="w-full flex items-center justify-between">
+                    <button
+                      type="button"
+                      @click="showPoints = !showPoints"
+                      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Icon
+                        name="heroicons:chevron-right"
+                        class="h-4 w-4 transition-transform"
+                        :class="{ 'rotate-90': showPoints }"
+                      />
+                      {{ showPoints ? 'Hide Points' : 'Show Points' }}
+                    </button>
+                    <button
+                      v-show="showPoints"
+                      type="button"
+                      @click="copyPointsToClipboard"
+                      class="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                      :title="copiedPoints ? 'Copied!' : 'Copy points to clipboard'"
+                    >
+                      <Icon :name="copiedPoints ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div v-show="showPoints" class="mt-2 h-[300px] overflow-auto">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Index
+                          </th>
+                          <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Upper X
+                          </th>
+                          <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Upper Y
+                          </th>
+                          <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Lower X
+                          </th>
+                          <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Lower Y
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="row in coordinateTableData" :key="row.index" class="hover:bg-gray-50">
+                          <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {{ row.index }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.upperX }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.upperY }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.lowerX }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.lowerY }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  </div>
                 </div>
               </div>
 
