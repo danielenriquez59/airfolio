@@ -94,9 +94,12 @@ const navigation = {
       </div>
 
       <!-- Copyright -->
-      <div class="mt-12 border-t border-gray-200 pt-8">
+      <div class="mt-12 border-t border-gray-200 pt-8 flex items-center justify-between">
         <p class="text-sm text-gray-400 text-center xl:text-left">
           &copy; {{ currentYear }} Airfolio. All rights reserved.
+        </p>
+        <p class="text-sm text-gray-300">
+          Check out the sister site, <a href="https://airfolio.live" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-400 transition-colors">Propfolio</a>
         </p>
       </div>
     </div>
