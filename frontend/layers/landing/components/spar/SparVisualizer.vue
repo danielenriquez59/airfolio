@@ -549,7 +549,7 @@ const chartOptions = computed(() => {
       :data="chartData"
       :options="chartOptions"
     />
-    <div v-else class="flex items-center justify-center h-full text-slate-500">
+    <div v-else class="flex items-center justify-center h-full text-gray-500">
       No airfoil data available
     </div>
   </div>

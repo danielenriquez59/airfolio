@@ -56,7 +56,7 @@ const handleSubmit = () => {
 </script>
 
 <template>
-  <div class="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+  <div class="p-6 bg-white rounded-lg border border-gray-200 shadow">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Performance Analysis</h3>
     <p class="text-sm text-gray-600 mb-4">
       Run NeuralFoil analysis on the NACA-generated airfoil. Results are not cached.
@@ -72,7 +72,7 @@ const handleSubmit = () => {
           type="number"
           min="10"
           step="10"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <p class="mt-1 text-xs text-gray-500">
           Enter value in thousands (e.g., 100 = Re = 100,000)
@@ -89,7 +89,7 @@ const handleSubmit = () => {
           min="0"
           max="1"
           step="0.01"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
@@ -101,7 +101,7 @@ const handleSubmit = () => {
           v-model.number="alphaStart"
           type="number"
           step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
@@ -113,7 +113,7 @@ const handleSubmit = () => {
           v-model.number="alphaEnd"
           type="number"
           step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
@@ -126,7 +126,7 @@ const handleSubmit = () => {
           type="number"
           min="0.1"
           step="0.1"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
@@ -140,7 +140,7 @@ const handleSubmit = () => {
           min="1"
           max="20"
           step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
     </div>
@@ -149,7 +149,7 @@ const handleSubmit = () => {
       <button
         type="button"
         :disabled="isLoading"
-        class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors flex items-center justify-center gap-2"
+        class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors flex items-center justify-center gap-2"
         @click="handleSubmit"
       >
         <Icon

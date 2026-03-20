@@ -125,29 +125,29 @@ const result = computed<SparCalculationResult>(() => {
         title="About this Calculator"
         :classes="{
           button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors rounded-lg border border-blue-200',
-          title: 'flex items-center gap-2 font-semibold text-slate-800',
+          title: 'flex items-center gap-2 font-semibold text-gray-800',
           panel: 'p-4 bg-blue-50/50 rounded-b-lg border-x border-b border-blue-200'
         }"
       >
-        <p class="text-slate-700 leading-relaxed mb-4">
+        <p class="text-gray-700 leading-relaxed mb-4">
           The Spar Moment of Inertia Calculator helps you design wing spars by calculating the structural properties of different spar cross-sections positioned within an airfoil. The calculator supports hollow rectangular tubes, I-beams, and C-channels. It determines the spar height based on the airfoil thickness at the selected chord location (minus skin thickness), then computes the moment of inertia (Ix) using the appropriate formula for each cross-section type.
         </p>
-        <p class="text-slate-700 leading-relaxed mb-4">
+        <p class="text-gray-700 leading-relaxed mb-4">
           The moment of inertia is a critical parameter for structural analysis, determining how the spar resists bending loads. Higher moment of inertia values indicate greater resistance to bending, which is essential for wing structural design.
         </p>
         <div class="pt-4 border-t border-blue-200">
-          <p class="text-sm text-slate-600 mb-2">
+          <p class="text-sm text-gray-600 mb-2">
             <strong>Cross-Section Types:</strong>
           </p>
-          <ul class="text-sm text-slate-600 list-disc list-inside space-y-1 mb-3">
+          <ul class="text-sm text-gray-600 list-disc list-inside space-y-1 mb-3">
             <li><strong>Hollow Rectangle:</strong> Ix = (BH³ - bh³) / 12</li>
             <li><strong>I-Beam:</strong> Parallel axis theorem applied to flanges and web</li>
             <li><strong>C-Channel:</strong> Open channel section with centroidal axis calculation</li>
           </ul>
-          <p class="text-sm text-slate-600 mb-2">
+          <p class="text-sm text-gray-600 mb-2">
             <strong>Key Assumptions:</strong>
           </p>
-          <ul class="text-sm text-slate-600 list-disc list-inside space-y-1">
+          <ul class="text-sm text-gray-600 list-disc list-inside space-y-1">
             <li>Spar height is constrained by airfoil thickness minus skin thickness</li>
             <li>Skin thickness is uniform and creates inner boundary for spar</li>
             <li>Wall/flange thickness is uniform throughout the cross-section</li>
@@ -161,9 +161,9 @@ const result = computed<SparCalculationResult>(() => {
       <!-- Left Sidebar: Inputs -->
       <div class="lg:col-span-3 space-y-6">
         <!-- Airfoil Selection -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-          <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
-            <Icon name="heroicons:paper-airplane" class="h-5 w-5 text-blue-600" />
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
+            <Icon name="heroicons:paper-airplane" class="h-5 w-5 text-indigo-600" />
             <h2>Airfoil</h2>
           </div>
           <SparAirfoilSelector v-model="selectedAirfoil" />
@@ -185,10 +185,10 @@ const result = computed<SparCalculationResult>(() => {
             :inputs="inputs"
             :result="result"
           />
-          <div v-else class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex items-center justify-center h-full">
+          <div v-else class="bg-white rounded-lg shadow border border-gray-200 p-8 flex items-center justify-center h-full">
             <div class="text-center">
-              <Icon name="heroicons:arrow-path" class="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p class="text-slate-600">Loading airfoil data...</p>
+              <Icon name="heroicons:arrow-path" class="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-2" />
+              <p class="text-gray-600">Loading airfoil data...</p>
             </div>
           </div>
         </div>

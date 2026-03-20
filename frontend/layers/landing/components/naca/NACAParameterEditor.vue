@@ -58,7 +58,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Max Camber - ${(naca4Params.m * 100).toFixed(1)}%`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >
@@ -105,7 +105,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Camber Position - ${(naca4Params.p * 100).toFixed(1)}% chord`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >
@@ -152,7 +152,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Thickness - ${(naca4Params.t * 100).toFixed(1)}%`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >
@@ -209,7 +209,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Design Lift Coefficienticient - ${naca5Params.cl.toFixed(2)}`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >
@@ -256,7 +256,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Camber Position - ${(naca5Params.p * 100).toFixed(0)}% chord`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >
@@ -303,7 +303,7 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
           :title="`Thickness - ${(naca5Params.t * 100).toFixed(1)}%`"
           :classes="{
             button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-slate-800',
+            title: 'flex items-center gap-2 font-semibold text-gray-800',
             panel: 'p-4 bg-blue-50/50'
           }"
         >

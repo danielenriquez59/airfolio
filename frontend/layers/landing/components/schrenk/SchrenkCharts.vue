@@ -407,8 +407,8 @@ const copyDataToClipboard = async () => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-    <div class="border-b border-slate-200 bg-slate-50 px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+  <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col h-full">
+    <div class="border-b border-gray-200 bg-gray-50 px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
       <nav class="flex space-x-4" aria-label="Tabs">
         <button
           v-for="tab in tabs"
@@ -417,7 +417,7 @@ const copyDataToClipboard = async () => {
           :class="[
             activeTab === tab.id
               ? 'bg-blue-100 text-blue-700'
-              : 'text-slate-500 hover:text-slate-700',
+              : 'text-gray-500 hover:text-gray-700',
             'rounded-md px-3 py-2 text-sm font-medium transition-colors'
           ]"
         >
@@ -426,11 +426,11 @@ const copyDataToClipboard = async () => {
       </nav>
 
       <div class="flex items-center gap-2">
-        <div v-if="showLoadToggle" class="flex items-center space-x-2 bg-white rounded-md border border-slate-300 px-2 py-1">
-          <span class="text-xs font-semibold text-slate-500 uppercase">Loads:</span>
+        <div v-if="showLoadToggle" class="flex items-center space-x-2 bg-white rounded-md border border-gray-300 px-2 py-1">
+          <span class="text-xs font-semibold text-gray-500 uppercase">Loads:</span>
           <select
             v-model="loadType"
-            class="text-sm border-none py-1 pl-2 pr-6 focus:ring-0 text-slate-700 font-medium bg-transparent cursor-pointer"
+            class="text-sm border-none py-1 pl-2 pr-6 focus:ring-0 text-gray-700 font-medium bg-transparent cursor-pointer"
           >
             <option value="limit">Limit</option>
             <option value="ultimate">Ultimate</option>
@@ -443,7 +443,7 @@ const copyDataToClipboard = async () => {
             'rounded-md px-3 py-1.5 text-sm font-medium transition-all flex items-center gap-1.5 border',
             isCopied
               ? 'bg-green-50 text-green-700 border-green-300'
-              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-300'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
           ]"
           title="Copy chart data to clipboard"
         >

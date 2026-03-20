@@ -91,7 +91,7 @@ const handleSubmit = async (e: Event) => {
             size="32" 
             class="text-gray-600" 
           />
-          <h1 class="text-4xl font-bold text-gray-900">Contact Us</h1>
+          <h1 class="text-3xl font-bold text-gray-900">Contact Us</h1>
         </div>
         <p class="text-xl text-gray-600">
           Report bugs or request features. We'd love to hear from you!

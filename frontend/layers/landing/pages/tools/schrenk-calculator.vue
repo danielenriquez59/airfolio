@@ -53,15 +53,15 @@ const infoExpanded = ref(false)
         title="About this Calculator"
         :classes="{
           button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors rounded-lg border border-blue-200',
-          title: 'flex items-center gap-2 font-semibold text-slate-800',
+          title: 'flex items-center gap-2 font-semibold text-gray-800',
           panel: 'p-4 bg-blue-50/50 rounded-b-lg border-x border-b border-blue-200'
         }"
       >
-        <p class="text-slate-700 leading-relaxed mb-4">
+        <p class="text-gray-700 leading-relaxed mb-4">
           The Schrenk lift calculator predicts how lift is distributed across a tapered wing by averaging the actual chord distribution with an ideal elliptical lift distribution. It calculates shear forces and bending moments at multiple spanwise stations to determine structural loads for aircraft design. It can account for a single point mass along the span. These load values help size wing spars and skins to handle both aerodynamic forces and wing weight inertia during high-g maneuvers. Ultimate loads are calculated as 1.5 Limit loads. The Hunsaker distribution utilizes the load obtained from constraining fixed total weight, fixed max stress, and fixed wing loading. 
         </p>
         <div class="pt-4 border-t border-blue-200 space-y-2">
-          <p class="text-sm font-semibold text-slate-700 mb-2">References:</p>
+          <p class="text-sm font-semibold text-gray-700 mb-2">References:</p>
           <a
             href="https://mar2013.lightaircraftassociation.co.uk/2010/Engineering/Design/schrenk%20approximation.pdf"
             target="_blank"
@@ -88,19 +88,19 @@ const infoExpanded = ref(false)
       <!-- Left Sidebar: Inputs -->
       <div class="lg:col-span-3 space-y-6">
         <!-- Distribution Type Selector -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-          <div class="flex items-center gap-2 mb-3 text-slate-900 font-semibold">
-            <Icon name="heroicons:chart-bar" class="h-5 w-5 text-blue-600" />
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div class="flex items-center gap-2 mb-3 text-gray-900 font-semibold">
+            <Icon name="heroicons:chart-bar" class="h-5 w-5 text-indigo-600" />
             <h2>Lift Distribution</h2>
           </div>
           <div class="space-y-2">
-            <label for="distribution-type" class="block text-sm font-medium text-slate-700">
+            <label for="distribution-type" class="block text-sm font-medium text-gray-700">
               Distribution Type
             </label>
             <select
               id="distribution-type"
               v-model="distributionType"
-              class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
             >
               <option value="elliptic">Elliptic</option>
               <option value="hunsaker">Hunsaker</option>
@@ -108,9 +108,9 @@ const infoExpanded = ref(false)
           </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-          <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
-            <Icon name="heroicons:calculator" class="h-5 w-5 text-blue-600" />
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+          <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
+            <Icon name="heroicons:calculator" class="h-5 w-5 text-indigo-600" />
             <h2>Parameters</h2>
           </div>
 

@@ -38,29 +38,29 @@ const thicknessStep = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-    <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
+  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
       <Icon name="heroicons:calculator" class="h-5 w-5 text-blue-600" />
       <h2>Parameters</h2>
     </div>
 
-    <div class="space-y-1">
+    <div class="space-y-4">
       <!-- Airfoil Parameters Section -->
-      <div class="mb-4 pb-4 border-b border-slate-100">
-        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+      <div class="mb-4 pb-4 border-b border-gray-200">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">
           Airfoil Parameters
         </h3>
 
         <!-- Unit System Dropdown -->
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
             Unit System
-            <span class="text-slate-400 cursor-help" title="Choose length units for all measurements">ⓘ</span>
+            <span class="text-gray-400 cursor-help" title="Choose length units for all measurements">ⓘ</span>
           </label>
           <select
             :value="modelValue.unitSystem"
             @input="updateValue('unitSystem', ($event.target as HTMLSelectElement).value)"
-            class="block w-full rounded-md border-slate-300 py-2 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           >
             <option value="mm">Millimeters (mm)</option>
             <option value="in">Inches (in)</option>
@@ -100,20 +100,20 @@ const thicknessStep = computed(() => {
 
       <!-- Spar Geometry Section -->
       <div>
-        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+        <h3 class="text-sm font-medium text-gray-700 mb-3">
           Spar Geometry
         </h3>
 
         <!-- Cross-Section Type Dropdown -->
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
             Cross-Section Type
-            <span class="text-slate-400 cursor-help" title="Type of spar cross-section structure">ⓘ</span>
+            <span class="text-gray-400 cursor-help" title="Type of spar cross-section structure">ⓘ</span>
           </label>
           <select
             :value="modelValue.crossSection"
             @input="updateValue('crossSection', ($event.target as HTMLSelectElement).value)"
-            class="block w-full rounded-md border-slate-300 py-2 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           >
             <option value="hollow-rectangle">Hollow Rectangle</option>
             <option value="i-beam">I-Beam</option>
@@ -123,9 +123,9 @@ const thicknessStep = computed(() => {
         
         <!-- Spar Location (Slider) -->
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
             Spar Location (% Chord)
-            <span class="text-slate-400 cursor-help" title="Position along chord where spar is located (0 = leading edge, 1 = trailing edge)">ⓘ</span>
+            <span class="text-gray-400 cursor-help" title="Position along chord where spar is located (0 = leading edge, 1 = trailing edge)">ⓘ</span>
           </label>
           <div class="px-1">
             <input
@@ -135,11 +135,11 @@ const thicknessStep = computed(() => {
               step="0.01"
               :value="modelValue.sparLocation"
               @input="updateValue('sparLocation', parseFloat(($event.target as HTMLInputElement).value))"
-              class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-2"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mb-2"
             />
-            <div class="flex justify-between text-xs text-slate-500">
+            <div class="flex justify-between text-xs text-gray-500">
               <span>5%</span>
-              <span class="font-mono bg-slate-200 px-2 rounded">
+              <span class="font-mono bg-gray-200 px-2 rounded">
                 {{ (modelValue.sparLocation * 100).toFixed(0) }}%
               </span>
               <span>95%</span>

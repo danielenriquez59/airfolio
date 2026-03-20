@@ -180,7 +180,7 @@ useHead({
       <!-- Header with Results Count and Sort Controls -->
       <div class="mb-6 flex items-start justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Search Results</h1>
+          <h1 class="text-3xl font-bold text-gray-900">Search Results</h1>
           <p v-if="!isLoading" class="text-sm text-gray-600 mt-1">
             Airfoils Found: <span class="font-semibold">{{ totalCount }}</span>
           </p>

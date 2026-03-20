@@ -225,7 +225,7 @@ const performanceData = computed(() => {
                 type="radio"
                 :value="'4-digit'"
                 :checked="seriesType === '4-digit'"
-                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                 @change="seriesType = '4-digit'"
               />
               <span class="text-sm font-medium text-gray-700">NACA 4-Digit Series</span>
@@ -235,7 +235,7 @@ const performanceData = computed(() => {
                 type="radio"
                 :value="'5-digit'"
                 :checked="seriesType === '5-digit'"
-                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                 @change="seriesType = '5-digit'"
               />
               <span class="text-sm font-medium text-gray-700">NACA 5-Digit Series</span>

@@ -255,14 +255,14 @@ onMounted(async () => {
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <h2 class="text-lg font-semibold text-gray-900">Flap Configurations</h2>
+              <h2 class="text-xl font-semibold text-gray-900">Flap Configurations</h2>
               <span class="text-xs text-gray-500">(Up to three)</span>
             </div>
             <button
               v-if="flapConfigs.length < 3"
               type="button"
               @click="addFlapConfig"
-              class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
             >
               Add Configuration
             </button>
@@ -339,7 +339,7 @@ onMounted(async () => {
 
         <!-- Flow Conditions -->
         <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-900 mb-4">Flow Conditions</h2>
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Flow Conditions</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -425,7 +425,7 @@ onMounted(async () => {
               type="button"
               @click="handleAnalysis"
               :disabled="!isValidConfig || isAnalyzing"
-              class="px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              class="px-8 py-3 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               <Icon
                 v-if="isAnalyzing"
@@ -446,7 +446,7 @@ onMounted(async () => {
         <div v-if="results" class="space-y-8">
           <!-- Performance Plots -->
           <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Performance Comparison</h2>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Comparison</h2>
             <AirfoilPolarPlots :performance-data="performanceDataForPlots" />
           </div>
         </div>

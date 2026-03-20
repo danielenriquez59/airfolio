@@ -78,7 +78,7 @@ onMounted(() => {
 
 <template>
   <div class="mb-4">
-    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+    <label class="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
       Airfoil Selection
     </label>
     <div class="relative">
@@ -87,7 +87,7 @@ onMounted(() => {
           v-model="searchQuery"
           type="text"
           placeholder="Search airfoil or use default NACA 0012..."
-          class="block w-full rounded-md border-slate-300 py-2 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+          class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           @focus="showDropdown = searchResults.length > 0"
           @blur="setTimeout(() => { showDropdown = false }, 200)"
         />
@@ -96,7 +96,7 @@ onMounted(() => {
             v-if="modelValue || searchQuery"
             type="button"
             @click="clearSelection"
-            class="text-slate-400 hover:text-slate-600"
+            class="text-gray-400 hover:text-gray-600"
             aria-label="Clear"
           >
             <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" />
@@ -121,11 +121,11 @@ onMounted(() => {
             <li
               v-for="airfoil in searchResults"
               :key="airfoil.id"
-              class="px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 cursor-pointer"
+              class="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer"
               @mousedown.prevent="selectAirfoil(airfoil)"
             >
               <div class="font-medium">{{ capitalizeName(airfoil.name) }}</div>
-              <div v-if="airfoil.description" class="text-xs text-slate-500 truncate">
+              <div v-if="airfoil.description" class="text-xs text-gray-500 truncate">
                 {{ airfoil.description }}
               </div>
             </li>
@@ -135,16 +135,16 @@ onMounted(() => {
 
       <!-- Loading indicator -->
       <div v-if="isSearching" class="absolute right-3 top-2.5">
-        <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-slate-400" />
+        <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-gray-400" />
       </div>
     </div>
     <!-- Selected airfoil info -->
-    <div v-if="modelValue" class="mt-2 p-2 bg-blue-50 rounded text-xs text-slate-700">
+    <div v-if="modelValue" class="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
       <div class="font-medium">{{ modelValue.name }}</div>
-      <div v-if="modelValue.thickness_pct" class="text-slate-600">
+      <div v-if="modelValue.thickness_pct" class="text-gray-600">
         Thickness: {{ (modelValue.thickness_pct * 100).toFixed(1) }}%
       </div>
-      <div v-if="modelValue.camber_pct" class="text-slate-600">
+      <div v-if="modelValue.camber_pct" class="text-gray-600">
         Camber: {{ (modelValue.camber_pct * 100).toFixed(1) }}%
       </div>
     </div>

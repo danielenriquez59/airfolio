@@ -56,15 +56,15 @@ const exportToCSV = (loadData: CombinedLoadPoint[]) => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+  <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
     <button
       @click="showTable = !showTable"
-      class="w-full px-5 py-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+      class="w-full px-5 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors text-left"
     >
-      <div class="font-semibold text-slate-800">Detailed Load Table</div>
+      <div class="font-semibold text-gray-800">Detailed Load Table</div>
       <Icon
         :name="showTable ? 'heroicons:chevron-up' : 'heroicons:chevron-down'"
-        class="h-5 w-5 text-slate-500"
+        class="h-5 w-5 text-gray-500"
       />
     </button>
 
@@ -72,7 +72,7 @@ const exportToCSV = (loadData: CombinedLoadPoint[]) => {
       <!-- Download Button -->
       <button
         @click="exportToCSV(loadData)"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+        class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md transition-colors"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Download CSV
@@ -80,42 +80,42 @@ const exportToCSV = (loadData: CombinedLoadPoint[]) => {
 
       <!-- Table -->
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-slate-50">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-50">
             <tr>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase">Station (in)</th>
-              <th colspan="2" class="px-3 py-3 text-center font-medium text-slate-500 uppercase bg-blue-50">Aero Shear/Moment</th>
-              <th colspan="2" class="px-3 py-3 text-center font-medium text-slate-500 uppercase bg-red-50">Inertia Shear/Moment</th>
-              <th colspan="2" class="px-3 py-3 text-center font-medium text-slate-900 uppercase bg-amber-50">Limit Total</th>
-              <th colspan="2" class="px-3 py-3 text-center font-medium text-slate-900 uppercase bg-slate-100">Ultimate</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase">Station (in)</th>
+              <th colspan="2" class="px-3 py-3 text-center font-medium text-gray-500 uppercase bg-blue-50">Aero Shear/Moment</th>
+              <th colspan="2" class="px-3 py-3 text-center font-medium text-gray-500 uppercase bg-red-50">Inertia Shear/Moment</th>
+              <th colspan="2" class="px-3 py-3 text-center font-medium text-gray-900 uppercase bg-amber-50">Limit Total</th>
+              <th colspan="2" class="px-3 py-3 text-center font-medium text-gray-900 uppercase bg-gray-100">Ultimate</th>
             </tr>
             <tr>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase"></th>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase text-xs bg-blue-50">Shear (lb)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase text-xs bg-blue-50">Moment (lb-in)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase text-xs bg-red-50">Shear (lb)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-500 uppercase text-xs bg-red-50">Moment (lb-in)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-900 uppercase text-xs bg-amber-50">Shear (lb)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-900 uppercase text-xs bg-amber-50">Moment (lb-in)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-900 uppercase text-xs bg-slate-100">Shear (lb)</th>
-              <th class="px-3 py-3 text-right font-medium text-slate-900 uppercase text-xs bg-slate-100">Moment (lb-in)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase"></th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase text-xs bg-blue-50">Shear (lb)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase text-xs bg-blue-50">Moment (lb-in)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase text-xs bg-red-50">Shear (lb)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-500 uppercase text-xs bg-red-50">Moment (lb-in)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-900 uppercase text-xs bg-amber-50">Shear (lb)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-900 uppercase text-xs bg-amber-50">Moment (lb-in)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-900 uppercase text-xs bg-gray-100">Shear (lb)</th>
+              <th class="px-3 py-3 text-right font-medium text-gray-900 uppercase text-xs bg-gray-100">Moment (lb-in)</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200 bg-white">
+          <tbody class="divide-y divide-gray-200 bg-white">
             <tr
               v-for="(row, i) in loadData"
               :key="i"
-              class="hover:bg-slate-50"
+              class="hover:bg-gray-50"
             >
-              <td class="px-3 py-2 text-right font-mono text-slate-600">{{ fmt(row.station_in, 1) }}</td>
+              <td class="px-3 py-2 text-right font-mono text-gray-600">{{ fmt(row.station_in, 1) }}</td>
               <td class="px-3 py-2 text-right font-mono text-blue-600 bg-blue-50/30">{{ fmt(row.aero_shear_lb, 0) }}</td>
               <td class="px-3 py-2 text-right font-mono text-blue-600 bg-blue-50/30">{{ fmt(row.aero_moment_lb_in, 0) }}</td>
               <td class="px-3 py-2 text-right font-mono text-red-600 bg-red-50/30">{{ fmt(row.inertia_shear_lb, 0) }}</td>
               <td class="px-3 py-2 text-right font-mono text-red-600 bg-red-50/30">{{ fmt(row.inertia_moment_lb_in, 0) }}</td>
               <td class="px-3 py-2 text-right font-mono text-amber-900 font-semibold bg-amber-50">{{ fmt(row.total_limit_shear_lb, 0) }}</td>
               <td class="px-3 py-2 text-right font-mono text-amber-900 font-semibold bg-amber-50">{{ fmt(row.total_limit_moment_lb_in, 0) }}</td>
-              <td class="px-3 py-2 text-right font-mono font-bold text-slate-900 bg-slate-100">{{ fmt(row.ult_shear_lb, 0) }}</td>
-              <td class="px-3 py-2 text-right font-mono font-bold text-slate-900 bg-slate-100">{{ fmt(row.ult_moment_lb_in, 0) }}</td>
+              <td class="px-3 py-2 text-right font-mono font-bold text-gray-900 bg-gray-100">{{ fmt(row.ult_shear_lb, 0) }}</td>
+              <td class="px-3 py-2 text-right font-mono font-bold text-gray-900 bg-gray-100">{{ fmt(row.ult_moment_lb_in, 0) }}</td>
             </tr>
           </tbody>
         </table>

@@ -81,15 +81,15 @@ const handleTEThicknessChange = (value: string | number) => {
 <template>
   <div class="space-y-4 w-full">
     <!-- Order Control -->
-    <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-      <Icon name="heroicons:cog-6-tooth-20-solid" class="w-4 h-4 text-slate-400" />
-      <label class="text-sm font-medium text-slate-700">Weights Count (N+1):</label>
+    <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+      <Icon name="heroicons:cog-6-tooth-20-solid" class="w-4 h-4 text-gray-400" />
+      <label class="text-sm font-medium text-gray-700">Weights Count (N+1):</label>
       <input
         v-model="inputOrder"
         type="number"
         min="3"
         max="21"
-        class="w-16 px-2 py-1 border border-slate-300 rounded text-center font-mono text-sm focus:outline-none focus:border-blue-500"
+        class="w-16 px-2 py-1 border border-gray-300 rounded text-center font-mono text-sm focus:outline-none focus:border-blue-500"
         @blur="handleInputBlur"
       />
     </div>
@@ -101,8 +101,8 @@ const handleTEThicknessChange = (value: string | number) => {
         <div class="w-full flex items-center justify-between p-4 bg-purple-50">
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-purple-500"></div>
-            <span class="font-semibold text-slate-800">Upper Weights</span>
-            <span class="text-xs text-slate-400">{{ parameters.upperWeights.length }} weights</span>
+            <span class="font-semibold text-gray-800">Upper Weights</span>
+            <span class="text-xs text-gray-400">{{ parameters.upperWeights.length }} weights</span>
           </div>
         </div>
         <div class="p-4 bg-purple-50/50 max-h-[300px] overflow-y-auto space-y-2">
@@ -111,7 +111,7 @@ const handleTEThicknessChange = (value: string | number) => {
             :key="`upper-${index}`"
             class="flex items-center gap-2"
           >
-            <label class="text-[10px] font-bold text-slate-400 w-10 text-right shrink-0">
+            <label class="text-[10px] font-bold text-gray-400 w-10 text-right shrink-0">
               A{{ index }}
             </label>
             <input
@@ -127,7 +127,7 @@ const handleTEThicknessChange = (value: string | number) => {
               type="number"
               :value="weight"
               step="0.001"
-              class="w-16 p-0.5 text-right text-xs border border-slate-300 rounded focus:outline-none focus:border-purple-400"
+              class="w-16 p-0.5 text-right text-xs border border-gray-300 rounded focus:outline-none focus:border-purple-400"
               @input="handleWeightChange(index, true, ($event.target as HTMLInputElement).value)"
             />
           </div>
@@ -139,8 +139,8 @@ const handleTEThicknessChange = (value: string | number) => {
         <div class="w-full flex items-center justify-between p-4 bg-red-50">
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-red-500"></div>
-            <span class="font-semibold text-slate-800">Lower Weights</span>
-            <span class="text-xs text-slate-400">{{ parameters.lowerWeights.length }} weights</span>
+            <span class="font-semibold text-gray-800">Lower Weights</span>
+            <span class="text-xs text-gray-400">{{ parameters.lowerWeights.length }} weights</span>
           </div>
         </div>
         <div class="p-4 bg-red-50/50 max-h-[300px] overflow-y-auto space-y-2">
@@ -149,7 +149,7 @@ const handleTEThicknessChange = (value: string | number) => {
             :key="`lower-${index}`"
             class="flex items-center gap-2"
           >
-            <label class="text-[10px] font-bold text-slate-400 w-10 text-right shrink-0">
+            <label class="text-[10px] font-bold text-gray-400 w-10 text-right shrink-0">
               A{{ index }}
             </label>
             <input
@@ -165,7 +165,7 @@ const handleTEThicknessChange = (value: string | number) => {
               type="number"
               :value="weight"
               step="0.001"
-              class="w-16 p-0.5 text-right text-xs border border-slate-300 rounded focus:outline-none focus:border-red-400"
+              class="w-16 p-0.5 text-right text-xs border border-gray-300 rounded focus:outline-none focus:border-red-400"
               @input="handleWeightChange(index, false, ($event.target as HTMLInputElement).value)"
             />
           </div>
@@ -177,7 +177,7 @@ const handleTEThicknessChange = (value: string | number) => {
         <div class="w-full flex items-center justify-between p-4 bg-blue-50">
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span class="font-semibold text-slate-800">LE Mod Weight & TE Thickness</span>
+            <span class="font-semibold text-gray-800">LE Mod Weight & TE Thickness</span>
           </div>
         </div>
         <div class="p-4 bg-blue-50/50 space-y-4">
