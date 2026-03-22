@@ -119,8 +119,9 @@ const generateChartData = (
   }
 }
 
-// Tooltip enabled state
-const tooltipsEnabled = ref(true)
+// Hover mode: 'all' shows all curves, 'one' shows nearest curve, 'disabled' hides tooltips
+type HoverMode = 'all' | 'one' | 'disabled'
+const hoverMode = ref<HoverMode>('all')
 
 // Plots expanded state (1 column vs 2 columns)
 const plotsExpanded = ref(false)
@@ -142,15 +143,18 @@ const getXAxisSuffix = (): string => {
 const getChartOptions = (
   yLabel: string,
   showLegend: boolean,
-  enableTooltips: boolean = true,
+  currentHoverMode: HoverMode = 'all',
   isCLPlot: boolean = false
-): any => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: false,
-  parsing: false,
-  normalized: true,
-  plugins: {
+): any => {
+  const interactionAxis = currentHoverMode === 'one' ? 'xy' as const : 'x' as const
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    parsing: false,
+    normalized: true,
+    plugins: {
     legend: {
       display: showLegend,
       position: 'top' as const,
@@ -163,8 +167,9 @@ const getChartOptions = (
       },
     },
     tooltip: {
-      enabled: enableTooltips,
-      mode: 'index' as const,
+      enabled: currentHoverMode !== 'disabled',
+      mode: currentHoverMode === 'one' ? 'nearest' as const : 'index' as const,
+      axis: interactionAxis,
       intersect: false,
       callbacks: {
         title: (context: any[]) => {
@@ -245,11 +250,12 @@ const getChartOptions = (
     },
   },
   interaction: {
-    mode: 'nearest' as const,
-    axis: 'x' as const,
+    mode: currentHoverMode === 'one' ? 'nearest' as const : 'index' as const,
+    axis: interactionAxis,
     intersect: false,
   },
-})
+  }
+}
 
 // Generate datasets for legend-only chart (using CL data as base)
 const legendChartData = computed(() => {
@@ -310,10 +316,10 @@ const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value, true))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value, false))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value, false))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value, false))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, hoverMode.value, true))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, hoverMode.value, false))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, hoverMode.value, false))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, hoverMode.value, false))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -342,9 +348,11 @@ const handleExportCSV = () => {
   exportPolarDataCSV(props.airfoils)
 }
 
-// Toggle tooltips
+// Cycle hover mode: all → one → disabled → all
 const toggleTooltips = () => {
-  tooltipsEnabled.value = !tooltipsEnabled.value
+  const modes: HoverMode[] = ['all', 'one', 'disabled']
+  const currentIndex = modes.indexOf(hoverMode.value)
+  hoverMode.value = modes[(currentIndex + 1) % modes.length]
 }
 
 // Toggle plots view
@@ -378,13 +386,18 @@ const toggleXAxisMode = () => {
         @click="toggleTooltips"
         :class="[
           'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          tooltipsEnabled
+          hoverMode !== 'disabled'
             ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
             : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
         ]"
       >
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
-        {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+        {{ hoverMode === 'all' ? 'Hover: All Curves' : hoverMode === 'one' ? 'Hover: One Curve' : 'Hover: Disabled' }}
+        <span class="inline-flex gap-1 ml-1">
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'all' ? 'bg-indigo-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'one' ? 'bg-indigo-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'disabled' ? 'bg-gray-500' : 'bg-gray-300']" />
+        </span>
       </button>
       <button
         type="button"
