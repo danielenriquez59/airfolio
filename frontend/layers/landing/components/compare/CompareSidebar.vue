@@ -438,6 +438,76 @@ const handleResetAnalysis = () => {
           </div>
         </div>
 
+        <!-- L/D Width -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.ldWidth"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              L/D Width
+              <div class="group relative">
+                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </label>
+            <span class="text-sm font-semibold text-indigo-600">
+              <template v-if="minLDWidth !== null">
+                ≥ {{ minLDWidth.toFixed(1) }}°
+              </template>
+              <template v-else>No limit</template>
+            </span>
+          </div>
+          <!-- Min Width slider -->
+          <div class="space-y-1 mt-2">
+            <div class="flex justify-between text-xs text-gray-600">
+              <span>Min Width</span>
+              <span>{{ minLDWidth !== null ? minLDWidth.toFixed(1) + '°' : filterRanges.ldWidth.min.toFixed(1) + '°' }}</span>
+            </div>
+            <input
+              v-model.number="minLDWidthSlider"
+              type="range"
+              :min="filterRanges.ldWidth.min"
+              :max="filterRanges.ldWidth.max"
+              step="0.1"
+              :disabled="!filterEnabled.ldWidth"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <div class="flex justify-between">
+              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.min.toFixed(1) }}°</span>
+              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="py-4">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.ldWidth"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            L/D Width
+          </label>
+          <VInput
+            :model-value="minLDWidth ?? undefined"
+            @update:model-value="minLDWidth = $event as number | null"
+            type="number"
+            step="0.1"
+            placeholder="No limit"
+            size="sm"
+            wrapper-class="w-full"
+            :disabled="!filterEnabled.ldWidth"
+          />
+          <p class="mt-1 text-xs text-gray-500">
+            Width of L/D curve at 80% of max L/D
+          </p>
+        </div>
+
         <!-- CL Max Range -->
         <div v-if="filterRanges" class="py-4">
           <div class="flex items-center justify-between mb-2">
@@ -512,76 +582,6 @@ const handleResetAnalysis = () => {
               :disabled="!filterEnabled.clMax"
             />
           </div>
-        </div>
-
-        <!-- L/D Width -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.ldWidth"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              L/D Width
-              <div class="group relative">
-                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                  Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
-                </div>
-              </div>
-            </label>
-            <span class="text-sm font-semibold text-indigo-600">
-              <template v-if="minLDWidth !== null">
-                ≥ {{ minLDWidth.toFixed(1) }}°
-              </template>
-              <template v-else>No limit</template>
-            </span>
-          </div>
-          <!-- Min Width slider -->
-          <div class="space-y-1 mt-2">
-            <div class="flex justify-between text-xs text-gray-600">
-              <span>Min Width</span>
-              <span>{{ minLDWidth !== null ? minLDWidth.toFixed(1) + '°' : filterRanges.ldWidth.min.toFixed(1) + '°' }}</span>
-            </div>
-            <input
-              v-model.number="minLDWidthSlider"
-              type="range"
-              :min="filterRanges.ldWidth.min"
-              :max="filterRanges.ldWidth.max"
-              step="0.1"
-              :disabled="!filterEnabled.ldWidth"
-              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <div class="flex justify-between">
-              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.min.toFixed(1) }}°</span>
-              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
-            </div>
-          </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.ldWidth"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            L/D Width
-          </label>
-          <VInput
-            :model-value="minLDWidth ?? undefined"
-            @update:model-value="minLDWidth = $event as number | null"
-            type="number"
-            step="0.1"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.ldWidth"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Width of L/D curve at 80% of max L/D
-          </p>
         </div>
 
         <!-- Min CM at α = 0° -->
