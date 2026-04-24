@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { CSTParameters } from '~/composables/useCSTParameters'
+import type { Database } from '~/types/database.types'
 import NACAExportButtons from '~/layers/landing/components/naca/NACAExportButtons.vue'
+import { useDebounceFn } from '@vueuse/core'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 interface Props {
   parameters: CSTParameters
@@ -17,7 +21,91 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const inputOrder = ref(String(props.parameters.order + 1))
+const { searchAirfoilsByPrefix } = useAirfoilAutocomplete()
+const { fetchAirfoilGeometry } = useAirfoils()
+const { fitCSTParameters } = useCSTParameters()
+
+// Airfoil fit state
+const airfoilSearchQuery = ref('')
+const airfoilSearchResults = ref<Airfoil[]>([])
+const selectedAirfoil = ref<Airfoil | null>(null)
+const isSearching = ref(false)
+const showDropdown = ref(false)
+const isFitting = ref(false)
+
+// Debounced airfoil search
+const debouncedAirfoilSearch = useDebounceFn(async (query: string) => {
+  if (!query || query.length < 2) {
+    airfoilSearchResults.value = []
+    showDropdown.value = false
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const results = await searchAirfoilsByPrefix(query, 15)
+    airfoilSearchResults.value = results
+    showDropdown.value = results.length > 0
+  } catch (err) {
+    console.error('Error searching airfoils:', err)
+    airfoilSearchResults.value = []
+    showDropdown.value = false
+  } finally {
+    isSearching.value = false
+  }
+}, 300)
+
+watch(airfoilSearchQuery, (newQuery) => {
+  if (selectedAirfoil.value && newQuery !== selectedAirfoil.value.name) {
+    selectedAirfoil.value = null
+  }
+  debouncedAirfoilSearch(newQuery)
+})
+
+const selectAirfoil = (airfoil: Airfoil) => {
+  selectedAirfoil.value = airfoil
+  airfoilSearchQuery.value = airfoil.name
+  showDropdown.value = false
+}
+
+const clearAirfoilSelection = () => {
+  selectedAirfoil.value = null
+  airfoilSearchQuery.value = ''
+  airfoilSearchResults.value = []
+  showDropdown.value = false
+}
+
+const handleFitToAirfoil = async () => {
+  if (!selectedAirfoil.value) return
+
+  isFitting.value = true
+  try {
+    const geometry = await fetchAirfoilGeometry(selectedAirfoil.value.id)
+    if (!geometry || !geometry.upper_x_coordinates || !geometry.upper_y_coordinates || !geometry.lower_x_coordinates || !geometry.lower_y_coordinates) {
+      console.error('Missing coordinate data for airfoil')
+      return
+    }
+
+    const fitted = fitCSTParameters(
+      geometry.upper_x_coordinates,
+      geometry.upper_y_coordinates,
+      geometry.lower_x_coordinates,
+      geometry.lower_y_coordinates,
+      props.parameters.order
+    )
+    emit('update:parameters', fitted)
+  } catch (err) {
+    console.error('Error fitting CST parameters:', err)
+  } finally {
+    isFitting.value = false
+  }
+}
+
+/** Displayed count is order + 1; default 4 (order 3) when parent omits order */
+const DEFAULT_INPUT_ORDER = 4
+const inputOrder = ref(
+  String((props.parameters.order ?? DEFAULT_INPUT_ORDER - 1) + 1)
+)
 
 // Watch for inputOrder changes and auto-update weights
 watch(inputOrder, (newValue) => {
@@ -80,6 +168,76 @@ const handleTEThicknessChange = (value: string | number) => {
 
 <template>
   <div class="space-y-4 w-full">
+    <!-- Fit to Airfoil -->
+    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+      <div class="flex items-center gap-2">
+        <Icon name="heroicons:magnifying-glass-20-solid" class="w-4 h-4 text-gray-400" />
+        <label class="text-sm font-medium text-gray-700">Fit to Airfoil</label>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input
+            v-model="airfoilSearchQuery"
+            type="text"
+            placeholder="Search airfoil name..."
+            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm sm:leading-6"
+            @focus="showDropdown = airfoilSearchResults.length > 0"
+            @blur="window.setTimeout(() => { showDropdown = false }, 200)"
+          />
+          <div class="absolute inset-y-0 right-0 flex items-center pr-2">
+            <Icon v-if="isSearching" name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-gray-400" />
+            <button
+              v-else-if="selectedAirfoil || airfoilSearchQuery"
+              type="button"
+              class="text-gray-400 hover:text-gray-600"
+              @click="clearAirfoilSelection"
+            >
+              <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" />
+            </button>
+          </div>
+          <!-- Dropdown Results -->
+          <Transition
+            enter-active-class="transition ease-out duration-100"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition ease-in duration-75"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
+          >
+            <div
+              v-if="showDropdown && airfoilSearchResults.length > 0"
+              class="absolute z-10 mt-1 w-full bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 max-h-60 overflow-auto"
+            >
+              <ul class="py-1">
+                <li
+                  v-for="airfoil in airfoilSearchResults"
+                  :key="airfoil.id"
+                  class="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer"
+                  @mousedown.prevent="selectAirfoil(airfoil)"
+                >
+                  <div class="font-medium">{{ airfoil.name }}</div>
+                  <div v-if="airfoil.thickness_pct" class="text-xs text-gray-500">
+                    Thickness: {{ (airfoil.thickness_pct * 100).toFixed(1) }}%
+                    <span v-if="airfoil.camber_pct" class="ml-2">Camber: {{ (airfoil.camber_pct * 100).toFixed(1) }}%</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </Transition>
+        </div>
+        <button
+          type="button"
+          :disabled="!selectedAirfoil || isFitting"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
+          @click="handleFitToAirfoil"
+        >
+          <div v-if="isFitting" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+          <Icon v-else name="heroicons:sparkles" class="h-4 w-4" />
+          {{ isFitting ? 'Fitting...' : 'Fit to Airfoil' }}
+        </button>
+      </div>
+    </div>
+
     <!-- Order Control -->
     <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
       <Icon name="heroicons:cog-6-tooth-20-solid" class="w-4 h-4 text-gray-400" />
@@ -88,7 +246,7 @@ const handleTEThicknessChange = (value: string | number) => {
         v-model="inputOrder"
         type="number"
         min="3"
-        max="21"
+        max="8"
         class="w-16 px-2 py-1 border border-gray-300 rounded text-center font-mono text-sm focus:outline-none focus:border-blue-500"
         @blur="handleInputBlur"
       />
