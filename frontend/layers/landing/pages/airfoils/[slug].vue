@@ -528,8 +528,8 @@ useHead({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
-                <dl class="space-y-3">
-                  <div v-if="airfoil.thickness_pct">
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div v-if="airfoil.thickness_pct" class="min-w-0">
                     <dt class="text-sm text-gray-500">Thickness (t/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
@@ -538,7 +538,7 @@ useHead({
                       </span>
                     </dd>
                   </div>
-                  <div v-if="airfoil.camber_pct">
+                  <div v-if="airfoil.camber_pct" class="min-w-0">
                     <dt class="text-sm text-gray-500">Camber (y/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.camber_pct * 100).toFixed(2) }}%
@@ -547,28 +547,28 @@ useHead({
                       </span>
                     </dd>
                   </div>
-                  <div v-if="airfoil.le_radius">
-                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.le_radius.toFixed(4) }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.te_thickness">
-                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.te_thickness.toFixed(4) }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.upper_surface_nodes !== null">
+                  <div v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.upper_surface_nodes }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.lower_surface_nodes !== null">
+                  <div v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.lower_surface_nodes }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.le_radius" class="col-span-2 min-w-0">
+                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.le_radius.toFixed(4) }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.te_thickness" class="col-span-2 min-w-0">
+                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.te_thickness.toFixed(4) }}
                     </dd>
                   </div>
                 </dl>
@@ -658,21 +658,21 @@ useHead({
         </div>
         
         <!-- Analysis Buttons -->
-        <div v-if="airfoil.id" class="mb-8 space-y-3 border-t border-gray-200 pt-8">
+        <div v-if="airfoil.id" class="mb-8 flex flex-row items-stretch gap-3 border-t border-gray-200 pt-8">
           <VButton
             color="primary"
-            block
+            class="min-w-0 flex-1"
             size="lg"
             @click="showAnalysisModal = true"
           >
-            <Icon name="heroicons:play" class="h-5 w-5" />
+            <Icon name="heroicons:play" class="h-5 w-5 shrink-0" />
             Run Performance Analysis
           </VButton>
           <NuxtLink
             :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            class="block w-full px-6 py-3 bg-gray-200 text-gray-900 rounded-md font-medium hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 flex items-center justify-center gap-2"
+            class="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-md bg-gray-200 px-3 py-3 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 sm:px-6 sm:text-base"
           >
-            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5" />
+            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5 shrink-0" />
             Control Surface Analysis
           </NuxtLink>
         </div>
