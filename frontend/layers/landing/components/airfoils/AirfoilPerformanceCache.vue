@@ -446,11 +446,14 @@ defineExpose({ refresh })
  */
 const handleClickOutside = (e: MouseEvent) => {
   const target = e.target as HTMLElement
-  // Check if click is on the table or its children
   const tableContainer = document.querySelector('[data-filter-table]')
-  if (tableContainer && !tableContainer.contains(target)) {
-    closeFilterDropdown()
+  const filterDropdown = target.closest('[data-filter-dropdown]')
+
+  if (tableContainer?.contains(target) || filterDropdown) {
+    return
   }
+
+  closeFilterDropdown()
 }
 
 /**
@@ -715,8 +718,10 @@ onUnmounted(() => {
     <Teleport to="body">
       <div 
         v-if="openFilterColumn === 're' && dropdownPosition" 
+        data-filter-dropdown
         class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
         :style="dropdownPosition"
+        @click.stop
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
@@ -742,8 +747,10 @@ onUnmounted(() => {
     <Teleport to="body">
       <div 
         v-if="openFilterColumn === 'mach' && dropdownPosition" 
+        data-filter-dropdown
         class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
         :style="dropdownPosition"
+        @click.stop
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
@@ -769,8 +776,10 @@ onUnmounted(() => {
     <Teleport to="body">
       <div 
         v-if="openFilterColumn === 'ncrit' && dropdownPosition" 
+        data-filter-dropdown
         class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
         :style="dropdownPosition"
+        @click.stop
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
@@ -796,8 +805,10 @@ onUnmounted(() => {
     <Teleport to="body">
       <div 
         v-if="openFilterColumn === 'aoaMin' && dropdownPosition" 
+        data-filter-dropdown
         class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
         :style="dropdownPosition"
+        @click.stop
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
@@ -823,8 +834,10 @@ onUnmounted(() => {
     <Teleport to="body">
       <div 
         v-if="openFilterColumn === 'aoaMax' && dropdownPosition" 
+        data-filter-dropdown
         class="fixed w-48 bg-white border border-gray-300 rounded shadow-lg z-50"
         :style="dropdownPosition"
+        @click.stop
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
