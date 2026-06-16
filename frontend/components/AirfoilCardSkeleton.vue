@@ -13,16 +13,16 @@ const aspectRatio = 3.5
 </script>
 
 <template>
-  <VCard class="pt-3">
+  <VCard header-class="!py-2 !px-2 md:!px-4" body-class="!py-2 !px-2 md:!px-4">
     <template #header>
-      <div class="px-2 md:px-4">
+      <div>
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
             <!-- Title skeleton -->
-            <div class="h-6 bg-gray-200 rounded animate-pulse mb-2 w-3/4"></div>
+            <div class="h-5 bg-gray-200 rounded animate-pulse w-3/4"></div>
             <!-- Description skeleton (optional) -->
-            <div class="h-4 bg-gray-200 rounded animate-pulse w-full mt-2"></div>
-            <div class="h-4 bg-gray-200 rounded animate-pulse w-2/3 mt-1"></div>
+            <div class="h-3.5 bg-gray-200 rounded animate-pulse w-full mt-1.5"></div>
+            <div class="h-3.5 bg-gray-200 rounded animate-pulse w-2/3 mt-1"></div>
           </div>
           <!-- Badge skeleton -->
           <div class="ml-2">
@@ -32,10 +32,10 @@ const aspectRatio = 3.5
       </div>
     </template>
 
-    <VCardBody class="px-2 md:px-4">
-      <div class="space-y-4">
+    <VCardBody>
+      <div class="space-y-2">
         <!-- Metadata Grid -->
-        <div class="grid grid-cols-2 gap-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
           <!-- Thickness -->
           <div>
             <div class="h-4 bg-gray-200 rounded animate-pulse mb-1 w-16"></div>
@@ -62,7 +62,7 @@ const aspectRatio = 3.5
         </div>
 
         <!-- Geometry Visualization -->
-        <div class="mt-4 -mx-2 md:mx-0">
+        <div class="-mx-2 md:mx-0">
           <div
             class="bg-gray-200 rounded animate-pulse"
             :style="{ aspectRatio: `${aspectRatio} / 1`, width: '100%' }"

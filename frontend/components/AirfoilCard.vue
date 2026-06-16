@@ -92,22 +92,23 @@ const handleClick = () => {
 <template>
   <VCard
     :class="[
-      'hover:shadow-lg transition-shadow cursor-pointer pt-3',
+      'hover:shadow-lg transition-shadow cursor-pointer',
       { 'hover:scale-[1.02] transition-transform': onClick || true }
     ]"
+    header-class="pt-6 px-3 md:px-7"
+    body-class="!py-2 !px-2 md:!px-4"
     @click="handleClick"
   >
     <template #header>
-      <div class="px-2 md:px-4">
+      <div>
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1">
-            <h3 class="font-bold text-lg text-gray-900 uppercase tracking-wide">
+            <div class="font-bold text-lg text-gray-900 uppercase tracking-wide leading-tight">
               {{ airfoil ? getDisplayName(airfoil).toUpperCase() : 'Loading...' }}
-            </h3>
-            <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-0 line-clamp-2">
+            </div>
+            <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-1 line-clamp-2">
               {{ airfoil.description }}
             </p>
-            <div v-else class="mt-0 h-[2.5rem]"></div>
           </div>
           <div v-if="category" class="ml-2">
             <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full whitespace-nowrap">
@@ -118,18 +119,18 @@ const handleClick = () => {
       </div>
     </template>
 
-    <VCardBody class="px-2 md:px-4">
+    <VCardBody>
       <!-- Error State -->
-      <div v-if="error" class="text-center py-12 text-red-600">
+      <div v-if="error" class="text-center py-8 text-red-600">
         <p>{{ error }}</p>
       </div>
 
       <!-- Airfoil Data -->
-      <div v-else-if="airfoil" class="space-y-4">
+      <div v-else-if="airfoil" class="space-y-2">
         <!-- Metadata Grid -->
-        <div class="grid grid-cols-2 gap-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
           <div>
-            <span class="text-gray-500 block mb-1">Thickness</span>
+            <span class="text-gray-500 block mb-0.5">Thickness</span>
             <div class="flex flex-row">
               <span class="font-semibold text-gray-900">
                 {{ formatPercent(airfoil.thickness_pct) }}
@@ -141,7 +142,7 @@ const handleClick = () => {
           </div>
 
           <div>
-            <span class="text-gray-500 block mb-1">Camber</span>
+            <span class="text-gray-500 block mb-0.5">Camber</span>
             <div class="flex flex-row">
               <span class="font-semibold text-gray-900">
                 {{ formatPercent(airfoil.camber_pct) }}
@@ -153,14 +154,14 @@ const handleClick = () => {
           </div>
 
           <div v-if="airfoil.le_radius">
-            <span class="text-gray-500 block mb-1">LE Radius</span>
+            <span class="text-gray-500 block mb-0.5">LE Radius</span>
             <span class="font-semibold text-gray-900">
               {{ airfoil.le_radius.toFixed(2) }}
             </span>
           </div>
 
           <div v-if="airfoil.te_thickness">
-            <span class="text-gray-500 block mb-1">TE Thickness</span>
+            <span class="text-gray-500 block mb-0.5">TE Thickness</span>
             <span class="font-semibold text-gray-900">
               {{ airfoil.te_thickness.toFixed(3) }}
             </span>
@@ -168,7 +169,7 @@ const handleClick = () => {
         </div>
 
         <!-- Geometry Visualization -->
-        <div class="mt-4 -mx-2 md:mx-0">
+        <div class="-mx-2 md:mx-0">
           <AirfoilGeometry
             v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
             :upper-x="airfoil.upper_x_coordinates"
@@ -188,7 +189,7 @@ const handleClick = () => {
     </VCardBody>
 
     <!-- Footer with source link if available -->
-    <VCardFooter v-if="airfoil?.source_url" class="pt-0 px-2 md:px-4">
+    <VCardFooter v-if="airfoil?.source_url" class="!pt-0 !pb-2 !px-2 md:!px-4">
       <a
         :href="airfoil.source_url"
         target="_blank"
