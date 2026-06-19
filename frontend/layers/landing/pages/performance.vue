@@ -967,7 +967,7 @@ onMounted(async () => {
     </div>
 
     <!-- Run Button -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div>
       <button
         type="button"
         :disabled="!canRunAnalysis"
