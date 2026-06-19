@@ -13,6 +13,7 @@ import {
   Filler,
 } from 'chart.js'
 import type { AirfoilPolarData } from '~/composables/useCompare'
+import { toggleButtonClasses } from '~/layers/ui/utils/buttons'
 import { calculateLD } from '~/composables/useCompare'
 import { exportPolarDataCSV } from '~/composables/useCSVExport'
 import { downsampleLTTB, getOptimalThreshold } from '~/utils/dataDownsampling'
@@ -383,13 +384,8 @@ const toggleXAxisMode = () => {
     <div class="flex justify-end gap-2">
       <button
         type="button"
+        :class="toggleButtonClasses(hoverMode !== 'disabled')"
         @click="toggleTooltips"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          hoverMode !== 'disabled'
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
         {{ hoverMode === 'all' ? 'Hover: All Curves' : hoverMode === 'one' ? 'Hover: One Curve' : 'Hover: Disabled' }}
@@ -401,47 +397,37 @@ const toggleXAxisMode = () => {
       </button>
       <button
         type="button"
+        :class="toggleButtonClasses(xAxisMode === 'cl')"
         @click="toggleXAxisMode"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          xAxisMode === 'cl'
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon name="heroicons:chart-bar" class="h-4 w-4" />
         {{ xAxisMode === 'cl' ? 'X-Axis: CL' : 'X-Axis: AoA' }}
       </button>
       <button
         type="button"
+        :class="toggleButtonClasses(plotsExpanded)"
         @click="togglePlotsView"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          plotsExpanded
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon :name="plotsExpanded ? 'heroicons:squares-2x2' : 'heroicons:arrows-pointing-out'" class="h-4 w-4" />
         {{ plotsExpanded ? 'Compact Plots' : 'Enlarge Plots' }}
       </button>
-      <button
+      <VButton
         type="button"
+        color="light"
         @click="resetZoom"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <Icon name="heroicons:arrow-path" class="h-4 w-4" />
         Reset Zoom
-      </button>
-      <button
+      </VButton>
+      <VButton
         type="button"
-        @click="handleExportCSV"
+        color="light"
         :disabled="!airfoils || airfoils.length === 0"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        @click="handleExportCSV"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export Filtered Data
-      </button>
+      </VButton>
     </div>
 
     <!-- Legend Panel (spans 2 columns) -->

@@ -258,14 +258,15 @@ onMounted(async () => {
               <h2 class="text-xl font-semibold text-gray-900">Flap Configurations</h2>
               <span class="text-xs text-gray-500">(Up to three)</span>
             </div>
-            <button
+            <VButton
               v-if="flapConfigs.length < 3"
               type="button"
+              color="primary"
+              size="sm"
               @click="addFlapConfig"
-              class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
             >
               Add Configuration
-            </button>
+            </VButton>
           </div>
 
           <div class="overflow-x-auto">
@@ -421,11 +422,12 @@ onMounted(async () => {
 
           <!-- Submit Button -->
           <div class="mt-6 flex justify-center">
-            <button
+            <VButton
               type="button"
-              @click="handleAnalysis"
+              color="primary"
+              size="lg"
               :disabled="!isValidConfig || isAnalyzing"
-              class="px-8 py-3 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              @click="handleAnalysis"
             >
               <Icon
                 v-if="isAnalyzing"
@@ -433,7 +435,7 @@ onMounted(async () => {
                 class="h-5 w-5 animate-spin"
               />
               <span>{{ isAnalyzing ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
-            </button>
+            </VButton>
           </div>
         </div>
 

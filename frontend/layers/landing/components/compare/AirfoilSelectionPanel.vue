@@ -134,34 +134,38 @@ const formatPercentage = (value: number | null | undefined): string => {
     <!-- Batch Actions -->
     <div class="mb-4 pb-4 border-b border-gray-200">
       <div class="flex items-center gap-2 mb-2">
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          variant="ghost"
+          color="primary"
+          size="xs"
+          class="font-medium"
           @click="selectAllVisible"
         >
           Select All Visible
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          variant="ghost"
+          color="primary"
+          size="xs"
+          class="font-medium"
           @click="deselectAll"
         >
           Deselect All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          :class="[
-            'text-xs font-medium',
-            showSelectedOnly
-              ? 'text-indigo-600 hover:text-indigo-800'
-              : 'text-indigo-600 hover:text-indigo-800'
-          ]"
+          variant="ghost"
+          color="primary"
+          size="xs"
+          class="font-medium"
           @click="showSelectedOnly = !showSelectedOnly"
         >
           {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
-        </button>
+        </VButton>
       </div>
       <div v-if="searchQuery.trim() || showSelectedOnly" class="text-xs text-gray-500">
         Showing {{ displayedAirfoils.length }} of {{ airfoils.length }}

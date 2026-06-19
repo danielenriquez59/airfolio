@@ -157,13 +157,13 @@ const handleBack = async () => {
         <Icon name="heroicons:exclamation-triangle" class="h-12 w-12 text-red-600 mx-auto mb-4" />
         <h2 class="text-lg font-semibold text-red-900 mb-2">Error</h2>
         <p class="text-red-800 mb-6">{{ error }}</p>
-        <button
+        <VButton
           type="button"
-          class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          color="primary"
           @click="handleBack"
         >
           Go Back
-        </button>
+        </VButton>
       </div>
 
       <!-- Confirmation Content -->
@@ -200,23 +200,25 @@ const handleBack = async () => {
 
         <!-- Actions -->
         <div class="flex gap-3 pt-6">
-          <button
+          <VButton
             type="button"
+            color="primary"
+            class="flex-1"
             :disabled="isConfirming"
-            class="flex-1 px-4 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             @click="handleConfirm"
           >
             <span v-if="!isConfirming">Submit Airfoil</span>
             <span v-else>Submitting...</span>
-          </button>
-          <button
+          </VButton>
+          <VButton
             type="button"
+            color="neutral"
+            class="flex-1"
             :disabled="isConfirming"
-            class="flex-1 px-4 py-3 bg-gray-200 text-gray-900 font-medium rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             @click="handleBack"
           >
             Go Back
-          </button>
+          </VButton>
         </div>
       </div>
     </div>

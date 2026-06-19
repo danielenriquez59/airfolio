@@ -642,15 +642,15 @@ useHead({
                         placeholder="Select format..."
                         class="flex-1"
                       />
-                      <button
+                      <VButton
                         type="button"
-                        @click="handleDownload"
+                        color="primary"
                         :disabled="!selectedFormat"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                        @click="handleDownload"
                       >
                         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
                         Download
-                      </button>
+                      </VButton>
                     </dd>
                   </div>
                 </dl>
@@ -669,13 +669,15 @@ useHead({
             <Icon name="heroicons:play" class="h-5 w-5 shrink-0" />
             Run Performance Analysis
           </VButton>
-          <NuxtLink
+          <VButton
             :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            class="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-md bg-gray-200 px-3 py-3 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 sm:px-6 sm:text-base"
+            color="neutral"
+            class="min-w-0 flex-1 min-h-12"
+            size="lg"
           >
             <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5 shrink-0" />
             Control Surface Analysis
-          </NuxtLink>
+          </VButton>
         </div>
 
         <!-- Performance Data (Combined Cache and Plots) -->
@@ -695,22 +697,22 @@ useHead({
 
           <!-- Export Buttons -->
           <div v-if="selectedCacheEntries.length > 0" class="flex gap-2 mb-6">
-            <button
+            <VButton
               type="button"
+              color="light"
               @click="copyCSVToClipboard"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <Icon :name="copiedToClipboard ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
               {{ copiedToClipboard ? 'Copied!' : 'Copy to Clipboard' }}
-            </button>
-            <button
+            </VButton>
+            <VButton
               type="button"
+              color="light"
               @click="downloadCSV"
-              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
               Download CSV
-            </button>
+            </VButton>
           </div>
 
           <!-- Performance Plots -->
@@ -755,27 +757,22 @@ useHead({
           </div>
         </VModalBody>
         <VModalFooter>
-          <button
+          <VButton
             type="button"
-            @click="showAnalysisModal = false"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            color="light"
             :disabled="isRunningAnalysis"
+            @click="showAnalysisModal = false"
           >
             Cancel
-          </button>
-          <button
+          </VButton>
+          <VButton
             type="button"
-            @click="analysisParamsFormRef?.submit()"
+            color="primary"
             :disabled="!analysisParamsFormRef?.isValid || isRunningAnalysis"
-            :class="[
-              'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-              analysisParamsFormRef?.isValid && !isRunningAnalysis
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            ]"
+            @click="analysisParamsFormRef?.submit()"
           >
             Run Analysis
-          </button>
+          </VButton>
         </VModalFooter>
       </VModal>
   </div>

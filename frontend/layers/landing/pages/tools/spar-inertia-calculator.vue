@@ -115,7 +115,7 @@ const result = computed<SparCalculationResult>(() => {
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <PageHeader
       title="Spar Moment of Inertia Calculator"
-      subtitle="Wing structural analysis tool"
+      subtitle="Tool for sizing, estimating structuralinertia, and fit-checking your spar design"
     />
 
     <!-- Info Section -->

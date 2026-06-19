@@ -172,7 +172,7 @@ const handleTEThicknessChange = (value: string | number) => {
     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
       <div class="flex items-center gap-2">
         <Icon name="heroicons:magnifying-glass-20-solid" class="w-4 h-4 text-gray-400" />
-        <label class="text-sm font-medium text-gray-700">Fit to Airfoil</label>
+        <label class="text-sm font-medium text-gray-700">Fit Weights to Airfoil</label>
       </div>
       <div class="flex items-center gap-2">
         <div class="relative flex-1">

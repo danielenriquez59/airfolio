@@ -303,13 +303,15 @@ const handleResetAnalysis = () => {
     <div class="bg-white rounded-lg shadow p-4">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-900">Filters</h2>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleResetFilters"
         >
           Reset All
-        </button>
+        </VButton>
       </div>
 
       <div class="divide-y divide-gray-200">
@@ -744,34 +746,35 @@ const handleResetAnalysis = () => {
       </div>
 
       <div class="flex gap-2 mb-4">
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleSelectAll"
         >
           Show All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleDeselectAll"
         >
           Hide All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          :class="[
-            'text-xs transition-colors',
-            showSelectedOnly
-              ? 'text-red-600 hover:text-red-800'
-              : 'text-indigo-600 hover:text-indigo-800'
-          ]"
+          variant="ghost"
+          :color="showSelectedOnly ? 'error' : 'primary'"
+          size="xs"
           @click="handleShowSelected"
         >
           {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
-        </button>
+        </VButton>
       </div>
 
       <div v-if="filteredAirfoils.length === 0" class="text-sm text-gray-500 text-center py-4">
@@ -796,13 +799,14 @@ const handleResetAnalysis = () => {
 
       <!-- Reset Analysis Button -->
       <div class="pt-4 border-t border-gray-200 mt-4">
-        <button
+        <VButton
           type="button"
-          class="w-full px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+          color="error"
+          block
           @click="handleResetAnalysis"
         >
           Reset Analysis
-        </button>
+        </VButton>
       </div>
     </div>
   </div>

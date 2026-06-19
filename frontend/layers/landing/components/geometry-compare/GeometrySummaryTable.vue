@@ -190,14 +190,14 @@ const columns = [
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
         <span>Click headers to sort.</span>
       </div>
-      <button
+      <VButton
         type="button"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        color="primary"
         @click="exportToCSV"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-5 w-5" />
         Export CSV
-      </button>
+      </VButton>
     </div>
 
     <!-- Table -->

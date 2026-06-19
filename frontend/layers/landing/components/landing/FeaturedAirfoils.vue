@@ -44,9 +44,6 @@ onMounted(() => {
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center mb-12">
         <h2 class="text-3xl font-bold text-gray-900">Discover Airfoils</h2>
-        <p class="mt-4 text-lg text-gray-600">
-          Find a new favorite airfoil.
-        </p>
       </div>
 
       <!-- Loading State -->
@@ -60,12 +57,13 @@ onMounted(() => {
       <!-- Error State -->
       <div v-else-if="error" class="text-center py-12 text-red-600">
         <p>{{ error }}</p>
-        <button
-          class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+        <VButton
+          color="primary"
+          class="mt-4"
           @click="loadFeaturedAirfoils"
         >
           Try Again
-        </button>
+        </VButton>
       </div>
 
       <!-- Airfoils Grid -->

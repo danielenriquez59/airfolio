@@ -172,14 +172,14 @@ const exportToCSV = () => {
         Click headers to sort. <br>
         Add a Design α to calculate L/D at that angle. 
       </div>
-      <button
+      <VButton
         type="button"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        color="primary"
         @click="exportToCSV"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-5 w-5" />
         Export CSV
-      </button>
+      </VButton>
     </div>
 
     <!-- Table -->

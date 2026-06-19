@@ -2,6 +2,7 @@
 import type { Database } from '~/types/database.types'
 import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 import { parseAirfoilPointFile } from '~/composables/useAirfoilPointImport'
+import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 definePageMeta({
   layout: 'detail',
@@ -182,12 +183,7 @@ const clearUpload = () => {
             type="button"
             role="tab"
             :aria-selected="sourceMode === 'catalog'"
-            :class="[
-              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
-              sourceMode === 'catalog'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900',
-            ]"
+            :class="tabButtonClasses(sourceMode === 'catalog')"
             @click="sourceMode = 'catalog'"
           >
             Existing Airfoil
@@ -196,12 +192,7 @@ const clearUpload = () => {
             type="button"
             role="tab"
             :aria-selected="sourceMode === 'upload'"
-            :class="[
-              'rounded-md px-4 py-2 text-sm font-medium transition-colors',
-              sourceMode === 'upload'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900',
-            ]"
+            :class="tabButtonClasses(sourceMode === 'upload')"
             @click="sourceMode = 'upload'"
           >
             Upload File
@@ -238,14 +229,15 @@ const clearUpload = () => {
             </div>
 
             <div class="flex gap-2">
-              <button
+              <VButton
                 v-if="uploadedFileName"
                 type="button"
-                class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                color="neutral"
+                size="sm"
                 @click="clearUpload"
               >
                 Clear File
-              </button>
+              </VButton>
             </div>
 
             <details class="text-sm text-gray-600">

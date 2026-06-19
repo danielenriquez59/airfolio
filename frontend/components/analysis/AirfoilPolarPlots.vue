@@ -11,8 +11,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-
-// Register Chart.js components
+import { toggleButtonClasses } from '~/layers/ui/utils/buttons'
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -340,25 +339,20 @@ defineExpose({
     <div v-if="props.showControls" class="flex justify-end gap-2">
       <button
         type="button"
+        :class="toggleButtonClasses(tooltipsEnabled)"
         @click="toggleTooltips"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          tooltipsEnabled
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
         {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
       </button>
-      <button
+      <VButton
         type="button"
+        color="light"
         @click="resetZoom"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <Icon name="heroicons:arrow-path" class="h-4 w-4" />
         Reset Zoom
-      </button>
+      </VButton>
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->

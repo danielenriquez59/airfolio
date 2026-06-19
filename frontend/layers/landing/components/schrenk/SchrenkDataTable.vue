@@ -70,13 +70,14 @@ const exportToCSV = (loadData: CombinedLoadPoint[]) => {
 
     <div v-if="showTable" class="p-4 space-y-4">
       <!-- Download Button -->
-      <button
+      <VButton
+        type="button"
+        color="primary"
         @click="exportToCSV(loadData)"
-        class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md transition-colors"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Download CSV
-      </button>
+      </VButton>
 
       <!-- Table -->
       <div class="overflow-x-auto">

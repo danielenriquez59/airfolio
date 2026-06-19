@@ -13,6 +13,7 @@ import {
   Filler,
 } from 'chart.js'
 import type { CalculationResult } from '~/types/schrenk.types'
+import { inlineTabButtonClasses, copiedButtonClasses } from '~/layers/ui/utils/buttons'
 
 // Register Chart.js components
 ChartJS.register(
@@ -413,13 +414,9 @@ const copyDataToClipboard = async () => {
         <button
           v-for="tab in tabs"
           :key="tab.id"
+          type="button"
+          :class="inlineTabButtonClasses(activeTab === tab.id)"
           @click="activeTab = tab.id"
-          :class="[
-            activeTab === tab.id
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-500 hover:text-gray-700',
-            'rounded-md px-3 py-2 text-sm font-medium transition-colors'
-          ]"
         >
           {{ tab.label }}
         </button>
@@ -438,14 +435,10 @@ const copyDataToClipboard = async () => {
         </div>
 
         <button
-          @click="copyDataToClipboard"
-          :class="[
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-all flex items-center gap-1.5 border',
-            isCopied
-              ? 'bg-green-50 text-green-700 border-green-300'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
-          ]"
+          type="button"
+          :class="copiedButtonClasses(isCopied)"
           title="Copy chart data to clipboard"
+          @click="copyDataToClipboard"
         >
           <svg v-if="!isCopied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

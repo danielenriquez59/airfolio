@@ -122,22 +122,24 @@ const hasErrors = computed(() => {
     </div>
 
     <div class="flex gap-2">
-      <button
+      <VButton
         type="button"
+        color="primary"
+        size="sm"
         :disabled="rows.length >= maxRows"
-        class="px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         @click="addRow"
       >
         Add Row
-      </button>
-      <button
+      </VButton>
+      <VButton
         v-if="rows.length > 0"
         type="button"
-        class="px-3 py-2 bg-gray-300 text-gray-900 text-sm font-medium rounded hover:bg-gray-400 transition-colors"
+        color="neutral"
+        size="sm"
         @click="clearAll"
       >
         Clear All
-      </button>
+      </VButton>
     </div>
 
     <div v-if="hasErrors" class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">

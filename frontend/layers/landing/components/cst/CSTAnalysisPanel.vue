@@ -146,10 +146,11 @@ const handleSubmit = () => {
     </div>
 
     <div class="mt-6">
-      <button
+      <VButton
         type="button"
+        color="primary"
+        block
         :disabled="isLoading"
-        class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors flex items-center justify-center gap-2"
         @click="handleSubmit"
       >
         <Icon
@@ -158,7 +159,7 @@ const handleSubmit = () => {
           class="w-5 h-5 animate-spin"
         />
         <span>{{ isLoading ? 'Running Analysis...' : 'Run Analysis' }}</span>
-      </button>
+      </VButton>
       <p v-if="isLoading" class="mt-2 text-xs text-gray-500 text-center">
         Analysis may take a few moments.
       </p>

@@ -136,16 +136,16 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         </select>
       </div>
 
-      <button
+      <VButton
         type="button"
-        @click="runBezierFit"
+        color="primary"
         :disabled="isLoading"
-        class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        @click="runBezierFit"
       >
         <div v-if="isLoading" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
         <Icon v-else name="heroicons:play" class="h-4 w-4 shrink-0" />
         Run Bezier Fit
-      </button>
+      </VButton>
 
       <input
         v-model.number="reparamCount"
@@ -155,15 +155,15 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         :disabled="!fitResult || isLoading"
         class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
-      <button
+      <VButton
         type="button"
-        @click="runReparametrize"
+        color="primary"
         :disabled="!fitResult || isLoading"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        @click="runReparametrize"
       >
         <Icon name="heroicons:arrow-path" class="h-4 w-4" />
         Reparametrize Points
-      </button>
+      </VButton>
     </div>
 
     <!-- Error Display -->
@@ -204,14 +204,14 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
     </div>
 
     <div v-if="fitResult" class="flex flex-wrap items-center justify-between gap-4">
-      <button
+      <VButton
         type="button"
+        color="neutral"
         @click="exportControlPoints"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export Control Points
-      </button>
+      </VButton>
 
       <div v-if="reparamPoints" class="flex items-center gap-2">
         <select
@@ -222,14 +222,14 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           <option value="lednicer">Lednicer (.dat)</option>
           <option value="csv">CSV (.csv)</option>
         </select>
-        <button
+        <VButton
           type="button"
+          color="neutral"
           @click="exportReparamPoints"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
         >
           <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
           Export Points
-        </button>
+        </VButton>
       </div>
     </div>
 

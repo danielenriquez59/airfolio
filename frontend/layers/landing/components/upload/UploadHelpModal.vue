@@ -108,13 +108,14 @@ defineEmits<{
 
           <!-- Footer -->
           <div class="border-t border-gray-200 bg-gray-50 px-6 py-4">
-            <button
+            <VButton
               type="button"
-              class="w-full px-4 py-2 bg-indigo-600 text-white font-medium rounded hover:bg-indigo-700 transition-colors"
+              color="primary"
+              block
               @click="$emit('close')"
             >
               Got it!
-            </button>
+            </VButton>
           </div>
         </div>
       </div>

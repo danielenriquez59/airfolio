@@ -295,24 +295,28 @@ const resetZoom = () => {
 <template>
   <div class="w-full h-full">
     <div class="flex justify-end mb-2 gap-2">
-      <button
+      <VButton
         type="button"
-        @click="resetZoom"
-        class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
+        color="light"
+        size="sm"
+        shadow="sm"
         title="Reset Zoom"
+        @click="resetZoom"
       >
         <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
         Reset Zoom
-      </button>
-      <button
+      </VButton>
+      <VButton
         v-if="hasControlPoints"
         type="button"
+        color="light"
+        size="sm"
+        shadow="sm"
         @click="showControlPolygon = !showControlPolygon"
-        class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"
       >
         <Icon :name="showControlPolygon ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
         {{ showControlPolygon ? 'Hide' : 'Show' }} Control Polygon
-      </button>
+      </VButton>
     </div>
     <ClientOnly>
       <Scatter ref="chartRef" :data="chartData" :options="chartOptions" />

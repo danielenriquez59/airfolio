@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
+import { navTabButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -144,13 +145,16 @@ onMounted(() => {
     <!-- Error State -->
     <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
       <p class="text-red-800">{{ error }}</p>
-      <button
+      <VButton
         type="button"
-        class="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+        variant="ghost"
+        color="error"
+        size="xs"
+        class="mt-2 underline"
         @click="fetchAirfoilsList"
       >
         Try again
-      </button>
+      </VButton>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -172,36 +176,21 @@ onMounted(() => {
             <nav class="flex -mb-px">
               <button
                 type="button"
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'chart'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                :class="navTabButtonClasses(activeTab === 'chart')"
                 @click="activeTab = 'chart'"
               >
                 Geometry Overlay
               </button>
               <button
                 type="button"
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'table'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                :class="navTabButtonClasses(activeTab === 'table')"
                 @click="activeTab = 'table'"
               >
                 Summary Table
               </button>
               <button
                 type="button"
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'notes'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                :class="navTabButtonClasses(activeTab === 'notes')"
                 @click="activeTab = 'notes'"
               >
                 Notes

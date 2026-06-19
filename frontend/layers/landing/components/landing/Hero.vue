@@ -118,13 +118,16 @@ onClickOutside(searchContainerRef, () => {
                 @focus="showSuggestions = searchQuery.length >= 2 && suggestions.length > 0"
               >
                 <template #append>
-                  <button
+                  <VButton
                     type="button"
-                    class="rounded-full bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center"
+                    color="primary"
+                    rounded
+                    size="sm"
+                    class="!px-4"
                     @click="handleSearch"
                   >
                     <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
-                  </button>
+                  </VButton>
                 </template>
               </VInput>
 

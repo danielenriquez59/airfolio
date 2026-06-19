@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
+import { microButtonClasses } from '~/layers/ui/utils/buttons'
 
 type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 
@@ -505,40 +506,48 @@ onUnmounted(() => {
     <div v-if="!props.noCard" class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold text-gray-900">Performance Data <span class="text-sm text-gray-300">(Cached)</span></h2>
       <div v-if="filteredEntries.length > 0" class="flex gap-2">
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="selectAll"
         >
           Select All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="deselectAll"
         >
           Deselect All
-        </button>
+        </VButton>
       </div>
     </div>
     <div v-else class="flex items-center justify-between mb-4">
       <div v-if="filteredEntries.length > 0" class="flex gap-2">
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="selectAll"
         >
           Select All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="deselectAll"
         >
           Deselect All
-        </button>
+        </VButton>
       </div>
     </div>
 
@@ -725,8 +734,8 @@ onUnmounted(() => {
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
-            <button @click.stop="selectAllFilterValues('re', uniqueReValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-            <button @click.stop="clearAllFilterValues('re')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+            <button @click.stop="selectAllFilterValues('re', uniqueReValues)" :class="microButtonClasses()">Select All</button>
+            <button @click.stop="clearAllFilterValues('re')" :class="microButtonClasses()">Clear</button>
           </div>
           <div class="max-h-40 overflow-y-auto space-y-1">
             <label v-for="val in uniqueReValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
@@ -754,8 +763,8 @@ onUnmounted(() => {
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
-            <button @click.stop="selectAllFilterValues('mach', uniqueMachValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-            <button @click.stop="clearAllFilterValues('mach')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+            <button @click.stop="selectAllFilterValues('mach', uniqueMachValues)" :class="microButtonClasses()">Select All</button>
+            <button @click.stop="clearAllFilterValues('mach')" :class="microButtonClasses()">Clear</button>
           </div>
           <div class="max-h-40 overflow-y-auto space-y-1">
             <label v-for="val in uniqueMachValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
@@ -783,8 +792,8 @@ onUnmounted(() => {
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
-            <button @click.stop="selectAllFilterValues('ncrit', uniqueNcritValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-            <button @click.stop="clearAllFilterValues('ncrit')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+            <button @click.stop="selectAllFilterValues('ncrit', uniqueNcritValues)" :class="microButtonClasses()">Select All</button>
+            <button @click.stop="clearAllFilterValues('ncrit')" :class="microButtonClasses()">Clear</button>
           </div>
           <div class="max-h-40 overflow-y-auto space-y-1">
             <label v-for="val in uniqueNcritValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
@@ -812,8 +821,8 @@ onUnmounted(() => {
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
-            <button @click.stop="selectAllFilterValues('aoaMin', uniqueAoaMinValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-            <button @click.stop="clearAllFilterValues('aoaMin')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+            <button @click.stop="selectAllFilterValues('aoaMin', uniqueAoaMinValues)" :class="microButtonClasses()">Select All</button>
+            <button @click.stop="clearAllFilterValues('aoaMin')" :class="microButtonClasses()">Clear</button>
           </div>
           <div class="max-h-40 overflow-y-auto space-y-1">
             <label v-for="val in uniqueAoaMinValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
@@ -841,8 +850,8 @@ onUnmounted(() => {
       >
         <div class="p-3">
           <div class="flex gap-2 mb-3">
-            <button @click.stop="selectAllFilterValues('aoaMax', uniqueAoaMaxValues)" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Select All</button>
-            <button @click.stop="clearAllFilterValues('aoaMax')" class="flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors">Clear</button>
+            <button @click.stop="selectAllFilterValues('aoaMax', uniqueAoaMaxValues)" :class="microButtonClasses()">Select All</button>
+            <button @click.stop="clearAllFilterValues('aoaMax')" :class="microButtonClasses()">Clear</button>
           </div>
           <div class="max-h-40 overflow-y-auto space-y-1">
             <label v-for="val in uniqueAoaMaxValues" :key="val" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded text-sm">
