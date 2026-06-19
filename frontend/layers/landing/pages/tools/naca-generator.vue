@@ -275,23 +275,22 @@ const performanceData = computed(() => {
             <p class="text-sm">No geometry to display</p>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- NACA Parameter Editor -->
-    <div v-if="nacaCoordinates" class="mb-6">
-      <NACAParameterEditor
-        :series-type="seriesType"
-        :naca4-params="naca4Params"
-        :naca5-params="naca5Params"
-        :naca-name="currentNacaName"
-        :on-export-parameters="handleExportParameters"
-        :on-export-selig="handleExportSelig"
-        :on-export-lednicer="handleExportLednicer"
-        @update:series-type="seriesType = $event"
-        @update:naca4-params="naca4Params = $event"
-        @update:naca5-params="naca5Params = $event"
-      />
+        <!-- Parameters & Export -->
+        <NACAParameterEditor
+          class="mt-6 pt-6 border-t border-gray-200"
+          :series-type="seriesType"
+          :naca4-params="naca4Params"
+          :naca5-params="naca5Params"
+          :naca-name="currentNacaName"
+          :on-export-parameters="handleExportParameters"
+          :on-export-selig="handleExportSelig"
+          :on-export-lednicer="handleExportLednicer"
+          @update:series-type="seriesType = $event"
+          @update:naca4-params="naca4Params = $event"
+          @update:naca5-params="naca5Params = $event"
+        />
+      </div>
     </div>
 
     <!-- Empty State -->

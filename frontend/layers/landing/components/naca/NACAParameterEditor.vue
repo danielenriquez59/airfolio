@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { NACA4Params, NACA5Params } from '~/composables/useNACAGenerator'
-import Collapsible from '~/layers/ui/components/Collapsible/Collapsible.vue'
 import NACAExportButtons from './NACAExportButtons.vue'
 
 interface Props {
@@ -22,10 +21,6 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const camberExpanded = ref(true)
-const thicknessExpanded = ref(true)
-
-// 4-Digit handlers
 const handleNACA4Change = (key: keyof NACA4Params, value: string | number) => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value
   if (isNaN(numValue)) return
@@ -33,7 +28,6 @@ const handleNACA4Change = (key: keyof NACA4Params, value: string | number) => {
   emit('update:naca4Params', newParams)
 }
 
-// 5-Digit handlers
 const handleNACA5Change = (key: keyof NACA5Params, value: string | number | boolean) => {
   if (typeof value === 'boolean') {
     const newParams = { ...props.naca5Params, [key]: value }
@@ -48,308 +42,157 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
 </script>
 
 <template>
-  <div class="w-full">
-    <!-- 4-Digit Parameters -->
-    <div v-if="seriesType === '4-digit'" class="grid grid-cols-2 gap-4">
-      <!-- Max Camber -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="camberExpanded"
-          :title="`Max Camber - ${(naca4Params.m * 100).toFixed(1)}%`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Max Camber</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ (naca4Params.m * 100).toFixed(1) }}%
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca4Params.m"
-                min="0"
-                max="0.095"
-                step="0.001"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA4Change('m', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,640px)_minmax(280px,auto)] gap-6 items-start justify-between">
+      <!-- Parameter rows -->
+      <div class="space-y-4 min-w-0">
+        <template v-if="seriesType === '4-digit'">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Max Camber</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 0% to 9.5%</span>
             <input
               type="range"
               min="0"
               max="0.095"
               step="0.001"
               :value="naca4Params.m"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA4Change('m', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Range: 0% to 9.5%</p>
+            <input
+              type="number"
+              :value="naca4Params.m"
+              min="0"
+              max="0.095"
+              step="0.001"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA4Change('m', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
-      </div>
 
-      <!-- Camber Position -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="camberExpanded"
-          :title="`Camber Position - ${(naca4Params.p * 100).toFixed(1)}% chord`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Camber Position</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ (naca4Params.p * 10).toFixed(1) }} / 10 chord
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca4Params.p"
-                min="0.1"
-                max="0.9"
-                step="0.1"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA4Change('p', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Camber Position</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Increments of 10% chord</span>
             <input
               type="range"
               min="0.1"
               max="0.9"
               step="0.1"
               :value="naca4Params.p"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA4Change('p', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Increments of 10% chord</p>
+            <input
+              type="number"
+              :value="naca4Params.p"
+              min="0.1"
+              max="0.9"
+              step="0.1"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA4Change('p', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
-      </div>
 
-      <!-- Thickness -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="thicknessExpanded"
-          :title="`Thickness - ${(naca4Params.t * 100).toFixed(1)}%`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Thickness</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ (naca4Params.t * 100).toFixed(1) }}%
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca4Params.t"
-                min="0.01"
-                max="0.40"
-                step="0.01"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA4Change('t', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Thickness</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 1% to 40%</span>
             <input
               type="range"
               min="0.01"
               max="0.40"
               step="0.01"
               :value="naca4Params.t"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA4Change('t', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Range: 1% to 40%</p>
+            <input
+              type="number"
+              :value="naca4Params.t"
+              min="0.01"
+              max="0.40"
+              step="0.01"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA4Change('t', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
-      </div>
+        </template>
 
-      <!-- Export Buttons -->
-      <NACAExportButtons
-        :on-export-parameters="onExportParameters"
-        :on-export-selig="onExportSelig"
-        :on-export-lednicer="onExportLednicer"
-      />
-    </div>
-
-    <!-- 5-Digit Parameters -->
-    <div v-else class="grid grid-cols-2 gap-4">
-      <!-- Design Cl -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="camberExpanded"
-          :title="`Design Lift Coefficienticient - ${naca5Params.cl.toFixed(2)}`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Design Lift Coefficient</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ naca5Params.cl.toFixed(2) }}
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca5Params.cl"
-                min="0"
-                max="1.5"
-                step="0.15"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA5Change('cl', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+        <template v-else>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Design Cl</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Ideal design lift coefficient</span>
             <input
               type="range"
               min="0"
               max="1.5"
               step="0.15"
               :value="naca5Params.cl"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA5Change('cl', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Ideal Design Lift Coefficient</p>
+            <input
+              type="number"
+              :value="naca5Params.cl"
+              min="0"
+              max="1.5"
+              step="0.15"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA5Change('cl', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
-      </div>
 
-      <!-- Camber Position -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="camberExpanded"
-          :title="`Camber Position - ${(naca5Params.p * 100).toFixed(0)}% chord`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Camber Position</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ (naca5Params.p * 100).toFixed(0) }}% chord
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca5Params.p"
-                min="0.05"
-                max="0.25"
-                step="0.05"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA5Change('p', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Camber Position</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">5%, 10%, 15%, 20%, 25%</span>
             <input
               type="range"
               min="0.05"
               max="0.25"
               step="0.05"
               :value="naca5Params.p"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA5Change('p', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Standard positions: 5%, 10%, 15%, 20%, 25%</p>
+            <input
+              type="number"
+              :value="naca5Params.p"
+              min="0.05"
+              max="0.25"
+              step="0.05"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA5Change('p', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
-      </div>
 
-      <!-- Thickness -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <Collapsible
-          v-model="thicknessExpanded"
-          :title="`Thickness - ${(naca5Params.t * 100).toFixed(1)}%`"
-          :classes="{
-            button: 'w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors',
-            title: 'flex items-center gap-2 font-semibold text-gray-800',
-            panel: 'p-4 bg-blue-50/50'
-          }"
-        >
-          <template #title>
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span>Thickness</span>
-              <span class="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                {{ (naca5Params.t * 100).toFixed(1) }}%
-              </span>
-            </div>
-          </template>
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <label class="text-xs text-blue-600 font-medium w-20">Value:</label>
-              <input
-                type="number"
-                :value="naca5Params.t"
-                min="0.01"
-                max="0.40"
-                step="0.01"
-                class="flex-1 px-3 py-2 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @change="handleNACA5Change('t', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Thickness</span>
+            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 1% to 40%</span>
             <input
               type="range"
               min="0.01"
               max="0.40"
               step="0.01"
               :value="naca5Params.t"
-              class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-600"
+              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
               @input="handleNACA5Change('t', parseFloat(($event.target as HTMLInputElement).value))"
             />
-            <p class="text-xs text-gray-500">Range: 1% to 40%</p>
+            <input
+              type="number"
+              :value="naca5Params.t"
+              min="0.01"
+              max="0.40"
+              step="0.01"
+              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
+              @change="handleNACA5Change('t', ($event.target as HTMLInputElement).value)"
+            />
           </div>
-        </Collapsible>
+        </template>
       </div>
 
-      <!-- Export Buttons -->
+      <!-- Export buttons -->
       <NACAExportButtons
         :on-export-parameters="onExportParameters"
         :on-export-selig="onExportSelig"
         :on-export-lednicer="onExportLednicer"
       />
-    </div>
   </div>
 </template>
-
