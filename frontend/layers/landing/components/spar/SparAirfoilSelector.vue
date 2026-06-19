@@ -21,6 +21,7 @@ const searchQuery = ref('')
 const searchResults = ref<Airfoil[]>([])
 const isSearching = ref(false)
 const showDropdown = ref(false)
+const skipNextSearch = ref(false)
 
 // Debounced search
 const debouncedSearch = useDebounceFn(async (query: string) => {
@@ -45,13 +46,28 @@ const debouncedSearch = useDebounceFn(async (query: string) => {
 }, 300)
 
 watch(searchQuery, (newQuery) => {
+  if (skipNextSearch.value) {
+    skipNextSearch.value = false
+    return
+  }
+
   debouncedSearch(newQuery)
 })
 
+const syncSearchQuery = (value: string) => {
+  searchResults.value = []
+  showDropdown.value = false
+
+  if (searchQuery.value === value)
+    return
+
+  skipNextSearch.value = true
+  searchQuery.value = value
+}
+
 const selectAirfoil = (airfoil: Airfoil) => {
   emit('update:modelValue', airfoil)
-  searchQuery.value = formatDisplayName(airfoil.display_name || airfoil.name)
-  showDropdown.value = false
+  syncSearchQuery(formatDisplayName(airfoil.display_name || airfoil.name))
 }
 
 const clearSelection = () => {
@@ -61,20 +77,25 @@ const clearSelection = () => {
   showDropdown.value = false
 }
 
+const hideDropdownSoon = () => {
+  window.setTimeout(() => {
+    showDropdown.value = false
+  }, 200)
+}
+
 const formatDisplayName = (name: string): string => name.toUpperCase()
 
 watch(() => props.modelValue, (airfoil) => {
   if (airfoil)
-    searchQuery.value = formatDisplayName(airfoil.display_name || airfoil.name)
+    syncSearchQuery(formatDisplayName(airfoil.display_name || airfoil.name))
+  else
+    syncSearchQuery('')
 })
 
-// Initialize with default
+// Initialize display from an existing selection without opening autocomplete.
 onMounted(() => {
-  if (!props.modelValue) {
-    searchQuery.value = 'NACA 0012'
-  } else {
-    searchQuery.value = formatDisplayName(props.modelValue.display_name || props.modelValue.name)
-  }
+  if (props.modelValue)
+    syncSearchQuery(formatDisplayName(props.modelValue.display_name || props.modelValue.name))
 })
 </script>
 
@@ -91,7 +112,7 @@ onMounted(() => {
           placeholder="Search airfoil"
           class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 uppercase ring-1 ring-inset ring-gray-300 placeholder:normal-case placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           @focus="showDropdown = searchResults.length > 0"
-          @blur="setTimeout(() => { showDropdown = false }, 200)"
+          @blur="hideDropdownSoon"
         />
         <div class="absolute inset-y-0 right-0 flex items-center pr-2">
           <button

@@ -165,7 +165,7 @@ const clearUpload = () => {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-0">
+  <div class="w-full max-w-6xl mx-auto px-4 py-0">
     <PageHeader
       title="Bezier Fit"
       subtitle="Fit Bezier splines to airfoil geometry and export reparametrized coordinates"
