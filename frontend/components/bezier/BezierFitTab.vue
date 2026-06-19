@@ -24,6 +24,16 @@ const reparamCount = ref(80)
 const reparamPoints = ref<ReparametrizedPoints | null>(null)
 const exportFormat = ref<'selig' | 'lednicer' | 'csv'>('selig')
 
+const geometryKey = computed(
+  () => `${props.airfoilName}:${props.upperX.length}:${props.lowerX.length}:${props.upperX[0]}:${props.lowerX[0]}`,
+)
+
+watch(geometryKey, () => {
+  fitResult.value = null
+  reparamPoints.value = null
+  error.value = null
+})
+
 // Run Bezier fit
 const runBezierFit = async () => {
   isLoading.value = true
@@ -130,61 +140,30 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         type="button"
         @click="runBezierFit"
         :disabled="isLoading"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+      >
+        <div v-if="isLoading" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
+        <Icon v-else name="heroicons:play" class="h-4 w-4 shrink-0" />
+        Run Bezier Fit
+      </button>
+
+      <input
+        v-model.number="reparamCount"
+        type="number"
+        min="5"
+        max="500"
+        :disabled="!fitResult || isLoading"
+        class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+      />
+      <button
+        type="button"
+        @click="runReparametrize"
+        :disabled="!fitResult || isLoading"
         class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
       >
-        <div v-if="isLoading" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-        <Icon v-else name="heroicons:play" class="h-4 w-4" />
-        {{ isLoading ? 'Fitting...' : 'Run Bezier Fit' }}
+        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
+        Reparametrize Points
       </button>
-
-      <button
-        v-if="fitResult"
-        type="button"
-        @click="exportControlPoints"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-      >
-        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-        Export Control Points
-      </button>
-
-      <template v-if="fitResult">
-        <div class="flex items-center gap-2">
-          <input
-            v-model.number="reparamCount"
-            type="number"
-            min="5"
-            max="500"
-            class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          />
-          <button
-            type="button"
-            @click="runReparametrize"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <Icon name="heroicons:arrow-path" class="h-4 w-4" />
-            Reparametrize Points
-          </button>
-        </div>
-
-        <div v-if="reparamPoints" class="flex items-center gap-2">
-          <select
-            v-model="exportFormat"
-            class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="selig">Selig (.dat)</option>
-            <option value="lednicer">Lednicer (.dat)</option>
-            <option value="csv">CSV (.csv)</option>
-          </select>
-          <button
-            type="button"
-            @click="exportReparamPoints"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-          >
-            <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-            Export Points
-          </button>
-        </div>
-      </template>
     </div>
 
     <!-- Error Display -->
@@ -195,38 +174,81 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
       </div>
     </div>
 
-    <!-- Results -->
+    <!-- Geometry plot (always visible) -->
+    <div class="border border-gray-200 rounded-lg p-4 bg-white relative">
+      <div
+        v-if="isLoading"
+        class="absolute inset-0 z-10 bg-white/60 flex items-center justify-center rounded-lg"
+      >
+        <div class="text-center text-gray-500">
+          <div class="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-indigo-600 mx-auto mb-3" />
+          <p class="text-sm font-medium">Fitting Bezier curves...</p>
+        </div>
+      </div>
+      <BezierFitPlot
+        :original-upper-x="upperX"
+        :original-upper-y="upperY"
+        :original-lower-x="lowerX"
+        :original-lower-y="lowerY"
+        :fitted-upper-x="fitResult?.upper_curve.x"
+        :fitted-upper-y="fitResult?.upper_curve.y"
+        :fitted-lower-x="fitResult?.lower_curve.x"
+        :fitted-lower-y="fitResult?.lower_curve.y"
+        :upper-control-points="fitResult?.upper_control_points"
+        :lower-control-points="fitResult?.lower_control_points"
+        :reparam-upper-x="reparamPoints?.upper.x"
+        :reparam-upper-y="reparamPoints?.upper.y"
+        :reparam-lower-x="reparamPoints?.lower.x"
+        :reparam-lower-y="reparamPoints?.lower.y"
+      />
+    </div>
+
+    <div v-if="fitResult" class="flex flex-wrap items-center justify-between gap-4">
+      <button
+        type="button"
+        @click="exportControlPoints"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+      >
+        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+        Export Control Points
+      </button>
+
+      <div v-if="reparamPoints" class="flex items-center gap-2">
+        <select
+          v-model="exportFormat"
+          class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option value="selig">Selig (.dat)</option>
+          <option value="lednicer">Lednicer (.dat)</option>
+          <option value="csv">CSV (.csv)</option>
+        </select>
+        <button
+          type="button"
+          @click="exportReparamPoints"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-md font-medium hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+          Export Points
+        </button>
+      </div>
+    </div>
+
+    <p v-if="!fitResult && !isLoading" class="text-sm text-gray-500 text-center">
+      Select a Bezier order and click "Run Bezier Fit" to overlay fitted curves on the loaded points.
+    </p>
+
+    <!-- Fit results -->
     <div v-if="fitResult" class="space-y-4">
       <!-- Fit Quality Info -->
       <div class="grid grid-cols-2 gap-4 text-sm">
         <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Upper Surface SSE:</span>
+          <span class="text-gray-500">Upper Surface Fit Error:</span>
           <span class="ml-2 font-mono font-medium">{{ fitResult.upper_sse.toExponential(4) }}</span>
         </div>
         <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Lower Surface SSE:</span>
+          <span class="text-gray-500">Lower Surface Fit Error:</span>
           <span class="ml-2 font-mono font-medium">{{ fitResult.lower_sse.toExponential(4) }}</span>
         </div>
-      </div>
-
-      <!-- Plot -->
-      <div class="border border-gray-200 rounded-lg p-4 bg-white">
-        <BezierFitPlot
-          :original-upper-x="upperX"
-          :original-upper-y="upperY"
-          :original-lower-x="lowerX"
-          :original-lower-y="lowerY"
-          :fitted-upper-x="fitResult.upper_curve.x"
-          :fitted-upper-y="fitResult.upper_curve.y"
-          :fitted-lower-x="fitResult.lower_curve.x"
-          :fitted-lower-y="fitResult.lower_curve.y"
-          :upper-control-points="fitResult.upper_control_points"
-          :lower-control-points="fitResult.lower_control_points"
-          :reparam-upper-x="reparamPoints?.upper.x"
-          :reparam-upper-y="reparamPoints?.upper.y"
-          :reparam-lower-x="reparamPoints?.lower.x"
-          :reparam-lower-y="reparamPoints?.lower.y"
-        />
       </div>
 
       <!-- Control Points Tables -->
@@ -274,32 +296,6 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-else-if="isLoading" class="space-y-4">
-      <!-- Loading skeleton matching results layout -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="bg-gray-100 h-14 rounded-md animate-pulse" />
-        <div class="bg-gray-100 h-14 rounded-md animate-pulse" />
-      </div>
-      <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 h-80 animate-pulse flex items-center justify-center">
-        <div class="text-center text-gray-500">
-          <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-indigo-600 mx-auto mb-4" />
-          <p class="font-medium">Fitting Bezier curves...</p>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-gray-100 h-56 rounded-md animate-pulse" />
-        <div class="bg-gray-100 h-56 rounded-md animate-pulse" />
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else class="text-center py-12 text-gray-500">
-      <Icon name="heroicons:chart-bar" class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-      <p class="font-medium">Bezier Curve Fitting</p>
-      <p class="text-sm mt-2">Select a Bezier order and click "Run Bezier Fit" to parameterize this airfoil.</p>
     </div>
   </div>
 </template>

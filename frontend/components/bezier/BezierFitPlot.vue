@@ -33,19 +33,31 @@ interface Props {
   originalUpperY: number[]
   originalLowerX: number[]
   originalLowerY: number[]
-  fittedUpperX: number[]
-  fittedUpperY: number[]
-  fittedLowerX: number[]
-  fittedLowerY: number[]
-  upperControlPoints: BezierControlPoints
-  lowerControlPoints: BezierControlPoints
+  fittedUpperX?: number[]
+  fittedUpperY?: number[]
+  fittedLowerX?: number[]
+  fittedLowerY?: number[]
+  upperControlPoints?: BezierControlPoints
+  lowerControlPoints?: BezierControlPoints
   reparamUpperX?: number[]
   reparamUpperY?: number[]
   reparamLowerX?: number[]
   reparamLowerY?: number[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  fittedUpperX: () => [],
+  fittedUpperY: () => [],
+  fittedLowerX: () => [],
+  fittedLowerY: () => [],
+  upperControlPoints: () => ({ x: [], y: [] }),
+  lowerControlPoints: () => ({ x: [], y: [] }),
+})
+
+const hasFit = computed(() => props.fittedUpperX.length > 0 && props.fittedLowerX.length > 0)
+const hasControlPoints = computed(
+  () => props.upperControlPoints.x.length > 0 && props.lowerControlPoints.x.length > 0,
+)
 
 // Control polygon visibility state
 const showControlPolygon = ref(true)
@@ -71,29 +83,30 @@ const chartData = computed(() => {
   })
 
   // Fitted upper curve (red line)
-  datasets.push({
-    label: 'Fitted Upper',
-    data: props.fittedUpperX.map((x, i) => ({ x, y: props.fittedUpperY[i] })),
-    borderColor: 'rgb(239, 68, 68)',
-    backgroundColor: 'transparent',
-    showLine: true,
-    pointRadius: 0,
-    borderWidth: 2,
-  })
+  if (hasFit.value) {
+    datasets.push({
+      label: 'Fitted Upper',
+      data: props.fittedUpperX.map((x, i) => ({ x, y: props.fittedUpperY[i] })),
+      borderColor: 'rgb(239, 68, 68)',
+      backgroundColor: 'transparent',
+      showLine: true,
+      pointRadius: 0,
+      borderWidth: 2,
+    })
 
-  // Fitted lower curve (blue line)
-  datasets.push({
-    label: 'Fitted Lower',
-    data: props.fittedLowerX.map((x, i) => ({ x, y: props.fittedLowerY[i] })),
-    borderColor: 'rgb(59, 130, 246)',
-    backgroundColor: 'transparent',
-    showLine: true,
-    pointRadius: 0,
-    borderWidth: 2,
-  })
+    datasets.push({
+      label: 'Fitted Lower',
+      data: props.fittedLowerX.map((x, i) => ({ x, y: props.fittedLowerY[i] })),
+      borderColor: 'rgb(59, 130, 246)',
+      backgroundColor: 'transparent',
+      showLine: true,
+      pointRadius: 0,
+      borderWidth: 2,
+    })
+  }
 
   // Control polygons (optional)
-  if (showControlPolygon.value) {
+  if (hasControlPoints.value && showControlPolygon.value) {
     // Upper control polygon
     datasets.push({
       label: 'Upper Control Polygon',
@@ -144,16 +157,20 @@ const axisRanges = computed(() => {
   const allX = [
     ...props.originalUpperX,
     ...props.originalLowerX,
-    ...props.upperControlPoints.x,
-    ...props.lowerControlPoints.x,
+    ...(hasFit.value ? props.fittedUpperX : []),
+    ...(hasFit.value ? props.fittedLowerX : []),
+    ...(hasControlPoints.value ? props.upperControlPoints.x : []),
+    ...(hasControlPoints.value ? props.lowerControlPoints.x : []),
     ...(props.reparamUpperX || []),
     ...(props.reparamLowerX || []),
   ]
   const allY = [
     ...props.originalUpperY,
     ...props.originalLowerY,
-    ...props.upperControlPoints.y,
-    ...props.lowerControlPoints.y,
+    ...(hasFit.value ? props.fittedUpperY : []),
+    ...(hasFit.value ? props.fittedLowerY : []),
+    ...(hasControlPoints.value ? props.upperControlPoints.y : []),
+    ...(hasControlPoints.value ? props.lowerControlPoints.y : []),
     ...(props.reparamUpperY || []),
     ...(props.reparamLowerY || []),
   ]
@@ -288,6 +305,7 @@ const resetZoom = () => {
         Reset Zoom
       </button>
       <button
+        v-if="hasControlPoints"
         type="button"
         @click="showControlPolygon = !showControlPolygon"
         class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"

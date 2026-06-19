@@ -427,6 +427,7 @@ useHead({
                     :show-grid="true"
                     :zoomable="true"
                     :show-points-on-hover="false"
+                    :show-marker-toggle="true"
                   />
                   <div v-else class="text-center py-8 text-gray-400">
                     Geometry data not available

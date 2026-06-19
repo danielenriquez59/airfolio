@@ -88,6 +88,8 @@ interface Props {
   zoomable?: boolean
   /** Show data points on hover */
   showPointsOnHover?: boolean
+  /** Show the marker toggle control */
+  showMarkerToggle?: boolean
   /** Show title */
   showTitle?: boolean
 }
@@ -98,6 +100,7 @@ const props = withDefaults(defineProps<Props>(), {
   aspectRatio: 2.5,
   zoomable: false,
   showPointsOnHover: false,
+  showMarkerToggle: false,
   showTitle: false,
 })
 
@@ -402,7 +405,7 @@ watch(() => props.showPointsOnHover, (newVal) => {
   <ClientOnly>
     <div class="w-full">
       <!-- Control Buttons - Above Chart -->
-      <div class="flex gap-2 justify-end mb-2">
+      <div v-if="zoomable || showMarkerToggle" class="flex gap-2 justify-end mb-2">
         <button
           v-if="zoomable"
           type="button"
@@ -414,6 +417,7 @@ watch(() => props.showPointsOnHover, (newVal) => {
           <span>Reset Zoom</span>
         </button>
         <button
+          v-if="showMarkerToggle"
           type="button"
           @click="toggleMarkers"
           class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm flex items-center gap-1.5"

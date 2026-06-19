@@ -18,6 +18,7 @@ const navigation: NavigationItem[] = [
         { title: 'Upload', to: '/upload' },
         { title: 'CST Generator', to: '/cst-visualizer' },
         { title: 'NACA Generator', to: '/tools/naca-generator' },
+        { title: 'Bezier Fit', to: '/tools/bezier-fit' },
         { title: 'Structural Loading Calculator', to: '/tools/schrenk-calculator' },
         { title: 'Spar Inertia Calculator', to: '/tools/spar-inertia-calculator' },
       ],

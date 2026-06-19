@@ -6,9 +6,12 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 interface Props {
   modelValue: Airfoil | null
+  showSelectionSummary?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showSelectionSummary: true,
+})
 const emit = defineEmits<{
   'update:modelValue': [value: Airfoil | null]
 }>()
@@ -47,7 +50,7 @@ watch(searchQuery, (newQuery) => {
 
 const selectAirfoil = (airfoil: Airfoil) => {
   emit('update:modelValue', airfoil)
-  searchQuery.value = airfoil.name
+  searchQuery.value = formatDisplayName(airfoil.display_name || airfoil.name)
   showDropdown.value = false
 }
 
@@ -58,20 +61,19 @@ const clearSelection = () => {
   showDropdown.value = false
 }
 
-// Capitalize airfoil names (title case)
-const capitalizeName = (name: string): string => {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
+const formatDisplayName = (name: string): string => name.toUpperCase()
+
+watch(() => props.modelValue, (airfoil) => {
+  if (airfoil)
+    searchQuery.value = formatDisplayName(airfoil.display_name || airfoil.name)
+})
 
 // Initialize with default
 onMounted(() => {
   if (!props.modelValue) {
     searchQuery.value = 'NACA 0012'
   } else {
-    searchQuery.value = props.modelValue.name
+    searchQuery.value = formatDisplayName(props.modelValue.display_name || props.modelValue.name)
   }
 })
 </script>
@@ -86,8 +88,8 @@ onMounted(() => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search airfoil or use default NACA 0012..."
-          class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+          placeholder="Search airfoil"
+          class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 uppercase ring-1 ring-inset ring-gray-300 placeholder:normal-case placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           @focus="showDropdown = searchResults.length > 0"
           @blur="setTimeout(() => { showDropdown = false }, 200)"
         />
@@ -124,7 +126,7 @@ onMounted(() => {
               class="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer"
               @mousedown.prevent="selectAirfoil(airfoil)"
             >
-              <div class="font-medium">{{ capitalizeName(airfoil.name) }}</div>
+              <div class="font-medium uppercase">{{ formatDisplayName(airfoil.display_name || airfoil.name) }}</div>
               <div v-if="airfoil.description" class="text-xs text-gray-500 truncate">
                 {{ airfoil.description }}
               </div>
@@ -139,8 +141,8 @@ onMounted(() => {
       </div>
     </div>
     <!-- Selected airfoil info -->
-    <div v-if="modelValue" class="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
-      <div class="font-medium">{{ modelValue.name }}</div>
+    <div v-if="showSelectionSummary && modelValue" class="mt-2 p-2 bg-blue-50 rounded text-xs text-gray-700">
+      <div class="font-medium uppercase">{{ formatDisplayName(modelValue.display_name || modelValue.name) }}</div>
       <div v-if="modelValue.thickness_pct" class="text-gray-600">
         Thickness: {{ (modelValue.thickness_pct * 100).toFixed(1) }}%
       </div>
