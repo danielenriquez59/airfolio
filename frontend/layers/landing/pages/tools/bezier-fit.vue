@@ -165,7 +165,7 @@ const clearUpload = () => {
 </script>
 
 <template>
-  <div class="w-full">
+  <div class="max-w-6xl mx-auto px-4 py-0">
     <PageHeader
       title="Bezier Fit"
       subtitle="Fit Bezier splines to airfoil geometry and export reparametrized coordinates"
@@ -199,8 +199,8 @@ const clearUpload = () => {
           </button>
         </div>
 
-        <div class="w-full py-1 flex justify-center">
-          <div v-show="sourceMode === 'catalog'" role="tabpanel" class="w-full max-w-xl">
+        <div class="w-full py-1">
+          <div v-show="sourceMode === 'catalog'" role="tabpanel" class="w-full">
             <SparAirfoilSelector v-model="selectedAirfoil" :show-selection-summary="false" />
           </div>
 

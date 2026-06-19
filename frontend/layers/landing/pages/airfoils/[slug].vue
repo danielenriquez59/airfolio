@@ -682,7 +682,8 @@ useHead({
 
         <!-- Performance Data (Combined Cache and Plots) -->
         <div v-if="airfoil.id" class="mb-8">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Data</h2>
+          <h2 class="text-xl font-semibold text-gray-900 mb-2">Performance Data</h2>
+          <p class="text-sm text-gray-500 mb-4">All data generated via NeuralFoil AI-powered aerodynamic analysis</p>
           
           <!-- Performance Cache Table -->
           <div class="mb-6">
@@ -714,7 +715,7 @@ useHead({
               Download CSV
             </VButton>
           </div>
-
+          <div class="border-t border-gray-200 my-4"></div>
           <!-- Performance Plots -->
           <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
         </div>
