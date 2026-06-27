@@ -26,8 +26,8 @@ export interface BezierFitResponse {
   upper_curve: BezierCurveData
   lower_curve: BezierCurveData
   order: number
-  upper_sse: number
-  lower_sse: number
+  upper_max_error_pct: number
+  lower_max_error_pct: number
 }
 
 export interface ReparametrizedPoints {
@@ -67,7 +67,7 @@ function evaluateBezierCurve(
     let y = 0
     for (let i = 0; i <= n; i++) {
       const basis =
-        binomialCoeff(n, i) * Math.pow(t, n - i) * Math.pow(1 - t, i)
+        binomialCoeff(n, i) * Math.pow(t, i) * Math.pow(1 - t, n - i)
       x += controlPoints.x[i] * basis
       y += controlPoints.y[i] * basis
     }

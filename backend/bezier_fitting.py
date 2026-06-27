@@ -1,35 +1,68 @@
 """
 Bezier curve fitting module for airfoil parameterization.
-Clean API-ready implementation based on bezier_curve.py example.
+
+Uses linear least-squares fitting (Rajnarayan et al. 2018, Section IV.B):
+control-point x positions are fixed via the x=u^2 blossom formula, data
+points are assigned u=sqrt(x), and only free control-point y values are
+solved in a single np.linalg.lstsq call.
 """
 import numpy as np
 from scipy.spatial import KDTree
-from scipy.optimize import minimize
 from scipy.special import comb
 from typing import Tuple, Dict, Any, List
 
 
 class BezierFitter:
     """
-    Fits Bezier curves to airfoil coordinate data.
+    Fits Bezier curves to airfoil coordinate data via linear least-squares.
 
     Takes upper and lower surface coordinates and fits separate
-    Bezier curves to each surface using optimization.
+    Bezier curves to each surface with fixed x parametrization (x=u^2).
     """
 
-    def __init__(self, order: int = 6):
+    def __init__(self, order: int = 6, smoothing: float = 1e-4):
         """
         Initialize the fitter.
 
         Args:
             order: Degree of the Bezier curve (n). Control points = n + 1.
+            smoothing: Weight on 2nd-difference penalty for control-point y values.
         """
         self.order = order
         self.num_cp = order + 1
+        self.smoothing = smoothing
 
     def _bernstein_poly(self, n: int, i: int, t: np.ndarray) -> np.ndarray:
-        """Calculate Bernstein basis polynomial."""
-        return comb(n, i) * (t ** (n - i)) * ((1 - t) ** i)
+        """Calculate Bernstein basis polynomial B_{n,i}(t) = C(n,i) t^i (1-t)^(n-i)."""
+        return comb(n, i) * (t ** i) * ((1 - t) ** (n - i))
+
+    def _bernstein_all(self, n: int, t: float) -> np.ndarray:
+        """Return all n+1 Bernstein basis values at scalar t."""
+        vals = np.zeros(n + 1)
+        for i in range(n + 1):
+            vals[i] = comb(n, i) * (t ** i) * ((1 - t) ** (n - i))
+        return vals
+
+    def _blossom_x_positions(self, degree: int, num_cp: int) -> np.ndarray:
+        """
+        Compute normalized control-point x positions for x(u) = u^2.
+
+        Uses the blossom of f(t)=t^2 on knot vector [0]*(n+1) + [1]*(n+1).
+        """
+        n = degree
+        full_knots = [0.0] * (n + 1) + [1.0] * (n + 1)
+        xs = np.zeros(num_cp)
+        num_pairs = n * (n - 1) / 2
+
+        for i in range(num_cp):
+            knot_args = full_knots[i + 1: i + 1 + n]
+            total = 0.0
+            for a in range(n):
+                for b in range(a + 1, n):
+                    total += knot_args[a] * knot_args[b]
+            xs[i] = total / num_pairs if num_pairs > 0 else 0.0
+
+        return xs
 
     def generate_curve(self, control_points: np.ndarray, num_points: int = 200) -> np.ndarray:
         """
@@ -44,7 +77,6 @@ class BezierFitter:
         """
         t = np.linspace(0, 1, num_points)
         curve_points = np.zeros((num_points, 2))
-
         n = len(control_points) - 1
 
         for i, point in enumerate(control_points):
@@ -54,116 +86,23 @@ class BezierFitter:
 
         return curve_points
 
-    def _point_line_segment_distance(
-        self, px: float, py: float,
-        x1: float, y1: float,
-        x2: float, y2: float
+    def _max_error_pct(
+        self,
+        data: np.ndarray,
+        ctrl_pts: np.ndarray,
+        chord: float
     ) -> float:
-        """Calculate perpendicular distance from point to line segment."""
-        dx = x2 - x1
-        dy = y2 - y1
+        """
+        Maximum distance from any data point to the fitted curve,
+        expressed as a percentage of chord length.
+        """
+        if chord < 1e-12:
+            return 0.0
 
-        if dx == 0 and dy == 0:
-            return np.sqrt((px - x1) ** 2 + (py - y1) ** 2)
-
-        t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
-        t = np.clip(t, 0, 1)
-
-        closest_x = x1 + t * dx
-        closest_y = y1 + t * dy
-
-        return np.sqrt((px - closest_x) ** 2 + (py - closest_y) ** 2)
-
-    def _calculate_error(
-        self,
-        free_params: np.ndarray,
-        surface_data: np.ndarray,
-        fixed_le: np.ndarray,
-        fixed_te: np.ndarray
-    ) -> float:
-        """Calculate sum of squared errors between data and fitted curve."""
-        cps = self._reconstruct_cps(free_params, fixed_le, fixed_te)
-        curve_points = self.generate_curve(cps, num_points=200)
-        tree = KDTree(curve_points)
-
-        total_error_sq = 0.0
-
-        for point in surface_data:
-            px, py = point
-            dist_nearest, idx = tree.query(point)
-
-            d1 = float('inf')
-            d2 = float('inf')
-
-            if idx > 0:
-                p1 = curve_points[idx - 1]
-                p2 = curve_points[idx]
-                d1 = self._point_line_segment_distance(px, py, p1[0], p1[1], p2[0], p2[1])
-
-            if idx < len(curve_points) - 1:
-                p1 = curve_points[idx]
-                p2 = curve_points[idx + 1]
-                d2 = self._point_line_segment_distance(px, py, p1[0], p1[1], p2[0], p2[1])
-
-            min_d = min(d1, d2)
-            if min_d == float('inf'):
-                min_d = dist_nearest
-
-            total_error_sq += min_d ** 2
-
-        return total_error_sq
-
-    def _reconstruct_cps(
-        self,
-        params: np.ndarray,
-        fixed_le: np.ndarray,
-        fixed_te: np.ndarray
-    ) -> np.ndarray:
-        """Reconstruct control points array from optimizer parameters."""
-        cps = np.zeros((self.num_cp, 2))
-
-        # P0 (Fixed LE)
-        cps[0] = fixed_le
-
-        # Pn (Fixed TE)
-        cps[-1] = fixed_te
-
-        # P1 (Constrained: vertical movement only, x=0)
-        cps[1] = [0, params[0]]
-
-        # P2 to P(n-1) (Free movement x and y)
-        num_internal = self.num_cp - 3
-        if num_internal > 0:
-            internal_coords = params[1:].reshape((num_internal, 2))
-            cps[2:-1] = internal_coords
-
-        return cps
-
-    def _generate_initial_guess(
-        self,
-        surface_data: np.ndarray,
-        chord: float,
-        is_upper: bool
-    ) -> np.ndarray:
-        """Generate initial guess for control point parameters."""
-        max_y = np.max(np.abs(surface_data[:, 1]))
-        if not is_upper:
-            max_y = -max_y
-
-        num_free_params = 1 + (self.num_cp - 3) * 2
-        params = np.zeros(num_free_params)
-
-        # Initial P1 y-guess
-        params[0] = max_y * 0.5
-
-        # Set internal points (P2...Pn-1)
-        idx_param = 1
-        for i in range(2, self.num_cp - 1):
-            params[idx_param] = (i * chord) / self.order  # x
-            params[idx_param + 1] = max_y  # y
-            idx_param += 2
-
-        return params
+        curve = self.generate_curve(ctrl_pts, num_points=500)
+        tree = KDTree(curve)
+        dists, _ = tree.query(data)
+        return float(dists.max()) / chord * 100.0
 
     def _fit_surface(
         self,
@@ -172,29 +111,72 @@ class BezierFitter:
         is_upper: bool
     ) -> Tuple[np.ndarray, float]:
         """
-        Fit Bezier curve to a single surface.
+        Fit a Bezier curve to one surface using linear least-squares.
+
+        Args:
+            surface_data: Nx2 array of (x, y) coordinates
+            chord: Chord length for x normalization and control-point scaling
+            is_upper: Unused; kept for API compatibility with fit()
 
         Returns:
-            Tuple of (control_points, final_sse_error)
+            Tuple of (control_points, max_error_pct)
         """
-        fixed_le = np.array([0.0, 0.0])
-        fixed_te = np.array([chord, 0.0])
+        n = self.order
+        num_cp = self.num_cp
 
-        x0 = self._generate_initial_guess(surface_data, chord, is_upper)
+        x_raw = surface_data[:, 0]
+        y_raw = surface_data[:, 1]
+        x_norm = np.clip(x_raw / chord, 0.0, 1.0)
 
-        result = minimize(
-            self._calculate_error,
-            x0,
-            args=(surface_data, fixed_le, fixed_te),
-            method='SLSQP',
-            tol=1e-6,
-            options={'maxiter': 500}
-        )
+        u = np.sqrt(x_norm)
+        m = len(u)
 
-        final_cps = self._reconstruct_cps(result.x, fixed_le, fixed_te)
-        final_error = result.fun
+        ctrl_x = self._blossom_x_positions(n, num_cp) * chord
 
-        return final_cps, final_error
+        known_y = {0: 0.0, n: 0.0}
+        free_idx = [k for k in range(num_cp) if k not in known_y]
+        n_free = len(free_idx)
+        col = {k: j for j, k in enumerate(free_idx)}
+
+        A_data = np.zeros((m, n_free))
+        b_data = y_raw.copy()
+
+        for i in range(m):
+            basis = self._bernstein_all(n, u[i])
+            for k, yv in known_y.items():
+                b_data[i] -= basis[k] * yv
+            for k in free_idx:
+                A_data[i, col[k]] = basis[k]
+
+        n_smooth = n_free - 2
+        if n_smooth > 0 and self.smoothing > 0:
+            A_smooth = np.zeros((n_smooth, n_free))
+            b_smooth = np.zeros(n_smooth)
+            w = self.smoothing
+            for s in range(n_smooth):
+                for offset, coef in enumerate([w, -2 * w, w]):
+                    k = free_idx[s + offset]
+                    if k in col:
+                        A_smooth[s, col[k]] += coef
+                    elif k in known_y:
+                        b_smooth[s] -= coef * known_y[k]
+            A = np.vstack([A_data, A_smooth])
+            b = np.concatenate([b_data, b_smooth])
+        else:
+            A, b = A_data, b_data
+
+        sol, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+
+        ctrl_y = np.zeros(num_cp)
+        for k, yv in known_y.items():
+            ctrl_y[k] = yv
+        for k in free_idx:
+            ctrl_y[k] = sol[col[k]]
+
+        ctrl_pts = np.column_stack([ctrl_x, ctrl_y])
+        max_error_pct = self._max_error_pct(surface_data, ctrl_pts, chord)
+
+        return ctrl_pts, max_error_pct
 
     def fit(
         self,
@@ -218,30 +200,30 @@ class BezierFitter:
             - lower_control_points: Nx2 array
             - upper_curve: Mx2 array of fitted curve points
             - lower_curve: Mx2 array of fitted curve points
-            - upper_sse: float
-            - lower_sse: float
+            - upper_max_error_pct: float
+            - lower_max_error_pct: float
             - order: int
         """
-        # Convert to numpy arrays
         upper_coords = np.column_stack([upper_x, upper_y])
         lower_coords = np.column_stack([lower_x, lower_y])
 
-        # Determine chord length
         chord = max(np.max(upper_coords[:, 0]), np.max(lower_coords[:, 0]))
+        if chord < 1e-12:
+            chord = 1.0
 
-        # Ensure upper surface is sorted LE -> TE (ascending X)
         if upper_coords[0, 0] > upper_coords[-1, 0]:
             upper_coords = upper_coords[::-1]
 
-        # Ensure lower surface is sorted LE -> TE (ascending X)
         if lower_coords[0, 0] > lower_coords[-1, 0]:
             lower_coords = lower_coords[::-1]
 
-        # Fit both surfaces
-        upper_cps, upper_sse = self._fit_surface(upper_coords, chord, is_upper=True)
-        lower_cps, lower_sse = self._fit_surface(lower_coords, chord, is_upper=False)
+        upper_cps, upper_max_error_pct = self._fit_surface(
+            upper_coords, chord, is_upper=True
+        )
+        lower_cps, lower_max_error_pct = self._fit_surface(
+            lower_coords, chord, is_upper=False
+        )
 
-        # Generate fitted curves for visualization
         upper_curve = self.generate_curve(upper_cps, num_points=200)
         lower_curve = self.generate_curve(lower_cps, num_points=200)
 
@@ -250,7 +232,7 @@ class BezierFitter:
             'lower_control_points': lower_cps,
             'upper_curve': upper_curve,
             'lower_curve': lower_curve,
-            'upper_sse': float(upper_sse),
-            'lower_sse': float(lower_sse),
+            'upper_max_error_pct': float(upper_max_error_pct),
+            'lower_max_error_pct': float(lower_max_error_pct),
             'order': self.order,
         }

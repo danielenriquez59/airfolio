@@ -63,8 +63,8 @@ const exportControlPoints = () => {
   const lines: string[] = []
   lines.push(`# Bezier Control Points for ${props.airfoilName}`)
   lines.push(`# Order: ${fitResult.value.order}`)
-  lines.push(`# Upper SSE: ${fitResult.value.upper_sse.toExponential(4)}`)
-  lines.push(`# Lower SSE: ${fitResult.value.lower_sse.toExponential(4)}`)
+  lines.push(`# Upper max error: ${fitResult.value.upper_max_error_pct.toFixed(4)}% chord`)
+  lines.push(`# Lower max error: ${fitResult.value.lower_max_error_pct.toFixed(4)}% chord`)
   lines.push('')
   lines.push('# Upper Surface Control Points')
   lines.push('# X, Y')
@@ -242,12 +242,12 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
       <!-- Fit Quality Info -->
       <div class="grid grid-cols-2 gap-4 text-sm">
         <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Upper Surface Fit Error:</span>
-          <span class="ml-2 font-mono font-medium">{{ fitResult.upper_sse.toExponential(4) }}</span>
+          <span class="text-gray-500">Upper Surface Max Error:</span>
+          <span class="ml-2 font-mono font-medium">{{ fitResult.upper_max_error_pct.toFixed(4) }}% chord</span>
         </div>
         <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Lower Surface Fit Error:</span>
-          <span class="ml-2 font-mono font-medium">{{ fitResult.lower_sse.toExponential(4) }}</span>
+          <span class="text-gray-500">Lower Surface Max Error:</span>
+          <span class="ml-2 font-mono font-medium">{{ fitResult.lower_max_error_pct.toFixed(4) }}% chord</span>
         </div>
       </div>
 
@@ -297,5 +297,9 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         </div>
       </div>
     </div>
+
+    <p class="text-[10px] text-gray-400 italic pt-1">
+      *Now using faster linear least squares algorithm — Thanks Hunter
+    </p>
   </div>
 </template>

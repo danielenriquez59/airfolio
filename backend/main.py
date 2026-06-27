@@ -217,8 +217,8 @@ class BezierFitResponse(BaseModel):
     upper_curve: BezierCurveData
     lower_curve: BezierCurveData
     order: int
-    upper_sse: float = Field(..., description="Sum of squared errors for upper surface")
-    lower_sse: float = Field(..., description="Sum of squared errors for lower surface")
+    upper_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, upper surface")
+    lower_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, lower surface")
 
 
 @app.get("/")
@@ -1010,8 +1010,8 @@ async def bezier_fit(request: BezierFitRequest):
                 y=result['lower_curve'][:, 1].tolist()
             ),
             order=result['order'],
-            upper_sse=result['upper_sse'],
-            lower_sse=result['lower_sse']
+            upper_max_error_pct=result['upper_max_error_pct'],
+            lower_max_error_pct=result['lower_max_error_pct']
         )
 
     except HTTPException:
