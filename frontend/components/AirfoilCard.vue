@@ -7,8 +7,10 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
 
 interface Props {
-  /** Airfoil UUID */
-  airfoilId: string
+  /** Airfoil UUID — used when `airfoil` is not provided */
+  airfoilId?: string
+  /** Preloaded airfoil row; skips refetch when provided */
+  airfoil?: Airfoil
   /** Show full geometry or thumbnail */
   thumbnail?: boolean
   /** Click handler */
@@ -22,9 +24,9 @@ const props = withDefaults(defineProps<Props>(), {
 const { fetchAirfoil } = useAirfoils()
 const { fetchCategories } = useCategories()
 
-const airfoil = ref<Airfoil | null>(null)
+const airfoil = ref<Airfoil | null>(props.airfoil ?? null)
 const category = ref<Category | null>(null)
-const loading = ref(true)
+const loading = ref(!props.airfoil)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
 
@@ -38,26 +40,40 @@ const isMobile = breakpoints.smaller('desktop')
 // Dynamic aspect ratio: 2.5 for mobile, 4 for desktop
 const aspectRatio = computed(() => 5)
 
-// Fetch airfoil data and categories
+/**
+ * Resolve category badge from the category map for the given airfoil.
+ */
+const resolveCategory = (data: Airfoil) => {
+  if (data.category && categoryMap.value.has(data.category)) {
+    category.value = categoryMap.value.get(data.category) || null
+  }
+}
+
+// Fetch categories (and airfoil only if not preloaded)
 onMounted(async () => {
   try {
-    loading.value = true
-    
-    // Fetch categories map
+    loading.value = !airfoil.value
+
     const categories = await fetchCategories()
     categories.forEach(cat => {
       categoryMap.value.set(cat.id, cat)
     })
-    
-    // Fetch airfoil data
-    const data = await fetchAirfoil(props.airfoilId)
+
+    if (airfoil.value) {
+      resolveCategory(airfoil.value)
+      return
+    }
+
+    const id = props.airfoilId
+    if (!id) {
+      error.value = 'No airfoil provided'
+      return
+    }
+
+    const data = await fetchAirfoil(id)
     if (data) {
       airfoil.value = data
-      
-      // Get category if airfoil has one
-      if (data.category && categoryMap.value.has(data.category)) {
-        category.value = categoryMap.value.get(data.category) || null
-      }
+      resolveCategory(data)
     }
   } catch (err: any) {
     error.value = err.message || 'Failed to load airfoil'

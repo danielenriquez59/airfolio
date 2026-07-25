@@ -74,7 +74,7 @@ onMounted(() => {
         <AirfoilCard
           v-for="airfoil in featuredAirfoils"
           :key="airfoil.id"
-          :airfoil-id="airfoil.id"
+          :airfoil="airfoil"
         />
       </div>
 

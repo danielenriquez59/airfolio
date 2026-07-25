@@ -273,7 +273,7 @@ useHead({
         <AirfoilCard
           v-for="airfoil in searchResults"
           :key="airfoil.id"
-          :airfoil-id="airfoil.id"
+          :airfoil="airfoil"
           thumbnail
         />
 
