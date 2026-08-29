@@ -9,6 +9,17 @@ export default defineNuxtConfig({
     head: {
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
+      ],
+      meta: [
+        { property: 'og:title', content: 'Airfolio' },
+        { property: 'og:description', content: 'Search, analyze, and compare airfoil performance with NN-powered analysis tools.' },
+        { property: 'og:image', content: 'https://airfolio.live/og-image.png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:url', content: 'https://airfolio.live' },
+        { property: 'og:type', content: 'website' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: 'https://airfolio.live/og-image.png' },
       ]
     }
   },
