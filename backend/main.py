@@ -477,28 +477,35 @@ async def analyze(request: AnalysisRequest):
 def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surface: List[CoordinatePair]) -> Dict[str, Any]:
     """
     Helper function to calculate and extract airfoil geometric properties.
-    
+
     Args:
         upper_surface: List of CoordinatePair objects or dicts with x, y keys
         lower_surface: List of CoordinatePair objects or dicts with x, y keys
-    
+
     Returns:
         Dictionary containing calculated properties and extracted coordinates
     """
     # Convert to tuples (handle both CoordinatePair objects and dicts)
     upper = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in upper_surface]
     lower = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in lower_surface]
-    
-    # Extract coordinates
+
+    # AeroSandbox expects a closed wrap: TE -> LE (upper) then LE -> TE (lower).
+    # Uploads may store both surfaces LE -> TE (Lednicer); normalize before combining.
+    if len(upper) >= 2 and upper[0][0] < upper[-1][0]:
+        upper = upper[::-1]
+    if len(lower) >= 2 and lower[0][0] > lower[-1][0]:
+        lower = lower[::-1]
+
+    # Extract coordinates (normalized order for DB consistency)
     coords = extract_coordinates(upper, lower)
-    
+
     # Combine upper and lower surfaces into single x, y arrays
     all_x = [p[0] for p in upper] + [p[0] for p in lower]
     all_y = [p[1] for p in upper] + [p[1] for p in lower]
-    
+
     # Calculate geometric properties using AeroSandbox
     properties = calculate_properties(all_x, all_y)
-    
+
     # Build calculated properties dictionary
     calculated_properties = {
         'thickness_pct': properties['max_thickness'],
@@ -512,7 +519,7 @@ def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surf
         'lower_surface_nodes': len(lower),
         **coords,
     }
-    
+
     return calculated_properties
 
 

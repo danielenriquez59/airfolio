@@ -333,34 +333,41 @@ export const useAirfoilUpload = () => {
    * - Automatic detection of upper/lower split point using leading edge
    */
   const parseCSV = (csvContent: string): { upper: CoordinatePair[]; lower: CoordinatePair[]; airfoilName?: string; error?: string } => {
-    const allLines = csvContent.split('\n').map(line => line.trim()).filter(line => line.length > 0)
-    
-    if (allLines.length < 2) {
+    // Keep blank lines so an explicit upper/lower separator can be detected
+    const rawLines = csvContent.split(/\r?\n/).map(line => line.trim())
+    const nonEmptyLines = rawLines.filter(line => line.length > 0)
+
+    if (nonEmptyLines.length < 2) {
       return {
         upper: [],
         lower: [],
         error: 'File must contain airfoil name and coordinate data',
       }
     }
-    
-    // Extract airfoil name from first line
-    const airfoilName = allLines[0]
-    
-    // Detect delimiter from first data line (line 1, skipping header)
+
+    // Extract airfoil name from first non-empty line
+    const airfoilName = nonEmptyLines[0]
+
+    // Detect delimiter from first data line (skipping header)
     let delimiter = ','
-    if (allLines.length > 1) {
-      delimiter = detectDelimiter(allLines[1])
-    }
-    
-    // Parse all coordinate pairs starting from line 1
+    if (nonEmptyLines.length > 1)
+      delimiter = detectDelimiter(nonEmptyLines[1])
+
+    // Walk raw lines so a blank line between surfaces is preserved
     const allCoords: CoordinatePair[] = []
     let hasBlankLineSeparator = false
     let blankLineIndex = -1
-    
-    for (let i = 1; i < allLines.length; i++) {
-      const line = allLines[i]
-      
-      // Check for blank line separator (already filtered by filter above, but keep logic for future)
+    let pastHeader = false
+
+    for (const line of rawLines) {
+      if (!pastHeader) {
+        if (line.length === 0)
+          continue
+        // First non-empty line is the airfoil name
+        pastHeader = true
+        continue
+      }
+
       if (line.length === 0) {
         if (allCoords.length > 0 && !hasBlankLineSeparator) {
           hasBlankLineSeparator = true
@@ -368,27 +375,23 @@ export const useAirfoilUpload = () => {
         }
         continue
       }
-      
-      // Split by detected delimiter (handle multiple spaces as single delimiter)
+
       let parts: string[]
-      if (delimiter === ' ') {
+      if (delimiter === ' ')
         parts = line.split(/\s+/).map(p => p.trim())
-      } else {
+      else
         parts = line.split(',').map(p => p.trim())
-      }
-      
-      if (parts.length < 2) {
+
+      if (parts.length < 2)
         continue
-      }
-      
-      const x = parseFloat(parts[0])
-      const y = parseFloat(parts[1])
-      
-      if (isFinite(x) && isFinite(y)) {
+
+      const x = Number.parseFloat(parts[0])
+      const y = Number.parseFloat(parts[1])
+
+      if (Number.isFinite(x) && Number.isFinite(y))
         allCoords.push({ x, y })
-      }
     }
-    
+
     if (allCoords.length < 2) {
       return {
         upper: [],
@@ -396,10 +399,10 @@ export const useAirfoilUpload = () => {
         error: 'File must contain at least 2 coordinate pairs',
       }
     }
-    
+
     let upper: CoordinatePair[] = []
     let lower: CoordinatePair[] = []
-    
+
     // Strategy 1: Use blank line separator if found
     if (hasBlankLineSeparator && blankLineIndex > 0) {
       upper = allCoords.slice(0, blankLineIndex)
@@ -407,7 +410,7 @@ export const useAirfoilUpload = () => {
     } else {
       // Strategy 2: Find the leading edge (minimum x or x=0 transition)
       let leIndex = -1
-      
+
       // Find minimum x value index
       let minX = Infinity
       let minXIndex = 0
@@ -417,30 +420,29 @@ export const useAirfoilUpload = () => {
           minXIndex = i
         }
       }
-      
+
       // Check if there's a clear transition (x starts increasing after decreasing)
       for (let i = 1; i < allCoords.length - 1; i++) {
         const prevX = allCoords[i - 1].x
         const currX = allCoords[i].x
         const nextX = allCoords[i + 1].x
-        
+
         // Found leading edge: x was decreasing, now increasing
         if (prevX > currX && nextX > currX) {
           leIndex = i
           break
         }
       }
-      
+
       // If no clear transition found, use the minimum x index
-      if (leIndex === -1) {
+      if (leIndex === -1)
         leIndex = minXIndex
-      }
-      
+
       // Split at leading edge
       upper = allCoords.slice(0, leIndex + 1)
       lower = allCoords.slice(leIndex + 1)
     }
-    
+
     if (upper.length === 0 || lower.length === 0) {
       return {
         upper: [],
@@ -448,7 +450,7 @@ export const useAirfoilUpload = () => {
         error: 'Could not automatically split upper and lower surfaces. Please add a blank line between them.',
       }
     }
-    
+
     return { upper, lower, airfoilName }
   }
 
