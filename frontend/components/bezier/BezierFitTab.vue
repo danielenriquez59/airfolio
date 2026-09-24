@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { BezierFitResponse, ReparametrizedPoints } from '~/composables/useBezierFit'
-import { reparametrizeBezierPoints } from '~/composables/useBezierFit'
+import { reparametrizeBezierPoints, regenerateFittedCurve } from '~/composables/useBezierFit'
 import { triggerDownload, sanitizeFilename, buildSeligString, buildLednicerString } from '~/composables/useAirfoilDownload'
 
 interface Props {
@@ -23,6 +23,7 @@ const fitResult = ref<BezierFitResponse | null>(null)
 const reparamCount = ref(80)
 const reparamPoints = ref<ReparametrizedPoints | null>(null)
 const exportFormat = ref<'selig' | 'lednicer' | 'csv'>('selig')
+const controlPointsEdited = ref(false)
 
 const geometryKey = computed(
   () => `${props.airfoilName}:${props.upperX.length}:${props.lowerX.length}:${props.upperX[0]}:${props.lowerX[0]}`,
@@ -32,6 +33,7 @@ watch(geometryKey, () => {
   fitResult.value = null
   reparamPoints.value = null
   error.value = null
+  controlPointsEdited.value = false
 })
 
 // Run Bezier fit
@@ -39,6 +41,7 @@ const runBezierFit = async () => {
   isLoading.value = true
   error.value = null
   reparamPoints.value = null
+  controlPointsEdited.value = false
 
   try {
     fitResult.value = await submitBezierFit({
@@ -56,6 +59,34 @@ const runBezierFit = async () => {
   }
 }
 
+/** Update one control-point Y and refresh that surface's fitted curve. */
+const updateControlPointY = (surface: 'upper' | 'lower', index: number, raw: string) => {
+  if (!fitResult.value)
+    return
+
+  const y = Number.parseFloat(raw)
+  if (!Number.isFinite(y))
+    return
+
+  const key = surface === 'upper' ? 'upper_control_points' : 'lower_control_points'
+  const curveKey = surface === 'upper' ? 'upper_curve' : 'lower_curve'
+  const cps = fitResult.value[key]
+  if (index < 0 || index >= cps.y.length)
+    return
+
+  const nextY = [...cps.y]
+  nextY[index] = y
+  const nextCps = { x: cps.x, y: nextY }
+
+  fitResult.value = {
+    ...fitResult.value,
+    [key]: nextCps,
+    [curveKey]: regenerateFittedCurve(nextCps),
+  }
+  controlPointsEdited.value = true
+  reparamPoints.value = null
+}
+
 // Export control points
 const exportControlPoints = () => {
   if (!fitResult.value) return
@@ -65,6 +96,8 @@ const exportControlPoints = () => {
   lines.push(`# Order: ${fitResult.value.order}`)
   lines.push(`# Upper max error: ${fitResult.value.upper_max_error_pct.toFixed(4)}% chord`)
   lines.push(`# Lower max error: ${fitResult.value.lower_max_error_pct.toFixed(4)}% chord`)
+  if (controlPointsEdited.value)
+    lines.push('# Note: control points were edited after the last fit')
   lines.push('')
   lines.push('# Upper Surface Control Points')
   lines.push('# X, Y')
@@ -250,11 +283,15 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           <span class="ml-2 font-mono font-medium">{{ fitResult.lower_max_error_pct.toFixed(4) }}% chord</span>
         </div>
       </div>
+      <p v-if="controlPointsEdited" class="text-xs text-amber-700">
+        Control points edited — curve updated live. Max error values are from the last fit. Reparametrize to refresh exported points.
+      </p>
 
       <!-- Control Points Tables -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <h4 class="text-sm font-medium text-gray-700 mb-2">Upper Surface Control Points</h4>
+          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
           <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
             <table class="min-w-full text-xs">
               <thead class="bg-gray-50 sticky top-0">
@@ -268,7 +305,15 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
                 <tr v-for="(x, i) in fitResult.upper_control_points.x" :key="i">
                   <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
                   <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
-                  <td class="px-3 py-2 font-mono text-gray-900">{{ fitResult.upper_control_points.y[i].toFixed(6) }}</td>
+                  <td class="px-3 py-1">
+                    <input
+                      type="number"
+                      step="any"
+                      :value="fitResult.upper_control_points.y[i]"
+                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      @change="updateControlPointY('upper', i, ($event.target as HTMLInputElement).value)"
+                    >
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -276,6 +321,7 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         </div>
         <div>
           <h4 class="text-sm font-medium text-gray-700 mb-2">Lower Surface Control Points</h4>
+          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
           <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
             <table class="min-w-full text-xs">
               <thead class="bg-gray-50 sticky top-0">
@@ -289,7 +335,15 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
                 <tr v-for="(x, i) in fitResult.lower_control_points.x" :key="i">
                   <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
                   <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
-                  <td class="px-3 py-2 font-mono text-gray-900">{{ fitResult.lower_control_points.y[i].toFixed(6) }}</td>
+                  <td class="px-3 py-1">
+                    <input
+                      type="number"
+                      step="any"
+                      :value="fitResult.lower_control_points.y[i]"
+                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      @change="updateControlPointY('lower', i, ($event.target as HTMLInputElement).value)"
+                    >
+                  </td>
                 </tr>
               </tbody>
             </table>

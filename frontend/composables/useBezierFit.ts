@@ -35,6 +35,8 @@ export interface ReparametrizedPoints {
   lower: { x: number[]; y: number[] }
 }
 
+const CURVE_SAMPLE_COUNT = 200
+
 function binomialCoeff(n: number, k: number): number {
   if (k < 0 || k > n) return 0
   if (k === 0 || k === n) return 1
@@ -54,7 +56,14 @@ function generateCosineSpacing(numPoints: number): number[] {
   return t
 }
 
-function evaluateBezierCurve(
+function generateUniformSpacing(numPoints: number): number[] {
+  if (numPoints <= 1)
+    return [0]
+  return Array.from({ length: numPoints }, (_, i) => i / (numPoints - 1))
+}
+
+/** Evaluate a Bezier curve at the given parameter values. */
+export function evaluateBezierCurve(
   controlPoints: BezierControlPoints,
   tValues: number[]
 ): { x: number[]; y: number[] } {
@@ -76,6 +85,11 @@ function evaluateBezierCurve(
   }
 
   return { x: xOut, y: yOut }
+}
+
+/** Rebuild fitted curve samples from control points (matches backend sample count). */
+export function regenerateFittedCurve(controlPoints: BezierControlPoints): BezierCurveData {
+  return evaluateBezierCurve(controlPoints, generateUniformSpacing(CURVE_SAMPLE_COUNT))
 }
 
 export function reparametrizeBezierPoints(
