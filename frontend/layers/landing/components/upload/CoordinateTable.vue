@@ -76,7 +76,7 @@ const hasErrors = computed(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="rows.length === 0" class="border-b border-gray-200">
+          <tr v-if="rows.length === 0">
             <td colspan="3" class="text-center px-3 py-8 text-sm text-gray-500">
               No coordinates added yet
             </td>
@@ -84,7 +84,7 @@ const hasErrors = computed(() => {
           <tr
             v-for="(row, index) in rows"
             :key="index"
-            class="border-b border-gray-200 hover:bg-gray-50"
+            class="hover:bg-gray-50"
           >
             <td class="px-3 py-2">
               <input

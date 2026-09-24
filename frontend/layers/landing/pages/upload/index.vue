@@ -60,13 +60,26 @@ const showHelp = ref(false)
 const isSubmitting = ref(false)
 const errors: Ref<Record<string, string>> = ref({})
 
+const MIN_POINTS_PER_SURFACE = 10
+
+/** Count rows that have both X and Y filled with finite numbers. */
+const countFilledPoints = (surface: CoordinatePair[]): number => {
+  return surface.filter((c) => {
+    if (c.x === '' || c.y === '')
+      return false
+    const x = typeof c.x === 'string' ? Number.parseFloat(c.x) : c.x
+    const y = typeof c.y === 'string' ? Number.parseFloat(c.y) : c.y
+    return Number.isFinite(x) && Number.isFinite(y)
+  }).length
+}
+
 // Computed
 const canSubmit = computed(() => {
   return (
-    airfoilName.value.trim().length > 0 &&
-    upperSurface.value.length > 0 &&
-    lowerSurface.value.length > 0 &&
-    Object.keys(errors.value).length === 0
+    airfoilName.value.trim().length > 0
+    && countFilledPoints(upperSurface.value) >= MIN_POINTS_PER_SURFACE
+    && countFilledPoints(lowerSurface.value) >= MIN_POINTS_PER_SURFACE
+    && Object.keys(errors.value).length === 0
   )
 })
 
@@ -367,7 +380,7 @@ const resetForm = () => {
             type="button"
             color="primary"
             class="flex-1"
-            :disabled="isSubmitting"
+            :disabled="!canSubmit || isSubmitting"
             @click="handleSubmit"
           >
             <span v-if="!isSubmitting">Continue to Confirmation</span>

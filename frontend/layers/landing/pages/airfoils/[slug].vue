@@ -588,15 +588,15 @@ useHead({
                   </div>
                   <div v-if="airfoil.source_url">
                     <dt class="text-sm text-gray-500">Source</dt>
-                    <dd>
+                    <dd class="min-w-0">
                       <a
                         :href="airfoil.source_url"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 min-w-0"
                       >
-                        {{ airfoil.source_url }}
-                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4" />
+                        <span class="truncate">{{ airfoil.source_url }}</span>
+                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4 flex-shrink-0" />
                       </a>
                     </dd>
                   </div>
