@@ -68,15 +68,25 @@ const chartRef = ref<any>(null)
 const chartData = computed(() => {
   const datasets: any[] = []
 
-  // Original airfoil data (gray scatter points)
+  // Original points, split by surface so the upload preview shows which side each point landed on.
   const originalUpper = props.originalUpperX.map((x, i) => ({ x, y: props.originalUpperY[i] }))
   const originalLower = props.originalLowerX.map((x, i) => ({ x, y: props.originalLowerY[i] }))
 
   datasets.push({
-    label: 'Original Data',
-    data: [...originalUpper, ...originalLower],
-    borderColor: 'rgba(107, 114, 128, 0.5)',
-    backgroundColor: 'rgba(107, 114, 128, 0.5)',
+    label: 'Upper points',
+    data: originalUpper,
+    borderColor: 'rgb(55, 65, 81)',
+    backgroundColor: 'rgb(55, 65, 81)',
+    showLine: false,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  })
+
+  datasets.push({
+    label: 'Lower points',
+    data: originalLower,
+    borderColor: 'rgb(156, 163, 175)',
+    backgroundColor: 'rgb(156, 163, 175)',
     showLine: false,
     pointRadius: 2,
     pointHoverRadius: 4,
