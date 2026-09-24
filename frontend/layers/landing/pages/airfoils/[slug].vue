@@ -15,16 +15,23 @@ definePageMeta({
 const route = useRoute()
 const config = useRuntimeConfig()
 const supportEmail = config.public.supportEmail
-const { fetchAirfoilByName } = useAirfoils()
+const { fetchAirfoilByName, deleteAirfoil, updateAirfoil } = useAirfoils()
 const { downloadLednicer, downloadSelig, downloadOpenVSP } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
 const { fetchCategories } = useCategories()
+const router = useRouter()
 
 const airfoil = ref<Airfoil | null>(null)
 const category = ref<Category | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
+const isDeleting = ref(false)
+const deleteError = ref<string | null>(null)
+const showDeleteModal = ref(false)
+const isRerunningGeometry = ref(false)
+const geometryActionError = ref<string | null>(null)
+const geometryActionSuccess = ref<string | null>(null)
 
 // Geometry tab state
 const activeGeometryTab = ref<'plot' | 'bezier'>('plot')
@@ -176,6 +183,99 @@ const airfoilSlug = computed(() => route.params.slug as string)
 const getDisplayName = (airfoil: Airfoil | null): string => {
   if (!airfoil) return ''
   return airfoil.display_name || airfoil.name
+}
+
+/** Open the delete confirmation modal. */
+const openDeleteModal = () => {
+  if (!airfoil.value || isDeleting.value)
+    return
+  deleteError.value = null
+  showDeleteModal.value = true
+}
+
+/** Hard-delete this airfoil and related performance cache, then go to search. */
+const confirmDeleteAirfoil = async () => {
+  if (!airfoil.value || isDeleting.value)
+    return
+
+  isDeleting.value = true
+  deleteError.value = null
+  try {
+    await deleteAirfoil(airfoil.value.id)
+    showDeleteModal.value = false
+    await router.push('/search')
+  }
+  catch (err: unknown) {
+    deleteError.value = err instanceof Error ? err.message : 'Failed to delete airfoil'
+  }
+  finally {
+    isDeleting.value = false
+  }
+}
+
+/** Recalculate thickness/camber/etc via AeroSandbox and persist to the DB. */
+const handleRerunGeometryParams = async () => {
+  if (!airfoil.value || isRerunningGeometry.value)
+    return
+
+  const upperX = airfoil.value.upper_x_coordinates || []
+  const upperY = airfoil.value.upper_y_coordinates || []
+  const lowerX = airfoil.value.lower_x_coordinates || []
+  const lowerY = airfoil.value.lower_y_coordinates || []
+
+  if (upperX.length < 2 || lowerX.length < 2) {
+    geometryActionError.value = 'Airfoil is missing coordinate data'
+    return
+  }
+
+  isRerunningGeometry.value = true
+  geometryActionError.value = null
+  geometryActionSuccess.value = null
+
+  try {
+    const upper_surface = upperX.map((x, i) => ({ x, y: upperY[i] ?? 0 }))
+    const lower_surface = lowerX.map((x, i) => ({ x, y: lowerY[i] ?? 0 }))
+
+    const response = await $fetch<{
+      success: boolean
+      calculated_properties?: Record<string, unknown>
+      error?: string
+    }>(`${config.public.backendUrl}/api/airfoils/recalculate-geometry`, {
+      method: 'POST',
+      body: { upper_surface, lower_surface },
+    })
+
+    if (!response.success || !response.calculated_properties) {
+      geometryActionError.value = response.error || 'Geometry recalculation failed'
+      return
+    }
+
+    const props = response.calculated_properties
+    const updated = await updateAirfoil(airfoil.value.id, {
+      thickness_pct: props.thickness_pct as number | null,
+      thickness_loc_pct: props.thickness_loc_pct as number | null,
+      camber_pct: props.camber_pct as number | null,
+      camber_loc_pct: props.camber_loc_pct as number | null,
+      le_radius: props.le_radius as number | null,
+      te_thickness: props.te_thickness as number | null,
+      te_angle: props.te_angle as number | null,
+      upper_surface_nodes: props.upper_surface_nodes as number | null,
+      lower_surface_nodes: props.lower_surface_nodes as number | null,
+      upper_x_coordinates: props.upper_x_coordinates as number[] | null,
+      upper_y_coordinates: props.upper_y_coordinates as number[] | null,
+      lower_x_coordinates: props.lower_x_coordinates as number[] | null,
+      lower_y_coordinates: props.lower_y_coordinates as number[] | null,
+    })
+
+    airfoil.value = updated
+    geometryActionSuccess.value = 'Geometry parameters updated'
+  }
+  catch (err: unknown) {
+    geometryActionError.value = err instanceof Error ? err.message : 'Failed to rerun geometry params'
+  }
+  finally {
+    isRerunningGeometry.value = false
+  }
 }
 
 // Helper function to create URL-friendly slug from airfoil name
@@ -369,13 +469,39 @@ useHead({
       <!-- Airfoil Details -->
       <div v-else-if="airfoil" class="max-w-4xl mx-auto">
         <!-- Header -->
-        <div class="mb-8">
-          <h1 class="text-3xl font-bold text-gray-900 uppercase tracking-wide mb-2">
-            {{ getDisplayName(airfoil).toUpperCase() }}
-          </h1>
-          <p v-if="airfoil.description" class="text-lg text-gray-600">
-            {{ airfoil.description }}
-          </p>
+        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0">
+            <h1 class="text-3xl font-bold text-gray-900 uppercase tracking-wide mb-2">
+              {{ getDisplayName(airfoil).toUpperCase() }}
+            </h1>
+            <p v-if="airfoil.description" class="text-lg text-gray-600">
+              {{ airfoil.description }}
+            </p>
+            <p v-if="geometryActionError" class="mt-2 text-sm text-red-600">
+              {{ geometryActionError }}
+            </p>
+            <p v-if="geometryActionSuccess" class="mt-2 text-sm text-green-600">
+              {{ geometryActionSuccess }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <VButton
+              type="button"
+              color="primary"
+              :disabled="isRerunningGeometry || isDeleting"
+              @click="handleRerunGeometryParams"
+            >
+              {{ isRerunningGeometry ? 'Rerunning...' : 'Rerun Geometry Params' }}
+            </VButton>
+            <VButton
+              type="button"
+              color="error"
+              :disabled="isDeleting || isRerunningGeometry"
+              @click="openDeleteModal"
+            >
+              {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
+            </VButton>
+          </div>
         </div>
 
         <!-- Geometry Visualization -->
@@ -773,6 +899,41 @@ useHead({
             @click="analysisParamsFormRef?.submit()"
           >
             Run Analysis
+          </VButton>
+        </VModalFooter>
+      </VModal>
+
+      <!-- Delete confirmation modal -->
+      <VModal v-model="showDeleteModal">
+        <VModalHeader dismissable>
+          Delete Airfoil
+        </VModalHeader>
+        <VModalBody>
+          <p class="text-sm text-gray-700">
+            Permanently delete
+            <span class="font-semibold">{{ getDisplayName(airfoil) }}</span>
+            and all related performance cache? This cannot be undone.
+          </p>
+          <div v-if="deleteError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-800">{{ deleteError }}</p>
+          </div>
+        </VModalBody>
+        <VModalFooter>
+          <VButton
+            type="button"
+            color="light"
+            :disabled="isDeleting"
+            @click="showDeleteModal = false"
+          >
+            Cancel
+          </VButton>
+          <VButton
+            type="button"
+            color="error"
+            :disabled="isDeleting"
+            @click="confirmDeleteAirfoil"
+          >
+            {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
           </VButton>
         </VModalFooter>
       </VModal>

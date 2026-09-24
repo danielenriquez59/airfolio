@@ -183,11 +183,28 @@ export const useAirfoils = () => {
   }
 
   /**
-   * Update airfoil fields (display_name, description)
+   * Update airfoil fields (metadata and/or geometry properties)
    */
   const updateAirfoil = async (
     id: string,
-    updates: Partial<Pick<Airfoil, 'display_name' | 'description'>>
+    updates: Partial<Pick<
+      Airfoil,
+      | 'display_name'
+      | 'description'
+      | 'thickness_pct'
+      | 'thickness_loc_pct'
+      | 'camber_pct'
+      | 'camber_loc_pct'
+      | 'le_radius'
+      | 'te_thickness'
+      | 'te_angle'
+      | 'upper_surface_nodes'
+      | 'lower_surface_nodes'
+      | 'upper_x_coordinates'
+      | 'upper_y_coordinates'
+      | 'lower_x_coordinates'
+      | 'lower_y_coordinates'
+    >>
   ): Promise<Airfoil> => {
     const { data, error } = await supabase
       .from('airfoils')
@@ -204,6 +221,31 @@ export const useAirfoils = () => {
     return data
   }
 
+  /**
+   * Hard-delete an airfoil and its performance_cache rows.
+   */
+  const deleteAirfoil = async (id: string): Promise<void> => {
+    const { error: cacheError } = await supabase
+      .from('performance_cache')
+      .delete()
+      .eq('airfoil_id', id)
+
+    if (cacheError) {
+      console.error('Error deleting performance cache:', cacheError)
+      throw cacheError
+    }
+
+    const { error } = await supabase
+      .from('airfoils')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting airfoil:', error)
+      throw error
+    }
+  }
+
   return {
     fetchAirfoil,
     fetchAirfoilByName,
@@ -213,6 +255,7 @@ export const useAirfoils = () => {
     fetchRandomAirfoils,
     fetchAllAirfoils,
     updateAirfoil,
+    deleteAirfoil,
   }
 }
 
