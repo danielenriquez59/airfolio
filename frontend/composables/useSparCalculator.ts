@@ -236,17 +236,20 @@ export const calculateSparProperties = (
   inputs: SparInputs,
   airfoilData: AirfoilDataPoint[]
 ): SparCalculationResult => {
-  const { chordLength, sparLocation, skinThickness, sparWidth, sparWallThickness, crossSection } = inputs
+  const { chordLength, sparLocation, skinThickness, skinOffset, sparWidth, sparWallThickness, crossSection } = inputs
   const xActual = sparLocation * chordLength
 
   // Get outer bounds at spar location
   const { yUpper, yLower } = interpolateAirfoil(xActual, airfoilData)
-  
+
   // Outer Airfoil Thickness at this location
   const localAirfoilThickness = yUpper - yLower
 
+  // Calculate effective skin thickness (base + offset)
+  const effectiveSkinThickness = skinThickness + skinOffset
+
   // Calculate available spar height (bounded by skin)
-  const sparHeight = localAirfoilThickness - (2 * skinThickness)
+  const sparHeight = localAirfoilThickness - (2 * effectiveSkinThickness)
 
   if (sparHeight <= 0) {
     return {

@@ -1,0 +1,359 @@
+<script setup lang="ts">
+import type { BezierFitResponse, ReparametrizedPoints } from '~/composables/useBezierFit'
+import { reparametrizeBezierPoints, regenerateFittedCurve } from '~/composables/useBezierFit'
+import { triggerDownload, sanitizeFilename, buildSeligString, buildLednicerString } from '~/composables/useAirfoilDownload'
+
+interface Props {
+  upperX: number[]
+  upperY: number[]
+  lowerX: number[]
+  lowerY: number[]
+  airfoilName: string
+}
+
+const props = defineProps<Props>()
+
+const { submitBezierFit } = useBezierFit()
+
+// State
+const bezierOrder = ref(6)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+const fitResult = ref<BezierFitResponse | null>(null)
+const reparamCount = ref(80)
+const reparamPoints = ref<ReparametrizedPoints | null>(null)
+const exportFormat = ref<'selig' | 'lednicer' | 'csv'>('selig')
+const controlPointsEdited = ref(false)
+
+const geometryKey = computed(
+  () => `${props.airfoilName}:${props.upperX.length}:${props.lowerX.length}:${props.upperX[0]}:${props.lowerX[0]}`,
+)
+
+watch(geometryKey, () => {
+  fitResult.value = null
+  reparamPoints.value = null
+  error.value = null
+  controlPointsEdited.value = false
+})
+
+// Run Bezier fit
+const runBezierFit = async () => {
+  isLoading.value = true
+  error.value = null
+  reparamPoints.value = null
+  controlPointsEdited.value = false
+
+  try {
+    fitResult.value = await submitBezierFit({
+      upper_x: props.upperX,
+      upper_y: props.upperY,
+      lower_x: props.lowerX,
+      lower_y: props.lowerY,
+      order: bezierOrder.value,
+    })
+  } catch (err: any) {
+    error.value = err.data?.detail || err.message || 'Bezier fitting failed'
+    console.error('Bezier fit error:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+/** Update one control-point Y and refresh that surface's fitted curve. */
+const updateControlPointY = (surface: 'upper' | 'lower', index: number, raw: string) => {
+  if (!fitResult.value)
+    return
+
+  const y = Number.parseFloat(raw)
+  if (!Number.isFinite(y))
+    return
+
+  const key = surface === 'upper' ? 'upper_control_points' : 'lower_control_points'
+  const curveKey = surface === 'upper' ? 'upper_curve' : 'lower_curve'
+  const cps = fitResult.value[key]
+  if (index < 0 || index >= cps.y.length)
+    return
+
+  const nextY = [...cps.y]
+  nextY[index] = y
+  const nextCps = { x: cps.x, y: nextY }
+
+  fitResult.value = {
+    ...fitResult.value,
+    [key]: nextCps,
+    [curveKey]: regenerateFittedCurve(nextCps),
+  }
+  controlPointsEdited.value = true
+  reparamPoints.value = null
+}
+
+// Export control points
+const exportControlPoints = () => {
+  if (!fitResult.value) return
+
+  const lines: string[] = []
+  lines.push(`# Bezier Control Points for ${props.airfoilName}`)
+  lines.push(`# Order: ${fitResult.value.order}`)
+  lines.push(`# Upper max error: ${fitResult.value.upper_max_error_pct.toFixed(4)}% chord`)
+  lines.push(`# Lower max error: ${fitResult.value.lower_max_error_pct.toFixed(4)}% chord`)
+  if (controlPointsEdited.value)
+    lines.push('# Note: control points were edited after the last fit')
+  lines.push('')
+  lines.push('# Upper Surface Control Points')
+  lines.push('# X, Y')
+  fitResult.value.upper_control_points.x.forEach((x, i) => {
+    lines.push(`${x.toFixed(8)}, ${fitResult.value!.upper_control_points.y[i].toFixed(8)}`)
+  })
+  lines.push('')
+  lines.push('# Lower Surface Control Points')
+  lines.push('# X, Y')
+  fitResult.value.lower_control_points.x.forEach((x, i) => {
+    lines.push(`${x.toFixed(8)}, ${fitResult.value!.lower_control_points.y[i].toFixed(8)}`)
+  })
+
+  triggerDownload(lines.join('\n'), `${sanitizeFilename(props.airfoilName)}_bezier_cp.txt`)
+}
+
+// Reparametrize points
+const runReparametrize = () => {
+  if (!fitResult.value) return
+  reparamPoints.value = reparametrizeBezierPoints(fitResult.value, reparamCount.value)
+}
+
+// Export reparametrized points in selected format
+const exportReparamPoints = () => {
+  if (!reparamPoints.value) return
+
+  const baseName = sanitizeFilename(props.airfoilName)
+  const { upper, lower } = reparamPoints.value
+
+  if (exportFormat.value === 'selig') {
+    const content = buildSeligString(props.airfoilName, upper.x, upper.y, lower.x, lower.y)
+    triggerDownload(content, `${baseName}_reparam_selig.dat`)
+  }
+  else if (exportFormat.value === 'lednicer') {
+    const content = buildLednicerString(props.airfoilName, upper.x, upper.y, lower.x, lower.y)
+    triggerDownload(content, `${baseName}_reparam_lednicer.dat`)
+  }
+  else if (exportFormat.value === 'csv') {
+    const lines: string[] = ['x,y']
+    for (let i = 0; i < upper.x.length; i++)
+      lines.push(`${upper.x[i].toFixed(8)},${upper.y[i].toFixed(8)}`)
+    for (let i = 0; i < lower.x.length; i++)
+      lines.push(`${lower.x[i].toFixed(8)},${lower.y[i].toFixed(8)}`)
+    triggerDownload(lines.join('\n'), `${baseName}_reparam.csv`)
+  }
+}
+
+// Available order options
+const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
+</script>
+
+<template>
+  <div class="space-y-4">
+    <!-- Controls -->
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="flex items-center gap-2">
+        <label for="bezier-order" class="text-sm font-medium text-gray-700">
+          Bezier Order:
+        </label>
+        <select
+          id="bezier-order"
+          v-model="bezierOrder"
+          class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          :disabled="isLoading"
+        >
+          <option v-for="n in orderOptions" :key="n" :value="n">
+            {{ n }}
+          </option>
+        </select>
+      </div>
+
+      <VButton
+        type="button"
+        color="primary"
+        :disabled="isLoading"
+        @click="runBezierFit"
+      >
+        <div v-if="isLoading" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
+        <Icon v-else name="heroicons:play" class="h-4 w-4 shrink-0" />
+        Run Bezier Fit
+      </VButton>
+
+      <input
+        v-model.number="reparamCount"
+        type="number"
+        min="5"
+        max="500"
+        :disabled="!fitResult || isLoading"
+        class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+      />
+      <VButton
+        type="button"
+        color="primary"
+        :disabled="!fitResult || isLoading"
+        @click="runReparametrize"
+      >
+        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
+        Reparametrize Points
+      </VButton>
+    </div>
+
+    <!-- Error Display -->
+    <div v-if="error" class="p-4 bg-red-50 border border-red-200 rounded-md">
+      <div class="flex">
+        <Icon name="heroicons:exclamation-triangle" class="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
+        <p class="text-sm text-red-800">{{ error }}</p>
+      </div>
+    </div>
+
+    <!-- Geometry plot (always visible) -->
+    <div class="border border-gray-200 rounded-lg p-4 bg-white relative">
+      <div
+        v-if="isLoading"
+        class="absolute inset-0 z-10 bg-white/60 flex items-center justify-center rounded-lg"
+      >
+        <div class="text-center text-gray-500">
+          <div class="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-indigo-600 mx-auto mb-3" />
+          <p class="text-sm font-medium">Fitting Bezier curves...</p>
+        </div>
+      </div>
+      <BezierFitPlot
+        :original-upper-x="upperX"
+        :original-upper-y="upperY"
+        :original-lower-x="lowerX"
+        :original-lower-y="lowerY"
+        :fitted-upper-x="fitResult?.upper_curve.x"
+        :fitted-upper-y="fitResult?.upper_curve.y"
+        :fitted-lower-x="fitResult?.lower_curve.x"
+        :fitted-lower-y="fitResult?.lower_curve.y"
+        :upper-control-points="fitResult?.upper_control_points"
+        :lower-control-points="fitResult?.lower_control_points"
+        :reparam-upper-x="reparamPoints?.upper.x"
+        :reparam-upper-y="reparamPoints?.upper.y"
+        :reparam-lower-x="reparamPoints?.lower.x"
+        :reparam-lower-y="reparamPoints?.lower.y"
+      />
+    </div>
+
+    <div v-if="fitResult" class="flex flex-wrap items-center justify-between gap-4">
+      <VButton
+        type="button"
+        color="neutral"
+        @click="exportControlPoints"
+      >
+        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+        Export Control Points
+      </VButton>
+
+      <div v-if="reparamPoints" class="flex items-center gap-2">
+        <select
+          v-model="exportFormat"
+          class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option value="selig">Selig (.dat)</option>
+          <option value="lednicer">Lednicer (.dat)</option>
+          <option value="csv">CSV (.csv)</option>
+        </select>
+        <VButton
+          type="button"
+          color="neutral"
+          @click="exportReparamPoints"
+        >
+          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+          Export Points
+        </VButton>
+      </div>
+    </div>
+
+    <p v-if="!fitResult && !isLoading" class="text-sm text-gray-500 text-center">
+      Select a Bezier order and click "Run Bezier Fit" to overlay fitted curves on the loaded points.
+    </p>
+
+    <!-- Fit results -->
+    <div v-if="fitResult" class="space-y-4">
+      <!-- Fit Quality Info -->
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div class="bg-gray-50 p-3 rounded-md">
+          <span class="text-gray-500">Upper Surface Max Error:</span>
+          <span class="ml-2 font-mono font-medium">{{ fitResult.upper_max_error_pct.toFixed(4) }}% chord</span>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-md">
+          <span class="text-gray-500">Lower Surface Max Error:</span>
+          <span class="ml-2 font-mono font-medium">{{ fitResult.lower_max_error_pct.toFixed(4) }}% chord</span>
+        </div>
+      </div>
+      <p v-if="controlPointsEdited" class="text-xs text-amber-700">
+        Control points edited — curve updated live. Max error values are from the last fit. Reparametrize to refresh exported points.
+      </p>
+
+      <!-- Control Points Tables -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="text-sm font-medium text-gray-700 mb-2">Upper Surface Control Points</h4>
+          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
+          <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
+            <table class="min-w-full text-xs">
+              <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">Index</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">X</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">Y</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <tr v-for="(x, i) in fitResult.upper_control_points.x" :key="i">
+                  <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
+                  <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
+                  <td class="px-3 py-1">
+                    <input
+                      type="number"
+                      step="any"
+                      :value="fitResult.upper_control_points.y[i]"
+                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      @change="updateControlPointY('upper', i, ($event.target as HTMLInputElement).value)"
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-700 mb-2">Lower Surface Control Points</h4>
+          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
+          <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
+            <table class="min-w-full text-xs">
+              <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">Index</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">X</th>
+                  <th class="px-3 py-2 text-left font-medium text-gray-500">Y</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <tr v-for="(x, i) in fitResult.lower_control_points.x" :key="i">
+                  <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
+                  <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
+                  <td class="px-3 py-1">
+                    <input
+                      type="number"
+                      step="any"
+                      :value="fitResult.lower_control_points.y[i]"
+                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      @change="updateControlPointY('lower', i, ($event.target as HTMLInputElement).value)"
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-[10px] text-gray-400 italic pt-1">
+      *Now using faster linear least squares algorithm — Thanks Hunter
+    </p>
+  </div>
+</template>

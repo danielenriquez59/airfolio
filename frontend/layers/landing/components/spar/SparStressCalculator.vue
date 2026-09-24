@@ -91,7 +91,7 @@ const factorOfSafety = computed(() => {
 
 const fosColor = computed(() => {
   const fos = factorOfSafety.value
-  if (fos === 0) return 'text-slate-500'
+  if (fos === 0) return 'text-gray-500'
   if (fos < 1) return 'text-red-600'
   if (fos < 1.5) return 'text-orange-600'
   if (fos < 2) return 'text-yellow-600'
@@ -109,13 +109,13 @@ const fosStatus = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-    <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
+  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
       <Icon name="heroicons:beaker" class="h-5 w-5 text-blue-600" />
       <h2>Stress & Safety Factor</h2>
     </div>
 
-    <div class="space-y-1">
+    <div class="space-y-4">
       <SchrenkInputGroup
         label="Applied Moment"
         name="appliedMoment"
@@ -137,15 +137,15 @@ const fosStatus = computed(() => {
       />
 
       <!-- Results -->
-      <div v-if="result.valid && appliedMoment > 0" class="mt-4 pt-4 border-t border-slate-100">
+      <div v-if="result.valid && appliedMoment > 0" class="mt-4 pt-4 border-t border-gray-200">
         <!-- Bending Stress -->
-        <div class="mb-3 p-3 bg-slate-50 rounded-lg">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <div class="mb-3 p-3 bg-gray-50 rounded-lg">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Bending Stress (σ)
           </p>
-          <p class="text-lg font-bold text-slate-800">
+          <p class="text-lg font-bold text-gray-800">
             {{ bendingStress.toFixed(2) }}
-            <span class="text-sm font-normal text-slate-400 ml-1">{{ stressUnit }}</span>
+            <span class="text-sm font-normal text-gray-400 ml-1">{{ stressUnit }}</span>
           </p>
         </div>
 
@@ -162,19 +162,19 @@ const fosStatus = computed(() => {
               {{ fosStatus }}
             </span>
           </div>
-          <p class="text-xs text-slate-500 mt-2">
+          <p class="text-xs text-gray-500 mt-2">
             σ<sub>yield</sub> / σ<sub>actual</sub> = {{ yieldStress }} / {{ bendingStress.toFixed(2) }}
           </p>
         </div>
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="!result.valid" class="mt-4 pt-4 border-t border-slate-100 text-center py-4 text-slate-400">
+      <div v-else-if="!result.valid" class="mt-4 pt-4 border-t border-gray-200 text-center py-4 text-gray-400">
         <Icon name="heroicons:exclamation-triangle" class="h-8 w-8 mx-auto mb-1 opacity-50" />
         <p class="text-xs">Valid spar geometry required</p>
       </div>
 
-      <div v-else class="mt-4 pt-4 border-t border-slate-100 text-center py-4 text-slate-400">
+      <div v-else class="mt-4 pt-4 border-t border-gray-200 text-center py-4 text-gray-400">
         <Icon name="heroicons:calculator" class="h-8 w-8 mx-auto mb-1 opacity-50" />
         <p class="text-xs">Enter applied moment to calculate</p>
       </div>

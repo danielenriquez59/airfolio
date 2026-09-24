@@ -100,12 +100,76 @@ export const generateCSTCoordinates = (
 }
 
 /**
- * Fit CST parameters from existing airfoil coordinates using least-squares
+ * Solve least-squares Ax=b via QR decomposition (Householder reflections).
+ * Equivalent to np.linalg.lstsq. A is [m x n] with m >= n.
+ */
+const lstsq = (A: number[][], b: number[]): number[] => {
+  const m = A.length
+  const n = A[0].length
+
+  // Deep copy A and b
+  const R = A.map(row => [...row])
+  const qt_b = [...b]
+
+  // Householder QR
+  for (let k = 0; k < n; k++) {
+    // Compute norm of column k below diagonal
+    let norm = 0
+    for (let i = k; i < m; i++) norm += R[i][k] * R[i][k]
+    norm = Math.sqrt(norm)
+
+    if (norm === 0) continue
+
+    const sign = R[k][k] >= 0 ? 1 : -1
+    const alpha = -sign * norm
+
+    // Householder vector
+    const v = new Array(m).fill(0)
+    for (let i = k; i < m; i++) v[i] = R[i][k]
+    v[k] -= alpha
+    let vNorm = 0
+    for (let i = k; i < m; i++) vNorm += v[i] * v[i]
+
+    if (vNorm === 0) continue
+
+    // Apply reflection to R columns k..n-1
+    for (let j = k; j < n; j++) {
+      let dot = 0
+      for (let i = k; i < m; i++) dot += v[i] * R[i][j]
+      const scale = 2 * dot / vNorm
+      for (let i = k; i < m; i++) R[i][j] -= scale * v[i]
+    }
+
+    // Apply reflection to qt_b
+    let dot = 0
+    for (let i = k; i < m; i++) dot += v[i] * qt_b[i]
+    const scale = 2 * dot / vNorm
+    for (let i = k; i < m; i++) qt_b[i] -= scale * v[i]
+  }
+
+  // Back substitution on upper triangular R
+  const x = new Array(n).fill(0)
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = qt_b[i]
+    for (let j = i + 1; j < n; j++) x[i] -= R[i][j] * x[j]
+    x[i] /= R[i][i]
+  }
+
+  return x
+}
+
+/**
+ * Fit CST parameters from existing airfoil coordinates using least-squares.
+ * Mirrors the AeroSandbox get_kulfan_parameters() "least_squares" method.
+ *
+ * Input coordinates are separate upper/lower arrays as stored in the database.
+ * They are combined into Selig-format (upper TE→LE, lower LE→TE) internally.
+ *
  * @param upperX Upper surface X coordinates (TE to LE, descending)
  * @param upperY Upper surface Y coordinates
  * @param lowerX Lower surface X coordinates (LE to TE, ascending)
  * @param lowerY Lower surface Y coordinates
- * @param order Polynomial order (default 7 for 8 weights)
+ * @param order Polynomial order (default 7 for 8 weights per side)
  * @returns Fitted CST parameters
  */
 export const fitCSTParameters = (
@@ -115,151 +179,108 @@ export const fitCSTParameters = (
   lowerY: number[],
   order: number = 7
 ): CSTParameters => {
-  // Normalize coordinates to [0, 1] chord
-  const allX = [...upperX, ...lowerX]
-  const minX = Math.min(...allX)
-  const maxX = Math.max(...allX)
-  const chord = maxX - minX
+  const nWeights = order + 1
 
-  const normalizeX = (x: number) => (x - minX) / chord
+  // Combine into Selig format: upper (TE→LE) then lower (LE→TE), skip duplicate LE point
+  const x = [...upperX, ...lowerX.slice(1)]
+  const y = [...upperY, ...lowerY.slice(1)]
+  const nCoords = x.length
 
-  // Prepare data points with cosine spacing mapping
-  const preparePoints = (x: number[], y: number[]): Array<{ psi: number; y: number }> => {
-    return x.map((xVal, i) => {
-      const normalizedX = normalizeX(xVal)
-      // Map normalized X to psi (0 to 1)
-      const psi = normalizedX
-      return { psi, y: y[i] }
-    })
+  // Normalize to [0, 1]
+  const xMin = Math.min(...x)
+  const xMax = Math.max(...x)
+  const chord = xMax - xMin || 1
+  const xn = x.map(v => (v - xMin) / chord)
+  const yn = y.map(v => v / chord)
+
+  // Find LE index (min x)
+  let leIndex = 0
+  let leMin = xn[0]
+  for (let i = 1; i < nCoords; i++) {
+    if (xn[i] < leMin) { leMin = xn[i]; leIndex = i }
   }
 
-  // Fit weights for a surface using least-squares
-  const fitWeights = (points: Array<{ psi: number; y: number }>): number[] => {
-    const n = points.length
-    const numWeights = order + 1
-    const weights = new Array(numWeights).fill(0)
+  // Determine which points are on the upper surface
+  const isUpper: boolean[] = []
+  for (let i = 0; i < nCoords; i++) isUpper.push(i <= leIndex)
 
-    // Build system of equations: y = C(ψ) × S(ψ) + LE_term
-    // For simplicity, we'll solve for weights assuming LE weight is zero initially
-    // Then extract LE weight from leading edge region
+  // N1=0.5, N2=1.0 (conventional airfoil)
+  const N1 = 0.5
+  const N2 = 1.0
 
-    // Create matrix A and vector b for Ax = b
-    const A: number[][] = []
-    const b: number[] = []
+  // Class function C(x) = x^N1 * (1-x)^N2
+  const C = xn.map(xi => Math.pow(xi, N1) * Math.pow(1 - xi, N2))
 
-    for (const point of points) {
-      const psi = point.psi
-      const y = point.y
+  // Bernstein polynomial basis: S_matrix[j][i] for weight j, point i
+  const N = nWeights - 1
+  const K: number[] = []
+  for (let j = 0; j <= N; j++) K.push(comb(N, j))
 
-      // Class function
-      const C = Math.sqrt(psi) * (1 - psi)
-
-      // Build row for this point
-      const row: number[] = []
-      for (let j = 0; j <= order; j++) {
-        const K = comb(order, j)
-        const basis = K * Math.pow(psi, j) * Math.pow(1 - psi, order - j)
-        row.push(C * basis)
-      }
-      A.push(row)
-      b.push(y)
+  const S_matrix: number[][] = []
+  for (let j = 0; j <= N; j++) {
+    const row: number[] = []
+    for (let i = 0; i < nCoords; i++) {
+      row.push(K[j] * Math.pow(xn[i], j) * Math.pow(1 - xn[i], N - j))
     }
-
-    // Solve least-squares: (A^T A) x = A^T b
-    // Simple implementation using normal equations
-    const AT = A[0].map((_, colIdx) => A.map(row => row[colIdx]))
-    const ATA = AT.map(row => A[0].map((_, colIdx) => 
-      row.reduce((sum, val, idx) => sum + val * AT[idx][colIdx], 0)
-    ))
-    const ATb = AT.map(row => row.reduce((sum, val, idx) => sum + val * b[idx], 0))
-
-    // Solve using Gaussian elimination (simplified)
-    const solve = (matrix: number[][], vector: number[]): number[] => {
-      const n = matrix.length
-      const result = [...vector]
-
-      // Forward elimination
-      for (let i = 0; i < n; i++) {
-        // Find pivot
-        let maxRow = i
-        for (let k = i + 1; k < n; k++) {
-          if (Math.abs(matrix[k][i]) > Math.abs(matrix[maxRow][i])) {
-            maxRow = k
-          }
-        }
-        // Swap rows
-        [matrix[i], matrix[maxRow]] = [matrix[maxRow], matrix[i]]
-        [result[i], result[maxRow]] = [result[maxRow], result[i]]
-
-        // Eliminate
-        for (let k = i + 1; k < n; k++) {
-          const factor = matrix[k][i] / matrix[i][i]
-          for (let j = i; j < n; j++) {
-            matrix[k][j] -= factor * matrix[i][j]
-          }
-          result[k] -= factor * result[i]
-        }
-      }
-
-      // Back substitution
-      const x = new Array(n).fill(0)
-      for (let i = n - 1; i >= 0; i--) {
-        x[i] = result[i]
-        for (let j = i + 1; j < n; j++) {
-          x[i] -= matrix[i][j] * x[j]
-        }
-        x[i] /= matrix[i][i]
-      }
-      return x
-    }
-
-    const fittedWeights = solve(ATA, ATb)
-
-    // Extract LE weight from leading edge region (first few points)
-    const lePoints = points.slice(0, Math.min(10, points.length))
-    let leWeight = 0
-    if (lePoints.length > 0) {
-      const avgPsi = lePoints.reduce((sum, p) => sum + p.psi, 0) / lePoints.length
-      const K_LE = order + 0.5
-      const leTerm = lePoints[0].y - (fittedWeights.reduce((sum, w, j) => {
-        const K = comb(order, j)
-        const basis = K * Math.pow(avgPsi, j) * Math.pow(1 - avgPsi, order - j)
-        const C = Math.sqrt(avgPsi) * (1 - avgPsi)
-        return sum + w * C * basis
-      }, 0))
-      leWeight = leTerm / (avgPsi * Math.pow(1 - avgPsi, K_LE))
-    }
-
-    return fittedWeights.map(w => isNaN(w) || !isFinite(w) ? 0 : w)
+    S_matrix.push(row)
   }
 
-  // Fit upper and lower surfaces
-  const upperPoints = preparePoints(upperX, upperY)
-  const lowerPoints = preparePoints(lowerX, lowerY)
+  // Build A matrix [nCoords x (2*nWeights + 2)]
+  // Columns: lower_weights(0..nWeights-1), upper_weights(nWeights..2*nWeights-1),
+  //          leading_edge_weight, trailing_edge_thickness
+  const nCols = 2 * nWeights + 2
+  const A: number[][] = []
 
-  const upperWeights = fitWeights(upperPoints)
-  const lowerWeights = fitWeights(lowerPoints)
+  for (let i = 0; i < nCoords; i++) {
+    const row = new Array(nCols).fill(0)
 
-  // Extract LE weight from leading edge region
-  // Use the first point of upper and lower surfaces (should be near LE)
-  const leUpperY = upperY[upperY.length - 1] || 0 // Last point of upper (LE)
-  const leLowerY = lowerY[0] || 0 // First point of lower (LE)
-  const leAvgY = (leUpperY + leLowerY) / 2
-  
-  // Estimate LE weight from leading edge shape (simplified)
-  // This is a rough estimate - for more accuracy, would need iterative fitting
-  const leWeight = leAvgY * 0.5 // Simplified estimate
+    for (let j = 0; j < nWeights; j++) {
+      // Lower weight columns: active only where NOT upper
+      if (!isUpper[i]) {
+        row[j] = C[i] * S_matrix[j][i]
+      }
+      // Upper weight columns: active only where upper
+      if (isUpper[i]) {
+        row[nWeights + j] = C[i] * S_matrix[j][i]
+      }
+    }
 
-  // Extract TE thickness from trailing edge coordinates
-  const teUpperY = upperY[0] || 0 // First point of upper (TE)
-  const teLowerY = lowerY[lowerY.length - 1] || 0 // Last point of lower (TE)
-  const teThickness = Math.abs(teUpperY - teLowerY)
+    // Leading edge weight column
+    row[2 * nWeights] = xn[i] * Math.pow(Math.max(1 - xn[i], 0), nWeights + 0.5)
+
+    // Trailing edge thickness column
+    row[2 * nWeights + 1] = isUpper[i] ? xn[i] / 2 : -xn[i] / 2
+
+    A.push(row)
+  }
+
+  // Solve least-squares
+  let solution = lstsq(A, yn)
+
+  let lowerWeights = solution.slice(0, nWeights)
+  let upperWeights = solution.slice(nWeights, 2 * nWeights)
+  let leWeight = solution[2 * nWeights]
+  let teThickness = solution[2 * nWeights + 1]
+
+  // If TE thickness is negative, re-solve without that column
+  if (teThickness < 0) {
+    const A2 = A.map(row => row.slice(0, nCols - 1))
+    solution = lstsq(A2, yn)
+
+    lowerWeights = solution.slice(0, nWeights)
+    upperWeights = solution.slice(nWeights, 2 * nWeights)
+    leWeight = solution[2 * nWeights]
+    teThickness = 0
+  }
+
+  // Sanitize outputs
+  const sanitize = (arr: number[]) => arr.map(w => isNaN(w) || !isFinite(w) ? 0 : w)
 
   return {
-    upperWeights,
-    lowerWeights,
-    leWeight: isNaN(leWeight) || !isFinite(leWeight) ? 0.5 : leWeight,
-    teThickness: isNaN(teThickness) || !isFinite(teThickness) ? 0.0001 : teThickness,
+    upperWeights: sanitize(upperWeights),
+    lowerWeights: sanitize(lowerWeights),
+    leWeight: isNaN(leWeight) || !isFinite(leWeight) ? 0 : leWeight,
+    teThickness: isNaN(teThickness) || !isFinite(teThickness) ? 0 : teThickness,
     order,
   }
 }

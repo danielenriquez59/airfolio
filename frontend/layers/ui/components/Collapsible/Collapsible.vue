@@ -60,7 +60,7 @@ const toggle = () => {
         justify-between
         w-full
         py-2
-        text-left text-15
+        text-left text-sm
         font-semibold
         rounded-lg
         focus:outline-none
@@ -83,7 +83,7 @@ const toggle = () => {
     </DisclosureButton>
     <CollapseTransition>
       <div v-show="isOpen">
-        <DisclosurePanel static class="pb-2 text-15" :class="classes?.panel">
+        <DisclosurePanel static class="pb-2 text-sm" :class="classes?.panel">
           <slot>{{ content }}</slot>
         </DisclosurePanel>
       </div>

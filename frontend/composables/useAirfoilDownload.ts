@@ -5,14 +5,14 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 /**
  * Format a number to fixed-width string (8 characters, 6 decimal places)
  */
-const formatCoord = (num: number): string => {
+export const formatCoord = (num: number): string => {
   return num.toFixed(6).padStart(8, ' ')
 }
 
 /**
  * Trigger browser download for a text file
  */
-const triggerDownload = (content: string, filename: string) => {
+export const triggerDownload = (content: string, filename: string) => {
   const blob = new Blob([content], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -25,9 +25,33 @@ const triggerDownload = (content: string, filename: string) => {
 }
 
 /**
+ * Remove duplicate points from coordinate array
+ * Two points are considered duplicates if both x and y are within tolerance
+ */
+export const removeDuplicates = (
+  coords: Array<[number, number]>,
+  tolerance: number = 5e-5
+): Array<[number, number]> => {
+  const result: Array<[number, number]> = []
+
+  for (const coord of coords) {
+    const isDuplicate = result.some(existing =>
+      Math.abs(existing[0] - coord[0]) < tolerance &&
+      Math.abs(existing[1] - coord[1]) < tolerance
+    )
+
+    if (!isDuplicate) {
+      result.push(coord)
+    }
+  }
+
+  return result
+}
+
+/**
  * Sort upper surface coordinates by X descending (TE to LE)
  */
-const sortUpperCoordinates = (
+export const sortUpperCoordinates = (
   upperX: number[],
   upperY: number[]
 ): Array<[number, number]> => {
@@ -38,7 +62,7 @@ const sortUpperCoordinates = (
 /**
  * Sort lower surface coordinates by X ascending (LE to TE)
  */
-const sortLowerCoordinates = (
+export const sortLowerCoordinates = (
   lowerX: number[],
   lowerY: number[]
 ): Array<[number, number]> => {
@@ -49,8 +73,60 @@ const sortLowerCoordinates = (
 /**
  * Generate filename-safe string from airfoil name
  */
-const sanitizeFilename = (name: string): string => {
+export const sanitizeFilename = (name: string): string => {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+/**
+ * Build Selig format string from raw coordinate arrays.
+ * Upper: TE to LE (descending X), Lower: LE to TE (ascending X).
+ */
+export const buildSeligString = (
+  name: string,
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[]
+): string => {
+  const upperCoords = removeDuplicates(sortUpperCoordinates(upperX, upperY))
+  const lowerCoords = removeDuplicates(sortLowerCoordinates(lowerX, lowerY))
+
+  const lines: string[] = [name, '']
+  upperCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  lowerCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  return lines.join('\n')
+}
+
+/**
+ * Build Lednicer format string from raw coordinate arrays.
+ * Both surfaces: LE to TE (ascending X), separated by blank line, with point counts header.
+ */
+export const buildLednicerString = (
+  name: string,
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[]
+): string => {
+  const upperCoords = removeDuplicates(sortLowerCoordinates(upperX, upperY))
+  const lowerCoords = removeDuplicates(sortLowerCoordinates(lowerX, lowerY))
+
+  const upperCountStr = (upperCoords.length.toString() + '.').padStart(8)
+  const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
+
+  const lines: string[] = [name.toUpperCase(), `${upperCountStr}  ${lowerCountStr}`, '']
+  upperCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  lines.push('')
+  lowerCoords.forEach(([x, y]) => {
+    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
+  })
+  return lines.join('\n')
 }
 
 export const useAirfoilDownload = () => {
@@ -59,8 +135,9 @@ export const useAirfoilDownload = () => {
    * Format:
    * {AIRFOIL_NAME}
    * {upper_count}.  {lower_count}.
-   * {upper coordinates - descending X}
-   * {lower coordinates - ascending X}
+   * {upper coordinates - ascending X (LE to TE)}
+   * {blank line}
+   * {lower coordinates - ascending X (LE to TE)}
    */
   const downloadLednicer = (airfoil: Airfoil) => {
     if (
@@ -79,35 +156,46 @@ export const useAirfoilDownload = () => {
       throw new Error('Surface node counts are missing')
     }
 
-    // Sort coordinates
-    const upperCoords = sortUpperCoordinates(
+    // Sort coordinates and remove duplicates
+    // Both surfaces: ascending X (LE to TE)
+    const upperCoordsSorted = sortLowerCoordinates(
       airfoil.upper_x_coordinates,
       airfoil.upper_y_coordinates
     )
-    const lowerCoords = sortLowerCoordinates(
+    const lowerCoordsSorted = sortLowerCoordinates(
       airfoil.lower_x_coordinates,
       airfoil.lower_y_coordinates
     )
 
+    // Remove duplicates from both surfaces
+    const upperCoords = removeDuplicates(upperCoordsSorted)
+    const lowerCoords = removeDuplicates(lowerCoordsSorted)
+
     // Build file content
     const lines: string[] = []
-    
+
     // Airfoil name
     lines.push(airfoil.name.toUpperCase())
-    
+
     // Upper and lower counts (with periods and spacing as shown in example)
     // Format: number + period should total 8 characters (right-aligned)
-    // Example: "19" -> "      19." (7 chars: 6 spaces + "19" + ".")
-    const upperCountStr = (airfoil.upper_surface_nodes.toString() + '.').padStart(8)
-    const lowerCountStr = (airfoil.lower_surface_nodes.toString() + '.').padStart(8)
+    // Use actual counts after duplicate removal
+    const upperCountStr = (upperCoords.length.toString() + '.').padStart(8)
+    const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
     lines.push(`${upperCountStr}  ${lowerCountStr}`)
-    
-    // Upper surface coordinates (descending X)
+
+    // Blank line after counts
+    lines.push('')
+
+    // Upper surface coordinates (ascending X, LE to TE)
     upperCoords.forEach(([x, y]) => {
       lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
     })
-    
-    // Lower surface coordinates (ascending X)
+
+    // Blank line between upper and lower surfaces
+    lines.push('')
+
+    // Lower surface coordinates (ascending X, LE to TE)
     lowerCoords.forEach(([x, y]) => {
       lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
     })
@@ -135,32 +223,36 @@ export const useAirfoilDownload = () => {
       throw new Error('Airfoil geometry data is missing')
     }
 
-    // Sort coordinates
+    // Sort coordinates and remove duplicates
     // Upper: descending X (TE to LE)
     // Lower: ascending X (LE to TE)
-    const upperCoords = sortUpperCoordinates(
+    const upperCoordsSorted = sortUpperCoordinates(
       airfoil.upper_x_coordinates,
       airfoil.upper_y_coordinates
     )
-    const lowerCoords = sortLowerCoordinates(
+    const lowerCoordsSorted = sortLowerCoordinates(
       airfoil.lower_x_coordinates,
       airfoil.lower_y_coordinates
     )
 
+    // Remove duplicates from both surfaces
+    const upperCoords = removeDuplicates(upperCoordsSorted)
+    const lowerCoords = removeDuplicates(lowerCoordsSorted)
+
     // Build file content
     const lines: string[] = []
-    
+
     // Airfoil name
     lines.push(airfoil.name)
-    
+
     // Empty line
     lines.push('')
-    
+
     // Upper surface coordinates (TE to LE) - already sorted descending
     upperCoords.forEach(([x, y]) => {
       lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
     })
-    
+
     // Lower surface coordinates (LE to TE) - already sorted ascending
     lowerCoords.forEach(([x, y]) => {
       lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)

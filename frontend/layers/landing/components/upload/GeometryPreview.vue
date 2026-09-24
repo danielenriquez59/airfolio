@@ -44,6 +44,7 @@ const formatPercent = (value: number | undefined): string => {
         :name="name"
         :aspect-ratio="4"
         :show-grid="true"
+        :show-points-on-hover="true"
       />
     </div>
 

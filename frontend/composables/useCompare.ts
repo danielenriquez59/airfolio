@@ -3,7 +3,7 @@
  * Handles filtering, selection, and data normalization for the compare page
  */
 
-import { computed, reactive, readonly } from 'vue'
+import { computed, reactive, readonly, watch } from 'vue'
 import { useAirfoils } from './useAirfoils'
 import type { Database } from '~/types/database.types'
 
@@ -32,7 +32,10 @@ export interface FilterState {
   maxCMRoughness: number | null // smoothness_CM ≤
   minCMAtZero: number | null // Min CM at α = 0°
   minMaxLD: number | null // Min Max L/D
+  maxMaxLD: number | null // Max Max L/D
   minCLMax: number | null // Min CL Max
+  maxCLMax: number | null // Max CL Max
+  minLDWidth: number | null // Min L/D Width (°)
   targetCL: number | null
   targetAOA: number | null
   targetCLTolerance: number // Default ±0.1
@@ -50,7 +53,10 @@ const DEFAULT_FILTERS: FilterState = {
   maxCMRoughness: null,
   minCMAtZero: null,
   minMaxLD: null,
+  maxMaxLD: null,
   minCLMax: null,
+  maxCLMax: null,
+  minLDWidth: null,
   targetCL: null,
   targetAOA: null,
   targetCLTolerance: 0.1,
@@ -75,6 +81,50 @@ export function calculateLD(CL: number[], CD: number[]): number[] {
   
   ldCache.set(cacheKey, result)
   return result
+}
+
+/**
+ * Calculate L/D Width at a given percentage level of the max L/D.
+ * Finds where the L/D curve crosses the threshold on both sides of the peak
+ * and returns the angular width (α2 - α1) in degrees.
+ */
+export function calculateLDWidth(
+  LD: number[],
+  alpha: number[],
+  level: number
+): number | undefined {
+  if (LD.length < 3) return undefined
+
+  const maxLD = Math.max(...LD.filter(v => isFinite(v)))
+  if (!isFinite(maxLD) || maxLD <= 0) return undefined
+
+  const maxLDIdx = LD.findIndex(v => v === maxLD)
+  const threshold = maxLD * (level / 100)
+
+  // Scan left from peak to find where LD drops below threshold
+  let alpha1: number | undefined
+  for (let i = maxLDIdx; i > 0; i--) {
+    if (LD[i] >= threshold && LD[i - 1] < threshold) {
+      // Linear interpolation
+      const frac = (threshold - LD[i - 1]) / (LD[i] - LD[i - 1])
+      alpha1 = alpha[i - 1] + frac * (alpha[i] - alpha[i - 1])
+      break
+    }
+  }
+
+  // Scan right from peak to find where LD drops below threshold
+  let alpha2: number | undefined
+  for (let i = maxLDIdx; i < LD.length - 1; i++) {
+    if (LD[i] >= threshold && LD[i + 1] < threshold) {
+      // Linear interpolation
+      const frac = (threshold - LD[i]) / (LD[i + 1] - LD[i])
+      alpha2 = alpha[i] + frac * (alpha[i + 1] - alpha[i])
+      break
+    }
+  }
+
+  if (alpha1 === undefined || alpha2 === undefined) return undefined
+  return alpha2 - alpha1
 }
 
 /**
@@ -103,6 +153,8 @@ function findZeroAlphaIndex(alpha: number[]): number {
 /**
  * Calculate summary metrics for an airfoil
  */
+const LD_WIDTH_LEVEL = 80
+
 export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null) {
   const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null')
   
@@ -146,7 +198,10 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
     const designAlphaIdx = findClosestIndex(alpha, designAlpha)
     ldAtDesignAlpha = LD[designAlphaIdx]
   }
-  
+
+  // L/D Width at configured level
+  const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
+
   const result = {
     maxLD,
     maxLDAlpha,
@@ -157,6 +212,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
     cmAtZero,
     ldAtZero,
     ldAtDesignAlpha,
+    ldWidth,
   }
   
   metricsCache.set(cacheKey, result)
@@ -169,7 +225,7 @@ export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?:
 function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean {
   const { alpha, CL, CD, CM } = airfoil
   
-  // Max CM Roughness (smoothness_CM ≤)
+  // Max CM Curve Wiggliness
   if (filters.maxCMRoughness !== null) {
     const smoothness = airfoil.smoothness_CM
     if (smoothness === undefined || smoothness > filters.maxCMRoughness) {
@@ -186,23 +242,44 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
     }
   }
   
-  // Min Max L/D
-  if (filters.minMaxLD !== null) {
+  // Min/Max L/D Range
+  if (filters.minMaxLD !== null || filters.maxMaxLD !== null) {
     const LD = calculateLD(CL, CD)
     const maxLD = Math.max(...LD.filter(v => isFinite(v)))
-    if (!isFinite(maxLD) || maxLD < filters.minMaxLD) {
+    if (!isFinite(maxLD)) {
+      return false
+    }
+    if (filters.minMaxLD !== null && maxLD < filters.minMaxLD) {
+      return false
+    }
+    if (filters.maxMaxLD !== null && maxLD > filters.maxMaxLD) {
       return false
     }
   }
   
-  // Min CL Max
-  if (filters.minCLMax !== null) {
+  // Min/Max CL Max Range
+  if (filters.minCLMax !== null || filters.maxCLMax !== null) {
     const clMax = Math.max(...CL.filter(v => isFinite(v)))
-    if (!isFinite(clMax) || clMax < filters.minCLMax) {
+    if (!isFinite(clMax)) {
+      return false
+    }
+    if (filters.minCLMax !== null && clMax < filters.minCLMax) {
+      return false
+    }
+    if (filters.maxCLMax !== null && clMax > filters.maxCLMax) {
       return false
     }
   }
-  
+
+  // Min L/D Width
+  if (filters.minLDWidth !== null) {
+    const LD = calculateLD(CL, CD)
+    const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
+    if (ldWidth === undefined || ldWidth < filters.minLDWidth) {
+      return false
+    }
+  }
+
   // Target CL and AOA (with tolerances)
   if (filters.targetCL !== null && filters.targetAOA !== null) {
     const targetAlphaIdx = findClosestIndex(alpha, filters.targetAOA)
@@ -310,25 +387,38 @@ export const useCompare = () => {
     applyFilters()
   }
 
+  // Track airfoils the user has explicitly deselected
+  const userDeselected = new Set<string>()
+
   /**
    * Apply filters to get filtered airfoil list
    */
   const applyFilters = () => {
     const filtered: string[] = []
-    
+
     state.allAirfoils.forEach((airfoil, name) => {
       if (passesFilters(airfoil, state.filters)) {
         filtered.push(name)
       }
     })
-    
+
+    const previousFiltered = new Set(state.filteredAirfoils)
     state.filteredAirfoils = filtered
-    
+
     // Remove selected airfoils that no longer match filters
     state.selectedAirfoils = state.selectedAirfoils.filter(name =>
       filtered.includes(name)
     )
-    
+
+    // Auto-select airfoils that newly entered the filtered set,
+    // unless the user has explicitly deselected them before
+    const newlyFiltered = filtered.filter(name =>
+      !previousFiltered.has(name) && !userDeselected.has(name)
+    )
+    if (newlyFiltered.length > 0) {
+      state.selectedAirfoils = [...new Set([...state.selectedAirfoils, ...newlyFiltered])]
+    }
+
     // If no selection and we have filtered airfoils, select all
     if (state.selectedAirfoils.length === 0 && filtered.length > 0) {
       state.selectedAirfoils = [...filtered]
@@ -346,10 +436,28 @@ export const useCompare = () => {
     applyFilters()
   }
 
+  // Watch filters for changes and auto-apply
+  watch(
+    () => state.filters,
+    () => {
+      applyFilters()
+    },
+    { deep: true }
+  )
+
   /**
    * Set selected airfoils
    */
   const setSelectedAirfoils = (names: string[]) => {
+    const selectedSet = new Set(names)
+    // Track any filtered airfoils not in the new selection as explicitly deselected
+    state.filteredAirfoils.forEach(name => {
+      if (selectedSet.has(name)) {
+        userDeselected.delete(name)
+      } else {
+        userDeselected.add(name)
+      }
+    })
     // Only allow selection from filtered airfoils
     state.selectedAirfoils = names.filter(name =>
       state.filteredAirfoils.includes(name)
@@ -363,8 +471,10 @@ export const useCompare = () => {
     const idx = state.selectedAirfoils.indexOf(name)
     if (idx >= 0) {
       state.selectedAirfoils.splice(idx, 1)
+      userDeselected.add(name)
     } else if (state.filteredAirfoils.includes(name)) {
       state.selectedAirfoils.push(name)
+      userDeselected.delete(name)
     }
   }
 
@@ -373,12 +483,14 @@ export const useCompare = () => {
    */
   const selectAllFiltered = () => {
     state.selectedAirfoils = [...state.filteredAirfoils]
+    userDeselected.clear()
   }
 
   /**
    * Deselect all airfoils
    */
   const deselectAll = () => {
+    state.filteredAirfoils.forEach(name => userDeselected.add(name))
     state.selectedAirfoils = []
   }
 
@@ -420,6 +532,7 @@ export const useCompare = () => {
         cmAtZero: { min: 0, max: 0 },
         maxLD: { min: 0, max: 0 },
         clMax: { min: 0, max: 0 },
+        ldWidth: { min: 0, max: 0 },
       }
     }
 
@@ -427,29 +540,35 @@ export const useCompare = () => {
     const cmAtZeroValues: number[] = []
     const maxLDValues: number[] = []
     const clMaxValues: number[] = []
+    const ldWidthValues: number[] = []
 
     state.allAirfoils.forEach((airfoil) => {
       const { alpha, CL, CD, CM } = airfoil
-      
+
       if (airfoil.smoothness_CM !== undefined) {
         smoothnessValues.push(airfoil.smoothness_CM)
       }
-      
+
       const zeroAlphaIdx = findZeroAlphaIndex(alpha)
       const cmAtZero = CM[zeroAlphaIdx]
       if (isFinite(cmAtZero)) {
         cmAtZeroValues.push(cmAtZero)
       }
-      
+
       const LD = calculateLD(CL, CD)
       const maxLD = Math.max(...LD.filter(v => isFinite(v)))
       if (isFinite(maxLD)) {
         maxLDValues.push(maxLD)
       }
-      
+
       const clMax = Math.max(...CL.filter(v => isFinite(v)))
       if (isFinite(clMax)) {
         clMaxValues.push(clMax)
+      }
+
+      const ldWidth = calculateLDWidth(LD, alpha, LD_WIDTH_LEVEL)
+      if (ldWidth !== undefined && isFinite(ldWidth)) {
+        ldWidthValues.push(ldWidth)
       }
     })
 
@@ -470,6 +589,10 @@ export const useCompare = () => {
         min: clMaxValues.length > 0 ? Math.min(...clMaxValues) : 0,
         max: clMaxValues.length > 0 ? Math.max(...clMaxValues) : 0,
       },
+      ldWidth: {
+        min: ldWidthValues.length > 0 ? Math.min(...ldWidthValues) : 0,
+        max: ldWidthValues.length > 0 ? Math.max(...ldWidthValues) : 0,
+      },
     }
   })
 
@@ -478,7 +601,21 @@ export const useCompare = () => {
    */
   const resetFilters = () => {
     state.filters = { ...DEFAULT_FILTERS }
+    userDeselected.clear()
     applyFilters()
+  }
+
+  /**
+   * Reset all analysis data and clear caches
+   */
+  const resetAnalysis = () => {
+    state.allAirfoils.clear()
+    state.filteredAirfoils = []
+    state.selectedAirfoils = []
+    state.filters = { ...DEFAULT_FILTERS }
+    userDeselected.clear()
+    ldCache.clear()
+    metricsCache.clear()
   }
 
   return {
@@ -492,6 +629,7 @@ export const useCompare = () => {
     getSelectedAirfoilsData,
     getSummaryData,
     resetFilters,
+    resetAnalysis,
     applyFilters,
     getFilterRanges,
     clearCache: () => {

@@ -21,16 +21,16 @@ useHead({
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <!-- Header -->
-      <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">About Airfolio</h1>
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">About Airfolio</h1>
         <p class="text-xl text-gray-600">
           A comprehensive airfoil analysis and comparison tool
         </p>
       </div>
 
       <!-- Overview -->
-      <section class="mb-12">
-        <h2 class="text-2xl font-semibold text-gray-900 mb-4">What is Airfolio?</h2>
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">What is Airfolio?</h2>
         <p class="text-gray-700 leading-relaxed mb-4">
           Airfolio is a web-based platform for discovering, analyzing, and comparing airfoil performance data. 
           Whether you're designing aircraft, wind turbines, or studying aerodynamics, Airfolio provides the tools 
@@ -39,8 +39,8 @@ useHead({
       </section>
 
       <!-- Capabilities -->
-      <section class="mb-12">
-        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Capabilities</h2>
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Capabilities</h2>
         
         <div class="space-y-6">
           <div class="bg-white rounded-lg shadow p-6">
@@ -100,8 +100,8 @@ useHead({
       </section>
 
       <!-- Credits -->
-      <section class="mb-12">
-        <h2 class="text-2xl font-semibold text-gray-900 mb-6">Credits & Acknowledgments</h2>
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Credits & Acknowledgments</h2>
         
         <div class="space-y-4">
           <div>
@@ -153,16 +153,17 @@ useHead({
 
       <!-- Contact -->
       <section class="text-center">
-        <h2 class="text-2xl font-semibold text-gray-900 mb-4">Questions or Feedback?</h2>
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Questions or Feedback?</h2>
         <p class="text-gray-700 mb-4">
           We'd love to hear from you. Reach out with questions, suggestions, or bug reports.
         </p>
-        <a 
+        <VButton
+          color="primary"
+          size="lg"
           :href="`mailto:${supportEmail}`"
-          class="inline-block px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
         >
           Contact Support
-        </a>
+        </VButton>
       </section>
     </div>
   </div>

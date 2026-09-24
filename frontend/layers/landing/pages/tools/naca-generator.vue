@@ -225,7 +225,7 @@ const performanceData = computed(() => {
                 type="radio"
                 :value="'4-digit'"
                 :checked="seriesType === '4-digit'"
-                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                 @change="seriesType = '4-digit'"
               />
               <span class="text-sm font-medium text-gray-700">NACA 4-Digit Series</span>
@@ -235,7 +235,7 @@ const performanceData = computed(() => {
                 type="radio"
                 :value="'5-digit'"
                 :checked="seriesType === '5-digit'"
-                class="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
                 @change="seriesType = '5-digit'"
               />
               <span class="text-sm font-medium text-gray-700">NACA 5-Digit Series</span>
@@ -263,36 +263,34 @@ const performanceData = computed(() => {
         </div>
         
         <!-- Geometry Plot -->
-        <div class="w-full overflow-hidden h-[300px] md:h-[400px]">
+        <div class="w-full overflow-hidden">
           <AirfoilGeometry
             v-if="geometries.length > 0"
             :geometries="geometries"
             :show-legend="false"
-            :aspect-ratio="2.5"
+            :aspect-ratio="7"
             :zoomable="true"
-            :height="400"
           />
           <div v-else class="flex items-center justify-center h-full text-gray-500">
             <p class="text-sm">No geometry to display</p>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- NACA Parameter Editor -->
-    <div v-if="nacaCoordinates" class="mb-6">
-      <NACAParameterEditor
-        :series-type="seriesType"
-        :naca4-params="naca4Params"
-        :naca5-params="naca5Params"
-        :naca-name="currentNacaName"
-        :on-export-parameters="handleExportParameters"
-        :on-export-selig="handleExportSelig"
-        :on-export-lednicer="handleExportLednicer"
-        @update:series-type="seriesType = $event"
-        @update:naca4-params="naca4Params = $event"
-        @update:naca5-params="naca5Params = $event"
-      />
+        <!-- Parameters & Export -->
+        <NACAParameterEditor
+          class="mt-6 pt-6 border-t border-gray-200"
+          :series-type="seriesType"
+          :naca4-params="naca4Params"
+          :naca5-params="naca5Params"
+          :naca-name="currentNacaName"
+          :on-export-parameters="handleExportParameters"
+          :on-export-selig="handleExportSelig"
+          :on-export-lednicer="handleExportLednicer"
+          @update:series-type="seriesType = $event"
+          @update:naca4-params="naca4Params = $event"
+          @update:naca5-params="naca5Params = $event"
+        />
+      </div>
     </div>
 
     <!-- Empty State -->

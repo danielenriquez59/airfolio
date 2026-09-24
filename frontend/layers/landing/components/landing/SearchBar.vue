@@ -247,14 +247,14 @@ const clearFilters = () => {
             @keydown="handleKeydown"
           />
         </div>
-        <button
+        <VButton
           type="button"
-          class="inline-flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+          color="primary"
           @click="handleSearch"
         >
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5 mr-2" />
           Search
-        </button>
+        </VButton>
       </div>
 
       <!-- Filters Toggle Button -->

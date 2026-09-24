@@ -76,7 +76,7 @@ const hasErrors = computed(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="rows.length === 0" class="border-b border-gray-200">
+          <tr v-if="rows.length === 0">
             <td colspan="3" class="text-center px-3 py-8 text-sm text-gray-500">
               No coordinates added yet
             </td>
@@ -84,7 +84,7 @@ const hasErrors = computed(() => {
           <tr
             v-for="(row, index) in rows"
             :key="index"
-            class="border-b border-gray-200 hover:bg-gray-50"
+            class="hover:bg-gray-50"
           >
             <td class="px-3 py-2">
               <input
@@ -122,22 +122,24 @@ const hasErrors = computed(() => {
     </div>
 
     <div class="flex gap-2">
-      <button
+      <VButton
         type="button"
+        color="primary"
+        size="sm"
         :disabled="rows.length >= maxRows"
-        class="px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         @click="addRow"
       >
         Add Row
-      </button>
-      <button
+      </VButton>
+      <VButton
         v-if="rows.length > 0"
         type="button"
-        class="px-3 py-2 bg-gray-300 text-gray-900 text-sm font-medium rounded hover:bg-gray-400 transition-colors"
+        color="neutral"
+        size="sm"
         @click="clearAll"
       >
         Clear All
-      </button>
+      </VButton>
     </div>
 
     <div v-if="hasErrors" class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">

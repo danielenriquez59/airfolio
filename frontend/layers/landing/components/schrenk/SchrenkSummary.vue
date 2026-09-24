@@ -11,7 +11,7 @@ const fmt = (n: number, d = 2) => n.toLocaleString(undefined, { minimumFractionD
 </script>
 
 <template>
-  <div class="bg-blue-900 text-white rounded-xl shadow-lg p-5">
+  <div class="bg-blue-900 text-white rounded-lg shadow-lg p-6">
     <h3 class="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-4">Calculated Values</h3>
     <div class="grid grid-cols-2 gap-4">
       <div>

@@ -19,6 +19,7 @@ interface Props {
     cmAtZero: { min: number; max: number }
     maxLD: { min: number; max: number }
     clMax: { min: number; max: number }
+    ldWidth: { min: number; max: number }
   }
   performanceMode?: 'performance' | 'detail'
 }
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   'select-all': []
   'deselect-all': []
   'reset-filters': []
+  'reset-analysis': []
   'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
@@ -39,7 +41,10 @@ const emit = defineEmits<{
 const maxCMRoughness = ref(props.filters.maxCMRoughness)
 const minCMAtZero = ref(props.filters.minCMAtZero)
 const minMaxLD = ref(props.filters.minMaxLD)
+const maxMaxLD = ref(props.filters.maxMaxLD)
 const minCLMax = ref(props.filters.minCLMax)
+const maxCLMax = ref(props.filters.maxCLMax)
+const minLDWidth = ref(props.filters.minLDWidth)
 const targetCL = ref(props.filters.targetCL)
 const targetAOA = ref(props.filters.targetAOA)
 
@@ -47,8 +52,9 @@ const targetAOA = ref(props.filters.targetAOA)
 const filterEnabled = reactive({
   maxCMRoughness: props.filters.maxCMRoughness !== null,
   minCMAtZero: props.filters.minCMAtZero !== null,
-  minMaxLD: props.filters.minMaxLD !== null,
-  minCLMax: props.filters.minCLMax !== null,
+  maxLD: props.filters.minMaxLD !== null || props.filters.maxMaxLD !== null,
+  clMax: props.filters.minCLMax !== null || props.filters.maxCLMax !== null,
+  ldWidth: props.filters.minLDWidth !== null,
   // Design CL and α are paired - enabled if EITHER has a value initially
   targetDesign: props.filters.targetCL !== null || props.filters.targetAOA !== null,
 })
@@ -66,12 +72,51 @@ const minCMAtZeroSlider = computed({
 
 const minMaxLDSlider = computed({
   get: () => minMaxLD.value ?? (props.filterRanges?.maxLD.min ?? 0),
-  set: (val) => { minMaxLD.value = val }
+  set: (val) => {
+    minMaxLD.value = val
+    // Ensure max is always >= min
+    if (maxMaxLD.value !== null && val > maxMaxLD.value) {
+      maxMaxLD.value = val
+    }
+  }
+})
+
+const maxMaxLDSlider = computed({
+  get: () => maxMaxLD.value ?? (props.filterRanges?.maxLD.max ?? 0),
+  set: (val) => {
+    maxMaxLD.value = val
+    // Ensure min is always <= max
+    if (minMaxLD.value !== null && val < minMaxLD.value) {
+      minMaxLD.value = val
+    }
+  }
 })
 
 const minCLMaxSlider = computed({
   get: () => minCLMax.value ?? (props.filterRanges?.clMax.min ?? 0),
-  set: (val) => { minCLMax.value = val }
+  set: (val) => {
+    minCLMax.value = val
+    // Ensure max is always >= min
+    if (maxCLMax.value !== null && val > maxCLMax.value) {
+      maxCLMax.value = val
+    }
+  }
+})
+
+const maxCLMaxSlider = computed({
+  get: () => maxCLMax.value ?? (props.filterRanges?.clMax.max ?? 0),
+  set: (val) => {
+    maxCLMax.value = val
+    // Ensure min is always <= max
+    if (minCLMax.value !== null && val < minCLMax.value) {
+      minCLMax.value = val
+    }
+  }
+})
+
+const minLDWidthSlider = computed({
+  get: () => minLDWidth.value ?? (props.filterRanges?.ldWidth.min ?? 0),
+  set: (val) => { minLDWidth.value = val }
 })
 
 // Watch filter changes from parent - UPDATE VALUES ONLY, not enabled state
@@ -81,16 +126,20 @@ watch(
     maxCMRoughness.value = newFilters.maxCMRoughness
     minCMAtZero.value = newFilters.minCMAtZero
     minMaxLD.value = newFilters.minMaxLD
+    maxMaxLD.value = newFilters.maxMaxLD
     minCLMax.value = newFilters.minCLMax
+    maxCLMax.value = newFilters.maxCLMax
+    minLDWidth.value = newFilters.minLDWidth
     targetCL.value = newFilters.targetCL
     targetAOA.value = newFilters.targetAOA
-    
+
     // DO NOT recalculate enabled state from values - let user control it via checkbox
     // Only update enabled state if ALL values for a filter become null (filter was cleared externally)
     if (newFilters.maxCMRoughness === null) filterEnabled.maxCMRoughness = false
     if (newFilters.minCMAtZero === null) filterEnabled.minCMAtZero = false
-    if (newFilters.minMaxLD === null) filterEnabled.minMaxLD = false
-    if (newFilters.minCLMax === null) filterEnabled.minCLMax = false
+    if (newFilters.minMaxLD === null && newFilters.maxMaxLD === null) filterEnabled.maxLD = false
+    if (newFilters.minCLMax === null && newFilters.maxCLMax === null) filterEnabled.clMax = false
+    if (newFilters.minLDWidth === null) filterEnabled.ldWidth = false
     if (newFilters.targetCL === null && newFilters.targetAOA === null) filterEnabled.targetDesign = false
   },
   { deep: true }
@@ -104,10 +153,19 @@ watch(minCMAtZero, (val) => {
   emit('update-filter', 'minCMAtZero', filterEnabled.minCMAtZero ? val : null)
 })
 watch(minMaxLD, (val) => {
-  emit('update-filter', 'minMaxLD', filterEnabled.minMaxLD ? val : null)
+  emit('update-filter', 'minMaxLD', filterEnabled.maxLD ? val : null)
+})
+watch(maxMaxLD, (val) => {
+  emit('update-filter', 'maxMaxLD', filterEnabled.maxLD ? val : null)
 })
 watch(minCLMax, (val) => {
-  emit('update-filter', 'minCLMax', filterEnabled.minCLMax ? val : null)
+  emit('update-filter', 'minCLMax', filterEnabled.clMax ? val : null)
+})
+watch(maxCLMax, (val) => {
+  emit('update-filter', 'maxCLMax', filterEnabled.clMax ? val : null)
+})
+watch(minLDWidth, (val) => {
+  emit('update-filter', 'minLDWidth', filterEnabled.ldWidth ? val : null)
 })
 watch(targetCL, (val) => {
   emit('update-filter', 'targetCL', filterEnabled.targetDesign ? val : null)
@@ -123,11 +181,16 @@ watch(() => filterEnabled.maxCMRoughness, (enabled) => {
 watch(() => filterEnabled.minCMAtZero, (enabled) => {
   emit('update-filter', 'minCMAtZero', enabled ? minCMAtZero.value : null)
 })
-watch(() => filterEnabled.minMaxLD, (enabled) => {
+watch(() => filterEnabled.maxLD, (enabled) => {
   emit('update-filter', 'minMaxLD', enabled ? minMaxLD.value : null)
+  emit('update-filter', 'maxMaxLD', enabled ? maxMaxLD.value : null)
 })
-watch(() => filterEnabled.minCLMax, (enabled) => {
+watch(() => filterEnabled.clMax, (enabled) => {
   emit('update-filter', 'minCLMax', enabled ? minCLMax.value : null)
+  emit('update-filter', 'maxCLMax', enabled ? maxCLMax.value : null)
+})
+watch(() => filterEnabled.ldWidth, (enabled) => {
+  emit('update-filter', 'minLDWidth', enabled ? minLDWidth.value : null)
 })
 // Design CL and α are paired - update both together
 watch(() => filterEnabled.targetDesign, (enabled) => {
@@ -137,16 +200,26 @@ watch(() => filterEnabled.targetDesign, (enabled) => {
 
 // Search functionality for Analyzed Airfoils
 const searchQuery = ref('')
+const showSelectedOnly = ref(false)
 
-// Filter the airfoils based on search query
+// Filter the airfoils based on search query and selected-only mode
 const visibleAirfoils = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.filteredAirfoils
+  let result = props.filteredAirfoils
+
+  // Filter to show only selected airfoils if in that mode
+  if (showSelectedOnly.value) {
+    result = result.filter(name => props.selectedAirfoils.includes(name))
   }
-  const query = searchQuery.value.toLowerCase()
-  return props.filteredAirfoils.filter(name => 
-    name.toLowerCase().includes(query)
-  )
+
+  // Further filter by search query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(name =>
+      name.toLowerCase().includes(query)
+    )
+  }
+
+  return result
 })
 
 const handleSelectAll = () => {
@@ -170,8 +243,20 @@ const handleDeselectAll = () => {
   }
 }
 
+const handleShowSelected = () => {
+  showSelectedOnly.value = !showSelectedOnly.value
+  // Clear search when toggling selected view
+  if (showSelectedOnly.value) {
+    searchQuery.value = ''
+  }
+}
+
 const handleResetFilters = () => {
   emit('reset-filters')
+}
+
+const handleResetAnalysis = () => {
+  emit('reset-analysis')
 }
 </script>
 
@@ -218,18 +303,20 @@ const handleResetFilters = () => {
     <div class="bg-white rounded-lg shadow p-4">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-900">Filters</h2>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleResetFilters"
         >
           Reset All
-        </button>
+        </VButton>
       </div>
 
-      <div class="space-y-4">
+      <div class="divide-y divide-gray-200">
         <!-- Target CL and Target α (Paired Filter) -->
-        <div>
+        <div class="pb-4">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
             <input
               type="checkbox"
@@ -277,165 +364,231 @@ const handleResetFilters = () => {
           </div>
         </div>
 
-        <!-- Min Max L/D -->
-        <div v-if="filterRanges">
-          <div class="flex items-center justify-between mb-1">
+        <!-- Max L/D Range -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                v-model="filterEnabled.minMaxLD"
+                v-model="filterEnabled.maxLD"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              Min Max L/D
+              Max L/D Range
             </label>
             <span class="text-sm font-semibold text-indigo-600">
-              {{ minMaxLD !== null && minMaxLD !== undefined ? minMaxLD.toFixed(2) : 'No limit' }}
+              <template v-if="minMaxLD !== null || maxMaxLD !== null">
+                {{ minMaxLD !== null ? minMaxLD.toFixed(1) : filterRanges.maxLD.min.toFixed(1) }} - {{ maxMaxLD !== null ? maxMaxLD.toFixed(1) : filterRanges.maxLD.max.toFixed(1) }}
+              </template>
+              <template v-else>No limit</template>
             </span>
           </div>
-          <input
-            v-model.number="minMaxLDSlider"
-            type="range"
-            :min="filterRanges.maxLD.min"
-            :max="filterRanges.maxLD.max"
-            step="0.1"
-            :disabled="!filterEnabled.minMaxLD"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
+          <div class="dual-range-slider">
+            <input
+              v-model.number="minMaxLDSlider"
+              type="range"
+              :min="filterRanges.maxLD.min"
+              :max="filterRanges.maxLD.max"
+              step="0.1"
+              :disabled="!filterEnabled.maxLD"
+              class="dual-range-input"
+            />
+            <input
+              v-model.number="maxMaxLDSlider"
+              type="range"
+              :min="filterRanges.maxLD.min"
+              :max="filterRanges.maxLD.max"
+              step="0.1"
+              :disabled="!filterEnabled.maxLD"
+              class="dual-range-input"
+            />
+          </div>
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(2) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(2) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(1) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(1) }}</span>
           </div>
         </div>
-        <div v-else>
+        <div v-else class="py-4">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
-              v-model="filterEnabled.minMaxLD"
+              v-model="filterEnabled.maxLD"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Min Max L/D
+            Max L/D Range
           </label>
-          <VInput
-            :model-value="minMaxLD ?? undefined"
-            @update:model-value="minMaxLD = $event as number | null"
-            type="number"
-            step="0.1"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.minMaxLD"
-          />
+          <div class="grid grid-cols-2 gap-2">
+            <VInput
+              :model-value="minMaxLD ?? undefined"
+              @update:model-value="minMaxLD = $event as number | null"
+              type="number"
+              step="0.1"
+              placeholder="Min"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.maxLD"
+            />
+            <VInput
+              :model-value="maxMaxLD ?? undefined"
+              @update:model-value="maxMaxLD = $event as number | null"
+              type="number"
+              step="0.1"
+              placeholder="Max"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.maxLD"
+            />
+          </div>
         </div>
 
-        <!-- Min CL Max -->
-        <div v-if="filterRanges">
-          <div class="flex items-center justify-between mb-1">
+        <!-- L/D Width -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                v-model="filterEnabled.minCLMax"
+                v-model="filterEnabled.ldWidth"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              Min CL Max
+              L/D Width
+              <div class="group relative">
+                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
             </label>
             <span class="text-sm font-semibold text-indigo-600">
-              {{ minCLMax !== null && minCLMax !== undefined ? minCLMax.toFixed(3) : 'No limit' }}
+              <template v-if="minLDWidth !== null">
+                ≥ {{ minLDWidth.toFixed(1) }}°
+              </template>
+              <template v-else>No limit</template>
             </span>
           </div>
-          <input
-            v-model.number="minCLMaxSlider"
-            type="range"
-            :min="filterRanges.clMax.min"
-            :max="filterRanges.clMax.max"
-            step="0.01"
-            :disabled="!filterEnabled.minCLMax"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(3) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(3) }}</span>
+          <!-- Min Width slider -->
+          <div class="space-y-1 mt-2">
+            <div class="flex justify-between text-xs text-gray-600">
+              <span>Min Width</span>
+              <span>{{ minLDWidth !== null ? minLDWidth.toFixed(1) + '°' : filterRanges.ldWidth.min.toFixed(1) + '°' }}</span>
+            </div>
+            <input
+              v-model.number="minLDWidthSlider"
+              type="range"
+              :min="filterRanges.ldWidth.min"
+              :max="filterRanges.ldWidth.max"
+              step="0.1"
+              :disabled="!filterEnabled.ldWidth"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <div class="flex justify-between">
+              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.min.toFixed(1) }}°</span>
+              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
+            </div>
           </div>
         </div>
-        <div v-else>
+        <div v-else class="py-4">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
-              v-model="filterEnabled.minCLMax"
+              v-model="filterEnabled.ldWidth"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Min CL Max
+            L/D Width
           </label>
           <VInput
-            :model-value="minCLMax ?? undefined"
-            @update:model-value="minCLMax = $event as number | null"
+            :model-value="minLDWidth ?? undefined"
+            @update:model-value="minLDWidth = $event as number | null"
             type="number"
-            step="0.01"
+            step="0.1"
             placeholder="No limit"
             size="sm"
             wrapper-class="w-full"
-            :disabled="!filterEnabled.minCLMax"
+            :disabled="!filterEnabled.ldWidth"
           />
+          <p class="mt-1 text-xs text-gray-500">
+            Width of L/D curve at 80% of max L/D
+          </p>
         </div>
 
-        <!-- Max CM Roughness -->
-        <div v-if="filterRanges">
-          <div class="flex items-center justify-between mb-1">
+        <!-- CL Max Range -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                v-model="filterEnabled.maxCMRoughness"
+                v-model="filterEnabled.clMax"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              Max CM Roughness (smoothness_CM ≤)
+              CL Max Range
             </label>
             <span class="text-sm font-semibold text-indigo-600">
-              {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
+              <template v-if="minCLMax !== null || maxCLMax !== null">
+                {{ minCLMax !== null ? minCLMax.toFixed(2) : filterRanges.clMax.min.toFixed(2) }} - {{ maxCLMax !== null ? maxCLMax.toFixed(2) : filterRanges.clMax.max.toFixed(2) }}
+              </template>
+              <template v-else>No limit</template>
             </span>
           </div>
-          <input
-            v-model.number="maxCMRoughnessSlider"
-            type="range"
-            :min="filterRanges.smoothness_CM.min"
-            :max="filterRanges.smoothness_CM.max"
-            step="0.01"
-            :disabled="!filterEnabled.maxCMRoughness"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
+          <div class="dual-range-slider">
+            <input
+              v-model.number="minCLMaxSlider"
+              type="range"
+              :min="filterRanges.clMax.min"
+              :max="filterRanges.clMax.max"
+              step="0.01"
+              :disabled="!filterEnabled.clMax"
+              class="dual-range-input"
+            />
+            <input
+              v-model.number="maxCLMaxSlider"
+              type="range"
+              :min="filterRanges.clMax.min"
+              :max="filterRanges.clMax.max"
+              step="0.01"
+              :disabled="!filterEnabled.clMax"
+              class="dual-range-input"
+            />
           </div>
-          <p class="mt-1 text-xs text-gray-500">
-            Lower values = smoother moment curve
-          </p>
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(2) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(2) }}</span>
+          </div>
         </div>
-        <div v-else>
+        <div v-else class="py-4">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
-              v-model="filterEnabled.maxCMRoughness"
+              v-model="filterEnabled.clMax"
               class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
-            Max CM Roughness (smoothness_CM ≤)
+            CL Max Range
           </label>
-          <VInput
-            :model-value="maxCMRoughness ?? undefined"
-            @update:model-value="maxCMRoughness = $event as number | null"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.maxCMRoughness"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Lower values = smoother moment curve
-          </p>
+          <div class="grid grid-cols-2 gap-2">
+            <VInput
+              :model-value="minCLMax ?? undefined"
+              @update:model-value="minCLMax = $event as number | null"
+              type="number"
+              step="0.01"
+              placeholder="Min"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.clMax"
+            />
+            <VInput
+              :model-value="maxCLMax ?? undefined"
+              @update:model-value="maxCLMax = $event as number | null"
+              type="number"
+              step="0.01"
+              placeholder="Max"
+              size="sm"
+              wrapper-class="w-full"
+              :disabled="!filterEnabled.clMax"
+            />
+          </div>
         </div>
 
         <!-- Min CM at α = 0° -->
-        <div v-if="filterRanges">
-          <div class="flex items-center justify-between mb-1">
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
             <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
@@ -462,7 +615,7 @@ const handleResetFilters = () => {
             <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
           </div>
         </div>
-        <div v-else>
+        <div v-else class="py-4">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
@@ -483,11 +636,75 @@ const handleResetFilters = () => {
           />
         </div>
 
+        <!-- Max CM Roughness -->
+        <div v-if="filterRanges" class="py-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                v-model="filterEnabled.maxCMRoughness"
+                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              Max CM Curve Wiggliness
+              <div class="group relative">
+                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  Lower values = smoother moment curve.
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
+            </label>
+            <span class="text-sm font-semibold text-indigo-600">
+              {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
+            </span>
+          </div>
+          <input
+            v-model.number="maxCMRoughnessSlider"
+            type="range"
+            :min="filterRanges.smoothness_CM.min"
+            :max="filterRanges.smoothness_CM.max"
+            step="0.01"
+            :disabled="!filterEnabled.maxCMRoughness"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
+            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
+          </div>
+        </div>
+        <div v-else class="py-4">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+            <input
+              type="checkbox"
+              v-model="filterEnabled.maxCMRoughness"
+              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            Max CM Curve Wiggliness
+            <div class="group relative">
+              <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                Lower values = smoother moment curve.
+                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </label>
+          <VInput
+            :model-value="maxCMRoughness ?? undefined"
+            @update:model-value="maxCMRoughness = $event as number | null"
+            type="number"
+            step="0.01"
+            placeholder="No limit"
+            size="sm"
+            wrapper-class="w-full"
+            :disabled="!filterEnabled.maxCMRoughness"
+          />
+        </div>
+
         <!-- Rendering Mode -->
-        <div class="pt-4 border-t border-gray-200">
+        <div class="pt-4">
           <div class="space-y-2">
-            <div class="flex items-center gap-1 mb-1">
-              <label class="block text-xs text-gray-600">Rendering Mode</label>
+            <div class="flex items-center gap-2 mb-1">
+              <label class="block text-sm font-medium text-gray-700">Rendering Mode</label>
               <div class="group relative">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
@@ -529,21 +746,35 @@ const handleResetFilters = () => {
       </div>
 
       <div class="flex gap-2 mb-4">
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleSelectAll"
         >
           Show All
-        </button>
+        </VButton>
         <span class="text-gray-300">|</span>
-        <button
+        <VButton
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-800"
+          variant="ghost"
+          color="primary"
+          size="xs"
           @click="handleDeselectAll"
         >
           Hide All
-        </button>
+        </VButton>
+        <span class="text-gray-300">|</span>
+        <VButton
+          type="button"
+          variant="ghost"
+          :color="showSelectedOnly ? 'error' : 'primary'"
+          size="xs"
+          @click="handleShowSelected"
+        >
+          {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
+        </VButton>
       </div>
 
       <div v-if="filteredAirfoils.length === 0" class="text-sm text-gray-500 text-center py-4">
@@ -565,7 +796,97 @@ const handleResetFilters = () => {
           <span class="text-sm text-gray-700 flex-1">{{ name.toUpperCase() }}</span>
         </label>
       </div>
+
+      <!-- Reset Analysis Button -->
+      <div class="pt-4 border-t border-gray-200 mt-4">
+        <VButton
+          type="button"
+          color="error"
+          block
+          @click="handleResetAnalysis"
+        >
+          Reset Analysis
+        </VButton>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.dual-range-slider {
+  position: relative;
+  height: 1.5rem;
+}
+
+.dual-range-input {
+  position: absolute;
+  width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  margin: 0;
+  height: 0.5rem;
+}
+
+/* First input gets the track styling */
+.dual-range-input:first-child {
+  background: #e5e7eb;
+  border-radius: 9999px;
+}
+
+/* Second input has no track */
+.dual-range-input:last-child {
+  background: transparent;
+}
+
+/* Webkit thumb */
+.dual-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: #4f46e5;
+  cursor: pointer;
+  pointer-events: auto;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dual-range-input:disabled::-webkit-slider-thumb {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Firefox thumb */
+.dual-range-input::-moz-range-thumb {
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: #4f46e5;
+  cursor: pointer;
+  pointer-events: auto;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dual-range-input:disabled::-moz-range-thumb {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Firefox track */
+.dual-range-input::-moz-range-track {
+  background: transparent;
+  height: 0.5rem;
+}
+
+.dual-range-input:first-child::-moz-range-track {
+  background: #e5e7eb;
+  border-radius: 9999px;
+}
+</style>
 

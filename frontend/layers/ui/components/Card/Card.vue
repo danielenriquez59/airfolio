@@ -21,7 +21,7 @@ withDefaults(
   {
     bordered: false,
     classes: () => ({
-      wrapper: 'border border-gray-200 rounded-lg bg-white',
+      wrapper: 'border border-gray-200 rounded-lg bg-white shadow',
       header: '',
       body: '',
       footer: '',

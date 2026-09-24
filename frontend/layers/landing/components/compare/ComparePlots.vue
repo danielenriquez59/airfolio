@@ -13,6 +13,7 @@ import {
   Filler,
 } from 'chart.js'
 import type { AirfoilPolarData } from '~/composables/useCompare'
+import { toggleButtonClasses } from '~/layers/ui/utils/buttons'
 import { calculateLD } from '~/composables/useCompare'
 import { exportPolarDataCSV } from '~/composables/useCSVExport'
 import { downsampleLTTB, getOptimalThreshold } from '~/utils/dataDownsampling'
@@ -75,16 +76,24 @@ const generateChartData = (
   showLegend: boolean
 ) => {
   const datasets = props.airfoils.map((airfoil, idx) => {
-    let data: number[]
-    
+    let yData: number[]
+    let xData: number[]
+
     if (metric === 'LD') {
-      data = calculateLD(airfoil.CL, airfoil.CD)
+      yData = calculateLD(airfoil.CL, airfoil.CD)
     } else {
-      data = airfoil[metric]
+      yData = airfoil[metric]
     }
 
-    let chartData = data.map((value, i) => ({
-      x: airfoil.alpha[i],
+    // Use CL as x-axis if toggled (except for CL vs alpha plot)
+    if (xAxisMode.value === 'cl' && metric !== 'CL') {
+      xData = airfoil.CL
+    } else {
+      xData = airfoil.alpha
+    }
+
+    let chartData = yData.map((value, i) => ({
+      x: xData[i],
       y: value,
     }))
 
@@ -111,24 +120,42 @@ const generateChartData = (
   }
 }
 
-// Tooltip enabled state
-const tooltipsEnabled = ref(true)
+// Hover mode: 'all' shows all curves, 'one' shows nearest curve, 'disabled' hides tooltips
+type HoverMode = 'all' | 'one' | 'disabled'
+const hoverMode = ref<HoverMode>('all')
 
 // Plots expanded state (1 column vs 2 columns)
 const plotsExpanded = ref(false)
+
+// X-axis mode state (alpha or CL)
+const xAxisMode = ref<'alpha' | 'cl'>('alpha')
+
+// Get x-axis label based on current mode
+const getXAxisLabel = (): string => {
+  return xAxisMode.value === 'cl' ? 'Lift Coefficient (CL)' : 'Angle of Attack α (degrees)'
+}
+
+// Get x-axis suffix for tooltips
+const getXAxisSuffix = (): string => {
+  return xAxisMode.value === 'cl' ? '' : '°'
+}
 
 // Chart options
 const getChartOptions = (
   yLabel: string,
   showLegend: boolean,
-  enableTooltips: boolean = true
-): any => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: false,
-  parsing: false,
-  normalized: true,
-  plugins: {
+  currentHoverMode: HoverMode = 'all',
+  isCLPlot: boolean = false
+): any => {
+  const interactionAxis = currentHoverMode === 'one' ? 'xy' as const : 'x' as const
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    parsing: false,
+    normalized: true,
+    plugins: {
     legend: {
       display: showLegend,
       position: 'top' as const,
@@ -141,13 +168,17 @@ const getChartOptions = (
       },
     },
     tooltip: {
-      enabled: enableTooltips,
-      mode: 'index' as const,
+      enabled: currentHoverMode !== 'disabled',
+      mode: currentHoverMode === 'one' ? 'nearest' as const : 'index' as const,
+      axis: interactionAxis,
       intersect: false,
       callbacks: {
         title: (context: any[]) => {
           const point = context[0]
-          return `α = ${point.raw.x.toFixed(2)}°`
+          // CL plot always shows alpha
+          const xLabel = isCLPlot || xAxisMode.value === 'alpha' ? 'α' : 'CL'
+          const suffix = (isCLPlot || xAxisMode.value === 'alpha') ? '°' : ''
+          return `${xLabel} = ${point.raw.x.toFixed(2)}${suffix}`
         },
         label: (context: any) => {
           return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
@@ -182,7 +213,7 @@ const getChartOptions = (
       position: 'bottom' as const,
       title: {
         display: true,
-        text: 'Angle of Attack α (degrees)',
+        text: isCLPlot ? 'Angle of Attack α (degrees)' : getXAxisLabel(),
         font: {
           size: 12,
           weight: 'bold' as const,
@@ -220,11 +251,12 @@ const getChartOptions = (
     },
   },
   interaction: {
-    mode: 'nearest' as const,
-    axis: 'x' as const,
+    mode: currentHoverMode === 'one' ? 'nearest' as const : 'index' as const,
+    axis: interactionAxis,
     intersect: false,
   },
-})
+  }
+}
 
 // Generate datasets for legend-only chart (using CL data as base)
 const legendChartData = computed(() => {
@@ -285,10 +317,10 @@ const cdChartData = computed(() => generateChartData('CD', false))
 const cmChartData = computed(() => generateChartData('CM', false))
 const ldChartData = computed(() => generateChartData('LD', false))
 
-const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
+const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, hoverMode.value, true))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, hoverMode.value, false))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, hoverMode.value, false))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, hoverMode.value, false))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -317,14 +349,21 @@ const handleExportCSV = () => {
   exportPolarDataCSV(props.airfoils)
 }
 
-// Toggle tooltips
+// Cycle hover mode: all → one → disabled → all
 const toggleTooltips = () => {
-  tooltipsEnabled.value = !tooltipsEnabled.value
+  const modes: HoverMode[] = ['all', 'one', 'disabled']
+  const currentIndex = modes.indexOf(hoverMode.value)
+  hoverMode.value = modes[(currentIndex + 1) % modes.length]
 }
 
 // Toggle plots view
 const togglePlotsView = () => {
   plotsExpanded.value = !plotsExpanded.value
+}
+
+// Toggle x-axis mode between alpha and CL
+const toggleXAxisMode = () => {
+  xAxisMode.value = xAxisMode.value === 'alpha' ? 'cl' : 'alpha'
 }
 </script>
 
@@ -341,60 +380,63 @@ const togglePlotsView = () => {
       </p>
     </div>
 
-    <!-- Legend Panel (spans 2 columns) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-4">
-        <div :class="airfoils.length > 100 ? 'h-32' : 'h-16'">
-          <Line :data="legendChartData" :options="legendChartOptions" />
-        </div>
-      </div>
-    </div>
-
     <!-- Reset Zoom, Export, and Tooltip Toggle Buttons -->
     <div class="flex justify-end gap-2">
       <button
         type="button"
+        :class="toggleButtonClasses(hoverMode !== 'disabled')"
         @click="toggleTooltips"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          tooltipsEnabled
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
-        {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+        {{ hoverMode === 'all' ? 'Hover: All Curves' : hoverMode === 'one' ? 'Hover: One Curve' : 'Hover: Disabled' }}
+        <span class="inline-flex gap-1 ml-1">
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'all' ? 'bg-indigo-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'one' ? 'bg-indigo-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'disabled' ? 'bg-gray-500' : 'bg-gray-300']" />
+        </span>
       </button>
       <button
         type="button"
+        :class="toggleButtonClasses(xAxisMode === 'cl')"
+        @click="toggleXAxisMode"
+      >
+        <Icon name="heroicons:chart-bar" class="h-4 w-4" />
+        {{ xAxisMode === 'cl' ? 'X-Axis: CL' : 'X-Axis: AoA' }}
+      </button>
+      <button
+        type="button"
+        :class="toggleButtonClasses(plotsExpanded)"
         @click="togglePlotsView"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-          plotsExpanded
-            ? 'text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-        ]"
       >
         <Icon :name="plotsExpanded ? 'heroicons:squares-2x2' : 'heroicons:arrows-pointing-out'" class="h-4 w-4" />
         {{ plotsExpanded ? 'Compact Plots' : 'Enlarge Plots' }}
       </button>
-      <button
+      <VButton
         type="button"
+        color="light"
         @click="resetZoom"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <Icon name="heroicons:arrow-path" class="h-4 w-4" />
         Reset Zoom
-      </button>
-      <button
+      </VButton>
+      <VButton
         type="button"
-        @click="handleExportCSV"
+        color="light"
         :disabled="!airfoils || airfoils.length === 0"
-        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        @click="handleExportCSV"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export Filtered Data
-      </button>
+      </VButton>
+    </div>
+
+    <!-- Legend Panel (spans 2 columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="lg:col-span-2 bg-white rounded-lg">
+        <div :class="airfoils.length > 100 ? 'h-16' : 'h-8'">
+          <Line :data="legendChartData" :options="legendChartOptions" />
+        </div>
+      </div>
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens, 1 column when expanded -->

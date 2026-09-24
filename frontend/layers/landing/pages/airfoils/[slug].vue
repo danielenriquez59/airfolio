@@ -26,6 +26,46 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
 
+// Geometry tab state
+const activeGeometryTab = ref<'plot' | 'bezier'>('plot')
+const showPoints = ref(false)
+const copiedPoints = ref(false)
+
+const copyPointsToClipboard = async () => {
+  const header = 'Index\tUpper X\tUpper Y\tLower X\tLower Y'
+  const rows = coordinateTableData.value.map(row =>
+    `${row.index}\t${row.upperX}\t${row.upperY}\t${row.lowerX}\t${row.lowerY}`
+  )
+  await navigator.clipboard.writeText([header, ...rows].join('\n'))
+  copiedPoints.value = true
+  setTimeout(() => { copiedPoints.value = false }, 2000)
+}
+
+// Compute coordinate table data
+const coordinateTableData = computed(() => {
+  if (!airfoil.value) return []
+
+  const upperX = airfoil.value.upper_x_coordinates || []
+  const upperY = airfoil.value.upper_y_coordinates || []
+  const lowerX = airfoil.value.lower_x_coordinates || []
+  const lowerY = airfoil.value.lower_y_coordinates || []
+
+  const maxLength = Math.max(upperX.length, lowerX.length)
+  const rows = []
+
+  for (let i = 0; i < maxLength; i++) {
+    rows.push({
+      index: i + 1,
+      upperX: upperX[i] !== undefined ? upperX[i].toFixed(6) : '-',
+      upperY: upperY[i] !== undefined ? upperY[i].toFixed(6) : '-',
+      lowerX: lowerX[i] !== undefined ? lowerX[i].toFixed(6) : '-',
+      lowerY: lowerY[i] !== undefined ? lowerY[i].toFixed(6) : '-',
+    })
+  }
+
+  return rows
+})
+
 // Download format selection
 const selectedFormat = ref<{ value: string; text: string } | null>(null)
 const downloadFormats = [
@@ -78,6 +118,49 @@ const tooltipsEnabled = ref(true)
 
 const handleTooltipsToggled = (enabled: boolean) => {
   tooltipsEnabled.value = enabled
+}
+
+// CSV export helpers
+const copiedToClipboard = ref(false)
+
+const generateCSV = (): string => {
+  const lines: string[] = ['Mach,Re,aoa,CL,CD,CM']
+
+  for (const entry of selectedCacheEntries.value) {
+    const inputs = entry.inputs as any
+    const outputs = entry.outputs as any
+    const mach = inputs?.Mach ?? ''
+    const re = inputs?.Re ?? ''
+    const alphas = outputs?.alpha || []
+    const CLs = outputs?.CL || []
+    const CDs = outputs?.CD || []
+    const CMs = outputs?.CM || []
+
+    for (let i = 0; i < alphas.length; i++) {
+      lines.push(`${mach},${re},${alphas[i]},${CLs[i]},${CDs[i]},${CMs[i]}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+const copyCSVToClipboard = async () => {
+  const csv = generateCSV()
+  await navigator.clipboard.writeText(csv)
+  copiedToClipboard.value = true
+  setTimeout(() => { copiedToClipboard.value = false }, 2000)
+}
+
+const downloadCSV = () => {
+  const csv = generateCSV()
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  const name = airfoil.value ? (airfoil.value.display_name || airfoil.value.name) : 'airfoil'
+  link.download = `${name}_performance.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 // Sync initial tooltip state when component is ready
@@ -287,7 +370,7 @@ useHead({
       <div v-else-if="airfoil" class="max-w-4xl mx-auto">
         <!-- Header -->
         <div class="mb-8">
-          <h1 class="text-4xl font-bold text-gray-900 uppercase tracking-wide mb-2">
+          <h1 class="text-3xl font-bold text-gray-900 uppercase tracking-wide mb-2">
             {{ getDisplayName(airfoil).toUpperCase() }}
           </h1>
           <p v-if="airfoil.description" class="text-lg text-gray-600">
@@ -297,20 +380,147 @@ useHead({
 
         <!-- Geometry Visualization -->
         <div class="mb-8">
-          <AirfoilGeometry
-            v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-            :upper-x="airfoil.upper_x_coordinates"
-            :upper-y="airfoil.upper_y_coordinates"
-            :lower-x="airfoil.lower_x_coordinates"
-            :lower-y="airfoil.lower_y_coordinates"
-            :name="getDisplayName(airfoil)"
-            :aspect-ratio="3"
-            :show-grid="true"
-            :zoomable="true"
-            :show-points-on-hover="true"
-          />
-          <div v-else class="text-center py-8 text-gray-400">
-            Geometry data not available
+          <div class="bg-white rounded-lg shadow">
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+              <nav class="flex -mb-px">
+                <button
+                  type="button"
+                  :class="[
+                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                    activeGeometryTab === 'plot'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  ]"
+                  @click="activeGeometryTab = 'plot'"
+                >
+                  Geometry
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+                    activeGeometryTab === 'bezier'
+                      ? 'border-indigo-500 text-indigo-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                  ]"
+                  @click="activeGeometryTab = 'bezier'"
+                >
+                  Bezier Fit
+                </button>
+              </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6">
+              <!-- Geometry Tab -->
+              <div v-if="activeGeometryTab === 'plot'">
+                <div class="flex flex-row w-full">
+                  <AirfoilGeometry
+                    v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                    :upper-x="airfoil.upper_x_coordinates"
+                    :upper-y="airfoil.upper_y_coordinates"
+                    :lower-x="airfoil.lower_x_coordinates"
+                    :lower-y="airfoil.lower_y_coordinates"
+                    :name="getDisplayName(airfoil)"
+                    :aspect-ratio="7"
+                    :show-grid="true"
+                    :zoomable="true"
+                    :show-points-on-hover="false"
+                    :show-marker-toggle="true"
+                  />
+                  <div v-else class="text-center py-8 text-gray-400">
+                    Geometry data not available
+                  </div>
+                </div>
+
+                <!-- Coordinate Points Table -->
+                <div v-if="coordinateTableData.length > 0" class="mt-6 w-full">
+                  <div class="w-full flex items-center justify-between">
+                    <button
+                      type="button"
+                      @click="showPoints = !showPoints"
+                      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      <Icon
+                        name="heroicons:chevron-right"
+                        class="h-4 w-4 transition-transform"
+                        :class="{ 'rotate-90': showPoints }"
+                      />
+                      {{ showPoints ? 'Hide Points' : 'Show Points' }}
+                    </button>
+                    <button
+                      v-show="showPoints"
+                      type="button"
+                      @click="copyPointsToClipboard"
+                      class="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
+                      :title="copiedPoints ? 'Copied!' : 'Copy points to clipboard'"
+                    >
+                      <Icon :name="copiedPoints ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div v-show="showPoints" class="mt-2 h-[300px] overflow-auto">
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Index
+                          </th>
+                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Upper X
+                          </th>
+                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Upper Y
+                          </th>
+                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Lower X
+                          </th>
+                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Lower Y
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="row in coordinateTableData" :key="row.index" class="hover:bg-gray-50">
+                          <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                            {{ row.index }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.upperX }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.upperY }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.lowerX }}
+                          </td>
+                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
+                            {{ row.lowerY }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bezier Fit Tab -->
+              <div v-else-if="activeGeometryTab === 'bezier'">
+                <BezierFitTab
+                  v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                  :upper-x="airfoil.upper_x_coordinates"
+                  :upper-y="airfoil.upper_y_coordinates"
+                  :lower-x="airfoil.lower_x_coordinates"
+                  :lower-y="airfoil.lower_y_coordinates"
+                  :airfoil-name="getDisplayName(airfoil)"
+                />
+                <div v-else class="h-[400px] flex items-center justify-center text-gray-400">
+                  Geometry data not available for Bezier fitting
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -319,8 +529,8 @@ useHead({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
-                <dl class="space-y-3">
-                  <div v-if="airfoil.thickness_pct">
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div v-if="airfoil.thickness_pct" class="min-w-0">
                     <dt class="text-sm text-gray-500">Thickness (t/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
@@ -329,7 +539,7 @@ useHead({
                       </span>
                     </dd>
                   </div>
-                  <div v-if="airfoil.camber_pct">
+                  <div v-if="airfoil.camber_pct" class="min-w-0">
                     <dt class="text-sm text-gray-500">Camber (y/c)</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ (airfoil.camber_pct * 100).toFixed(2) }}%
@@ -338,28 +548,28 @@ useHead({
                       </span>
                     </dd>
                   </div>
-                  <div v-if="airfoil.le_radius">
-                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.le_radius.toFixed(4) }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.te_thickness">
-                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.te_thickness.toFixed(4) }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.upper_surface_nodes !== null">
+                  <div v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.upper_surface_nodes }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.lower_surface_nodes !== null">
+                  <div v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.lower_surface_nodes }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.le_radius" class="col-span-2 min-w-0">
+                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.le_radius.toFixed(4) }}
+                    </dd>
+                  </div>
+                  <div v-if="airfoil.te_thickness" class="col-span-2 min-w-0">
+                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ airfoil.te_thickness.toFixed(4) }}
                     </dd>
                   </div>
                 </dl>
@@ -378,15 +588,15 @@ useHead({
                   </div>
                   <div v-if="airfoil.source_url">
                     <dt class="text-sm text-gray-500">Source</dt>
-                    <dd>
+                    <dd class="min-w-0">
                       <a
                         :href="airfoil.source_url"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 min-w-0"
                       >
-                        {{ airfoil.source_url }}
-                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4" />
+                        <span class="truncate">{{ airfoil.source_url }}</span>
+                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4 flex-shrink-0" />
                       </a>
                     </dd>
                   </div>
@@ -399,7 +609,32 @@ useHead({
                   <div
                     v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
                   >
-                    <dt class="text-sm text-gray-500">Download Airfoil Coordinates</dt>
+                    <dt class="text-sm text-gray-500 flex items-center gap-1">
+                      Download Airfoil Coordinates
+                      <div class="relative group">
+                        <Icon
+                          name="heroicons:information-circle"
+                          class="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help"
+                        />
+                        <div class="absolute left-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          <div class="space-y-2">
+                            <div>
+                              <span class="font-semibold">Lednicer:</span>
+                              <span class="text-gray-300"> Upper and lower surfaces listed separately with point counts in the header.</span>
+                            </div>
+                            <div>
+                              <span class="font-semibold">Selig:</span>
+                              <span class="text-gray-300"> Continuous loop from upper TE around LE to lower TE. Most common format for XFOIL.</span>
+                            </div>
+                            <div>
+                              <span class="font-semibold">OpenVSP AF:</span>
+                              <span class="text-gray-300"> Includes header with symmetry flag and point counts. Used by OpenVSP.</span>
+                            </div>
+                          </div>
+                          <div class="absolute left-3 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </dt>
                     <dd class="flex items-center gap-2">
                       <VSelect
                         v-model="selectedFormat"
@@ -407,15 +642,15 @@ useHead({
                         placeholder="Select format..."
                         class="flex-1"
                       />
-                      <button
+                      <VButton
                         type="button"
-                        @click="handleDownload"
+                        color="primary"
                         :disabled="!selectedFormat"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                        @click="handleDownload"
                       >
                         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
                         Download
-                      </button>
+                      </VButton>
                     </dd>
                   </div>
                 </dl>
@@ -424,27 +659,31 @@ useHead({
         </div>
         
         <!-- Analysis Buttons -->
-        <div v-if="airfoil.id" class="mb-8 space-y-3 border-t border-gray-200 pt-8">
-          <button
-            type="button"
+        <div v-if="airfoil.id" class="mb-8 flex flex-row items-stretch gap-3 border-t border-gray-200 pt-8">
+          <VButton
+            color="primary"
+            class="min-w-0 flex-1"
+            size="lg"
             @click="showAnalysisModal = true"
-            class="w-full px-6 py-3 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center gap-2"
           >
-            <Icon name="heroicons:play" class="h-5 w-5" />
+            <Icon name="heroicons:play" class="h-5 w-5 shrink-0" />
             Run Performance Analysis
-          </button>
-          <NuxtLink
+          </VButton>
+          <VButton
             :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            class="block w-full px-6 py-3 bg-gray-200 text-gray-900 rounded-md font-medium hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 flex items-center justify-center gap-2"
+            color="neutral"
+            class="min-w-0 flex-1 min-h-12"
+            size="lg"
           >
-            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5" />
+            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5 shrink-0" />
             Control Surface Analysis
-          </NuxtLink>
+          </VButton>
         </div>
 
         <!-- Performance Data (Combined Cache and Plots) -->
         <div v-if="airfoil.id" class="mb-8">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Data</h2>
+          <h2 class="text-xl font-semibold text-gray-900 mb-2">Performance Data</h2>
+          <p class="text-sm text-gray-500 mb-4">All data generated via NeuralFoil AI-powered aerodynamic analysis</p>
           
           <!-- Performance Cache Table -->
           <div class="mb-6">
@@ -457,6 +696,26 @@ useHead({
             />
           </div>
 
+          <!-- Export Buttons -->
+          <div v-if="selectedCacheEntries.length > 0" class="flex gap-2 mb-6">
+            <VButton
+              type="button"
+              color="light"
+              @click="copyCSVToClipboard"
+            >
+              <Icon :name="copiedToClipboard ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
+              {{ copiedToClipboard ? 'Copied!' : 'Copy to Clipboard' }}
+            </VButton>
+            <VButton
+              type="button"
+              color="light"
+              @click="downloadCSV"
+            >
+              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
+              Download CSV
+            </VButton>
+          </div>
+          <div class="border-t border-gray-200 my-4"></div>
           <!-- Performance Plots -->
           <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
         </div>
@@ -487,7 +746,7 @@ useHead({
             />
 
             <!-- Error Message -->
-            <div v-if="analysisError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <div v-if="analysisError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p class="text-sm text-red-800">{{ analysisError }}</p>
             </div>
 
@@ -499,27 +758,22 @@ useHead({
           </div>
         </VModalBody>
         <VModalFooter>
-          <button
+          <VButton
             type="button"
-            @click="showAnalysisModal = false"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            color="light"
             :disabled="isRunningAnalysis"
+            @click="showAnalysisModal = false"
           >
             Cancel
-          </button>
-          <button
+          </VButton>
+          <VButton
             type="button"
-            @click="analysisParamsFormRef?.submit()"
+            color="primary"
             :disabled="!analysisParamsFormRef?.isValid || isRunningAnalysis"
-            :class="[
-              'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-              analysisParamsFormRef?.isValid && !isRunningAnalysis
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            ]"
+            @click="analysisParamsFormRef?.submit()"
           >
             Run Analysis
-          </button>
+          </VButton>
         </VModalFooter>
       </VModal>
   </div>

@@ -6,6 +6,7 @@ import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
 import SummaryScatterPlot from '~/layers/landing/components/compare/SummaryScatterPlot.vue'
 import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab.vue'
 import CompareCalculator from '~/layers/landing/components/compare/CompareCalculator.vue'
+import { navTabButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -30,6 +31,7 @@ const {
   getSelectedAirfoilsData,
   getSummaryData,
   resetFilters,
+  resetAnalysis,
   getFilterRanges,
 } = useCompare()
 
@@ -71,7 +73,7 @@ const camberMin = ref<number | undefined>()
 const camberMax = ref<number | undefined>()
 
 // Analysis parameters
-const reynoldsNumber = ref<number>(100)
+const reynoldsNumber = ref<number>(500)
 const machNumber = ref<number>(0)
 const alphaMin = ref<number>(-5)
 const alphaMax = ref<number>(20)
@@ -182,8 +184,14 @@ const loadPerformanceFiltersFromURL = () => {
   if (query.minMaxLD) {
     updateFilter('minMaxLD', parseFloat(query.minMaxLD as string))
   }
+  if (query.maxMaxLD) {
+    updateFilter('maxMaxLD', parseFloat(query.maxMaxLD as string))
+  }
   if (query.minCLMax) {
     updateFilter('minCLMax', parseFloat(query.minCLMax as string))
+  }
+  if (query.maxCLMax) {
+    updateFilter('maxCLMax', parseFloat(query.maxCLMax as string))
   }
   if (query.targetCL) {
     updateFilter('targetCL', parseFloat(query.targetCL as string))
@@ -253,8 +261,14 @@ const updateURL = () => {
   if (state.filters.minMaxLD !== null) {
     query.minMaxLD = state.filters.minMaxLD.toString()
   }
+  if (state.filters.maxMaxLD !== null) {
+    query.maxMaxLD = state.filters.maxMaxLD.toString()
+  }
   if (state.filters.minCLMax !== null) {
     query.minCLMax = state.filters.minCLMax.toString()
+  }
+  if (state.filters.maxCLMax !== null) {
+    query.maxCLMax = state.filters.maxCLMax.toString()
   }
   if (state.filters.targetCL !== null) {
     query.targetCL = state.filters.targetCL.toString()
@@ -954,21 +968,17 @@ onMounted(async () => {
     </div>
 
     <!-- Run Button -->
-    <div class="bg-white rounded-lg shadow p-6">
-      <button
+    <div>
+      <VButton
         type="button"
+        color="primary"
+        block
         :disabled="!canRunAnalysis"
-        :class="[
-          'w-full px-6 py-3 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center gap-2',
-          canRunAnalysis
-            ? 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        ]"
         @click="paramsFormRef?.submit()"
       >
         <span v-if="isLoading" class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
         <span>{{ isLoading ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
-      </button>
+      </VButton>
       <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
         <span v-if="selectionMode === 'specific'">
           <span v-if="preAnalysisSelectedAirfoils.length === 0">Please select at least one airfoil to analyze.</span>
@@ -1007,7 +1017,22 @@ onMounted(async () => {
 
   <!-- Main Content: Plots & Table -->
   <div v-else-if="state.allAirfoils.size > 0" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Compare</h1>
+      <p class="text-lg text-gray-600">
+        Configure geometry filters and flow conditions to run a
+        <a
+          href="https://github.com/peterdsharpe/NeuralFoil"
+          target="_blank"
+          rel="noopener"
+          class="text-indigo-600 underline hover:text-indigo-800"
+        >NeuralFoil</a>
+        powered aerodynamic airfoil comparison!
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
       <!-- Sidebar: Filters & Selection -->
       <div class="lg:col-span-1">
         <CompareSidebar
@@ -1024,6 +1049,7 @@ onMounted(async () => {
           @select-all="selectAllFiltered"
           @deselect-all="deselectAll"
           @reset-filters="resetFilters"
+          @reset-analysis="() => { resetAnalysis(); router.push('/performance') }"
           @update-performance-mode="performanceMode = $event"
         />
       </div>
@@ -1035,56 +1061,36 @@ onMounted(async () => {
           <div class="border-b border-gray-200">
             <nav class="flex -mb-px">
               <button
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'plots'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                type="button"
+                :class="navTabButtonClasses(activeTab === 'plots')"
                 @click="activeTab = 'plots'"
               >
                 Polar Plots
               </button>
               <button
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'table'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                type="button"
+                :class="navTabButtonClasses(activeTab === 'table')"
                 @click="activeTab = 'table'"
               >
                 Summary Table
               </button>
               <button
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'scatter'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                type="button"
+                :class="navTabButtonClasses(activeTab === 'scatter')"
                 @click="activeTab = 'scatter'"
               >
                 Scatter Plot
               </button>
               <button
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'notes'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                type="button"
+                :class="navTabButtonClasses(activeTab === 'notes')"
                 @click="activeTab = 'notes'"
               >
                 Notes
               </button>
               <button
-                :class="[
-                  'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                  activeTab === 'calculator'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                ]"
+                type="button"
+                :class="navTabButtonClasses(activeTab === 'calculator')"
                 @click="activeTab = 'calculator'"
               >
                 Calculator
@@ -1093,7 +1099,7 @@ onMounted(async () => {
           </div>
 
           <!-- Tab Content -->
-          <div class="p-6">
+          <div class="p-4">
             <!-- Polar Plots Tab -->
             <div v-if="activeTab === 'plots'">
               <ComparePlots

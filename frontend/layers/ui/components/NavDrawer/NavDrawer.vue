@@ -265,9 +265,9 @@
     </div>
     <!-- ./list -->
     <div class="nav-drawer-append">
-      <button class="btn btn-error btn-block">
+      <VButton color="error" block>
         Logout
-      </button>
+      </VButton>
     </div>
   </div>
 </template>

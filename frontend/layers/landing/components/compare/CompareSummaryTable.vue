@@ -5,6 +5,7 @@ interface SummaryRow {
   name: string
   maxLD: number
   maxLDAlpha: number
+  ldWidth?: number
   clMax: number
   clMaxAlpha: number
   clAtZero: number
@@ -109,6 +110,7 @@ const exportToCSV = () => {
     ...(props.designAlpha !== null && props.designAlpha !== undefined ? [`L/D @ design α`] : []),
     'Max L/D',
     'α at Max L/D (°)',
+    'L/D Width (°)',
     'CL Max',
     'α at CL Max (°)',
     'CL @ α=0°',
@@ -128,6 +130,7 @@ const exportToCSV = () => {
     ...(props.designAlpha !== null && props.designAlpha !== undefined ? [formatNumber(row.ldAtDesignAlpha, 3)] : []),
     formatNumber(row.maxLD, 3),
     formatNumber(row.maxLDAlpha, 2),
+    formatNumber(row.ldWidth, 2),
     formatNumber(row.clMax, 3),
     formatNumber(row.clMaxAlpha, 2),
     formatNumber(row.clAtZero, 3),
@@ -169,19 +172,19 @@ const exportToCSV = () => {
         Click headers to sort. <br>
         Add a Design α to calculate L/D at that angle. 
       </div>
-      <button
+      <VButton
         type="button"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        color="primary"
         @click="exportToCSV"
       >
         <Icon name="heroicons:arrow-down-tray" class="h-5 w-5" />
         Export CSV
-      </button>
+      </VButton>
     </div>
 
     <!-- Table -->
-    <div class="overflow-x-auto bg-white rounded-lg border border-gray-200">
-      <table class="min-w-full divide-y divide-gray-200">
+    <div class="overflow-x-auto bg-white rounded-lg border border-gray-200" style="transform: scaleY(-1);">
+      <table class="min-w-full divide-y divide-gray-200" style="transform: scaleY(-1);">
         <thead class="bg-gray-50">
           <tr>
             <th
@@ -252,6 +255,24 @@ const exportToCSV = () => {
                 <span>α @ Max L/D</span>
                 <Icon
                   v-if="sortColumn === 'maxLDAlpha'"
+                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
+                  class="h-4 w-4 ml-2"
+                />
+              </div>
+            </th>
+            <th
+              scope="col"
+              @click="handleSort('ldWidth')"
+              :class="{
+                'bg-gray-100': sortColumn === 'ldWidth',
+                'cursor-pointer hover:bg-gray-100 transition-colors': true,
+              }"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              <div class="flex items-center justify-between">
+                <span>L/D Width (°)</span>
+                <Icon
+                  v-if="sortColumn === 'ldWidth'"
                   :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
                   class="h-4 w-4 ml-2"
                 />
@@ -497,6 +518,9 @@ const exportToCSV = () => {
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
               {{ formatNumber(row.maxLDAlpha, 2) }}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+              {{ formatNumber(row.ldWidth, 2) }}
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
               {{ formatNumber(row.clMax, 3) }}

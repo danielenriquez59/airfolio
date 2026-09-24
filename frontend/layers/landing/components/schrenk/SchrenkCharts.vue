@@ -13,6 +13,7 @@ import {
   Filler,
 } from 'chart.js'
 import type { CalculationResult } from '~/types/schrenk.types'
+import { inlineTabButtonClasses, copiedButtonClasses } from '~/layers/ui/utils/buttons'
 
 // Register Chart.js components
 ChartJS.register(
@@ -44,6 +45,7 @@ type LoadType = 'limit' | 'ultimate'
 
 const activeTab = ref<TabType>('shear')
 const loadType = ref<LoadType>('ultimate')
+const isCopied = ref(false)
 
 const tabs = [
   { id: 'shear' as TabType, label: 'Shear Force' },
@@ -350,36 +352,102 @@ const liftDistOptions = computed(() => getChartOptions('Chord / Ellipse (ft)', t
 const localClaOptions = computed(() => getChartOptions('Local Cla', true))
 const shearOptions = computed(() => getChartOptions(`Shear (${loadType.value === 'ultimate' ? 'Ult' : 'Limit'}) lb`, true))
 const momentOptions = computed(() => getChartOptions(`Moment (${loadType.value === 'ultimate' ? 'Ult' : 'Limit'}) lb-in`, true))
+
+// Copy data to clipboard
+const copyDataToClipboard = async () => {
+  let chartData
+  let title = ''
+
+  switch (activeTab.value) {
+    case 'dist':
+      chartData = liftDistChartData.value
+      title = 'Lift Distribution Data'
+      break
+    case 'cla':
+      chartData = localClaChartData.value
+      title = 'Local Cla Data'
+      break
+    case 'shear':
+      chartData = shearChartData.value
+      title = `Shear Force Data (${loadType.value === 'ultimate' ? 'Ultimate' : 'Limit'})`
+      break
+    case 'moment':
+      chartData = momentChartData.value
+      title = `Bending Moment Data (${loadType.value === 'ultimate' ? 'Ultimate' : 'Limit'})`
+      break
+  }
+
+  if (!chartData) return
+
+  // Filter out the root station line (first dataset)
+  const dataLines = chartData.datasets.filter((ds: any) => ds.label !== 'Root Station')
+
+  // Create CSV header
+  const headers = ['Station (in)', ...dataLines.map((ds: any) => ds.label)]
+  let csv = headers.join(',') + '\n'
+
+  // Get all data points
+  const numPoints = dataLines[0]?.data?.length || 0
+  for (let i = 0; i < numPoints; i++) {
+    const station = dataLines[0].data[i].x
+    const values = dataLines.map((ds: any) => ds.data[i].y)
+    csv += [station, ...values].join(',') + '\n'
+  }
+
+  // Copy to clipboard
+  try {
+    await navigator.clipboard.writeText(csv)
+    isCopied.value = true
+    setTimeout(() => {
+      isCopied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy data:', err)
+  }
+}
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-    <div class="border-b border-slate-200 bg-slate-50 px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
+  <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col h-full">
+    <div class="border-b border-gray-200 bg-gray-50 px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
       <nav class="flex space-x-4" aria-label="Tabs">
         <button
           v-for="tab in tabs"
           :key="tab.id"
+          type="button"
+          :class="inlineTabButtonClasses(activeTab === tab.id)"
           @click="activeTab = tab.id"
-          :class="[
-            activeTab === tab.id
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-slate-500 hover:text-slate-700',
-            'rounded-md px-3 py-2 text-sm font-medium transition-colors'
-          ]"
         >
           {{ tab.label }}
         </button>
       </nav>
 
-      <div v-if="showLoadToggle" class="flex items-center space-x-2 bg-white rounded-md border border-slate-300 px-2 py-1">
-        <span class="text-xs font-semibold text-slate-500 uppercase">Loads:</span>
-        <select
-          v-model="loadType"
-          class="text-sm border-none py-1 pl-2 pr-6 focus:ring-0 text-slate-700 font-medium bg-transparent cursor-pointer"
+      <div class="flex items-center gap-2">
+        <div v-if="showLoadToggle" class="flex items-center space-x-2 bg-white rounded-md border border-gray-300 px-2 py-1">
+          <span class="text-xs font-semibold text-gray-500 uppercase">Loads:</span>
+          <select
+            v-model="loadType"
+            class="text-sm border-none py-1 pl-2 pr-6 focus:ring-0 text-gray-700 font-medium bg-transparent cursor-pointer"
+          >
+            <option value="limit">Limit</option>
+            <option value="ultimate">Ultimate</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          :class="copiedButtonClasses(isCopied)"
+          title="Copy chart data to clipboard"
+          @click="copyDataToClipboard"
         >
-          <option value="limit">Limit</option>
-          <option value="ultimate">Ultimate</option>
-        </select>
+          <svg v-if="!isCopied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ isCopied ? 'Copied!' : 'Copy Data' }}
+        </button>
       </div>
     </div>
 

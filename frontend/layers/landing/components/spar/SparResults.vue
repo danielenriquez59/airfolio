@@ -71,8 +71,8 @@ const areaDecimals = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-    <div class="flex items-center gap-2 mb-4 text-slate-900 font-semibold border-b border-slate-100 pb-2">
+  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
       <Icon name="heroicons:chart-bar" class="h-5 w-5 text-blue-600" />
       <h2>Results</h2>
     </div>
@@ -88,29 +88,29 @@ const areaDecimals = computed(() => {
     <!-- Results Grid -->
     <div v-if="result.valid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Spar Height -->
-      <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
           Spar Height
         </p>
-        <h3 class="text-2xl font-bold text-slate-800">
+        <h3 class="text-2xl font-bold text-gray-800">
           {{ result.sparHeight.toFixed(lengthDecimals) }}
-          <span class="text-sm font-normal text-slate-400 ml-1">{{ lengthUnit }}</span>
+          <span class="text-sm font-normal text-gray-400 ml-1">{{ lengthUnit }}</span>
         </h3>
-        <p class="text-xs text-slate-500 mt-2">
+        <p class="text-xs text-gray-500 mt-2">
           Constrained by airfoil thickness at {{ (sparLocation * 100).toFixed(0) }}% chord
         </p>
       </div>
 
       <!-- Cross-Section Area -->
-      <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
           Cross-Section Area
         </p>
-        <h3 class="text-2xl font-bold text-slate-800">
+        <h3 class="text-2xl font-bold text-gray-800">
           {{ result.area.toFixed(areaDecimals) }}
-          <span class="text-sm font-normal text-slate-400 ml-1">{{ areaUnit }}</span>
+          <span class="text-sm font-normal text-gray-400 ml-1">{{ areaUnit }}</span>
         </h3>
-        <p class="text-xs text-slate-500 mt-2">
+        <p class="text-xs text-gray-500 mt-2">
           Net area of spar material
         </p>
       </div>
@@ -145,7 +145,7 @@ const areaDecimals = computed(() => {
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!result.error" class="text-center py-8 text-slate-400">
+    <div v-else-if="!result.error" class="text-center py-8 text-gray-400">
       <Icon name="heroicons:calculator" class="h-12 w-12 mx-auto mb-2 opacity-50" />
       <p class="text-sm">Enter parameters to calculate spar properties</p>
     </div>

@@ -19,6 +19,7 @@ from utils import (
     deflect_trailing_edge_flap,
 )
 from airfoil_analysis import analyze_airfoil
+from bezier_fitting import BezierFitter
 
 app = FastAPI(
     title="Airfoil Analysis API",
@@ -184,6 +185,40 @@ class ControlSurfaceAnalysisResponse(BaseModel):
     """Response from control surface analysis"""
     original_airfoil_id: str
     results: List[ControlSurfaceResult] = Field(..., description="Results for each flap configuration")
+
+
+# Bezier Curve Fitting Models
+
+class BezierFitRequest(BaseModel):
+    """Request for Bezier curve fitting"""
+    upper_x: List[float] = Field(..., description="Upper surface X coordinates")
+    upper_y: List[float] = Field(..., description="Upper surface Y coordinates")
+    lower_x: List[float] = Field(..., description="Lower surface X coordinates")
+    lower_y: List[float] = Field(..., description="Lower surface Y coordinates")
+    order: int = Field(default=6, ge=3, le=10, description="Bezier curve order (3-10)")
+
+
+class BezierControlPoints(BaseModel):
+    """Control points for a single surface"""
+    x: List[float] = Field(..., description="X coordinates of control points")
+    y: List[float] = Field(..., description="Y coordinates of control points")
+
+
+class BezierCurveData(BaseModel):
+    """Fitted curve data points for plotting"""
+    x: List[float] = Field(..., description="X coordinates of curve points")
+    y: List[float] = Field(..., description="Y coordinates of curve points")
+
+
+class BezierFitResponse(BaseModel):
+    """Response containing Bezier fit results"""
+    upper_control_points: BezierControlPoints
+    lower_control_points: BezierControlPoints
+    upper_curve: BezierCurveData
+    lower_curve: BezierCurveData
+    order: int
+    upper_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, upper surface")
+    lower_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, lower surface")
 
 
 @app.get("/")
@@ -442,28 +477,35 @@ async def analyze(request: AnalysisRequest):
 def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surface: List[CoordinatePair]) -> Dict[str, Any]:
     """
     Helper function to calculate and extract airfoil geometric properties.
-    
+
     Args:
         upper_surface: List of CoordinatePair objects or dicts with x, y keys
         lower_surface: List of CoordinatePair objects or dicts with x, y keys
-    
+
     Returns:
         Dictionary containing calculated properties and extracted coordinates
     """
     # Convert to tuples (handle both CoordinatePair objects and dicts)
     upper = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in upper_surface]
     lower = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in lower_surface]
-    
-    # Extract coordinates
+
+    # AeroSandbox expects a closed wrap: TE -> LE (upper) then LE -> TE (lower).
+    # Uploads may store both surfaces LE -> TE (Lednicer); normalize before combining.
+    if len(upper) >= 2 and upper[0][0] < upper[-1][0]:
+        upper = upper[::-1]
+    if len(lower) >= 2 and lower[0][0] > lower[-1][0]:
+        lower = lower[::-1]
+
+    # Extract coordinates (normalized order for DB consistency)
     coords = extract_coordinates(upper, lower)
-    
+
     # Combine upper and lower surfaces into single x, y arrays
     all_x = [p[0] for p in upper] + [p[0] for p in lower]
     all_y = [p[1] for p in upper] + [p[1] for p in lower]
-    
+
     # Calculate geometric properties using AeroSandbox
     properties = calculate_properties(all_x, all_y)
-    
+
     # Build calculated properties dictionary
     calculated_properties = {
         'thickness_pct': properties['max_thickness'],
@@ -477,7 +519,7 @@ def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surf
         'lower_surface_nodes': len(lower),
         **coords,
     }
-    
+
     return calculated_properties
 
 
@@ -919,6 +961,73 @@ async def analyze_naca(request: NACAAnalysisRequest):
         airfoil_name=request.naca_designation
     )
     return await analyze_transient(transient_request)
+
+
+@app.post("/api/bezier-fit", response_model=BezierFitResponse)
+async def bezier_fit(request: BezierFitRequest):
+    """
+    Fit Bezier curves to airfoil coordinates.
+    Returns control points and fitted curve data for upper and lower surfaces.
+    """
+    try:
+        # Validate coordinate arrays
+        if len(request.upper_x) != len(request.upper_y):
+            raise HTTPException(
+                status_code=400,
+                detail="Upper X and Y coordinate arrays must have the same length"
+            )
+        if len(request.lower_x) != len(request.lower_y):
+            raise HTTPException(
+                status_code=400,
+                detail="Lower X and Y coordinate arrays must have the same length"
+            )
+        if len(request.upper_x) < 2 or len(request.lower_x) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 points for upper and lower surfaces"
+            )
+
+        # Initialize fitter with requested order
+        fitter = BezierFitter(order=request.order)
+
+        # Fit curves to both surfaces
+        result = fitter.fit(
+            upper_x=request.upper_x,
+            upper_y=request.upper_y,
+            lower_x=request.lower_x,
+            lower_y=request.lower_y
+        )
+
+        # Build response
+        return BezierFitResponse(
+            upper_control_points=BezierControlPoints(
+                x=result['upper_control_points'][:, 0].tolist(),
+                y=result['upper_control_points'][:, 1].tolist()
+            ),
+            lower_control_points=BezierControlPoints(
+                x=result['lower_control_points'][:, 0].tolist(),
+                y=result['lower_control_points'][:, 1].tolist()
+            ),
+            upper_curve=BezierCurveData(
+                x=result['upper_curve'][:, 0].tolist(),
+                y=result['upper_curve'][:, 1].tolist()
+            ),
+            lower_curve=BezierCurveData(
+                x=result['lower_curve'][:, 0].tolist(),
+                y=result['lower_curve'][:, 1].tolist()
+            ),
+            order=result['order'],
+            upper_max_error_pct=result['upper_max_error_pct'],
+            lower_max_error_pct=result['lower_max_error_pct']
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Bezier fitting failed: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

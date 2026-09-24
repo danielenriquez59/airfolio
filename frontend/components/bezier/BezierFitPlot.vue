@@ -1,0 +1,335 @@
+<script setup lang="ts">
+import { Scatter } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title as ChartTitle,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+import type { BezierControlPoints } from '~/composables/useBezierFit'
+
+// Register Chart.js components
+ChartJS.register(
+  LinearScale,
+  PointElement,
+  LineElement,
+  ChartTitle,
+  Tooltip,
+  Legend
+)
+
+// Register zoom plugin only on client side
+if (process.client) {
+  import('chartjs-plugin-zoom').then((zoomPlugin) => {
+    ChartJS.register(zoomPlugin.default)
+  })
+}
+
+interface Props {
+  originalUpperX: number[]
+  originalUpperY: number[]
+  originalLowerX: number[]
+  originalLowerY: number[]
+  fittedUpperX?: number[]
+  fittedUpperY?: number[]
+  fittedLowerX?: number[]
+  fittedLowerY?: number[]
+  upperControlPoints?: BezierControlPoints
+  lowerControlPoints?: BezierControlPoints
+  reparamUpperX?: number[]
+  reparamUpperY?: number[]
+  reparamLowerX?: number[]
+  reparamLowerY?: number[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  fittedUpperX: () => [],
+  fittedUpperY: () => [],
+  fittedLowerX: () => [],
+  fittedLowerY: () => [],
+  upperControlPoints: () => ({ x: [], y: [] }),
+  lowerControlPoints: () => ({ x: [], y: [] }),
+})
+
+const hasFit = computed(() => props.fittedUpperX.length > 0 && props.fittedLowerX.length > 0)
+const hasControlPoints = computed(
+  () => props.upperControlPoints.x.length > 0 && props.lowerControlPoints.x.length > 0,
+)
+
+// Control polygon visibility state
+const showControlPolygon = ref(true)
+
+// Chart instance reference for zoom reset
+const chartRef = ref<any>(null)
+
+const chartData = computed(() => {
+  const datasets: any[] = []
+
+  // Original points, split by surface so the upload preview shows which side each point landed on.
+  const originalUpper = props.originalUpperX.map((x, i) => ({ x, y: props.originalUpperY[i] }))
+  const originalLower = props.originalLowerX.map((x, i) => ({ x, y: props.originalLowerY[i] }))
+
+  datasets.push({
+    label: 'Upper points',
+    data: originalUpper,
+    borderColor: 'rgb(55, 65, 81)',
+    backgroundColor: 'rgb(55, 65, 81)',
+    showLine: false,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  })
+
+  datasets.push({
+    label: 'Lower points',
+    data: originalLower,
+    borderColor: 'rgb(156, 163, 175)',
+    backgroundColor: 'rgb(156, 163, 175)',
+    showLine: false,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  })
+
+  // Fitted upper curve (red line)
+  if (hasFit.value) {
+    datasets.push({
+      label: 'Fitted Upper',
+      data: props.fittedUpperX.map((x, i) => ({ x, y: props.fittedUpperY[i] })),
+      borderColor: 'rgb(239, 68, 68)',
+      backgroundColor: 'transparent',
+      showLine: true,
+      pointRadius: 0,
+      borderWidth: 2,
+    })
+
+    datasets.push({
+      label: 'Fitted Lower',
+      data: props.fittedLowerX.map((x, i) => ({ x, y: props.fittedLowerY[i] })),
+      borderColor: 'rgb(59, 130, 246)',
+      backgroundColor: 'transparent',
+      showLine: true,
+      pointRadius: 0,
+      borderWidth: 2,
+    })
+  }
+
+  // Control polygons (optional)
+  if (hasControlPoints.value && showControlPolygon.value) {
+    // Upper control polygon
+    datasets.push({
+      label: 'Upper Control Polygon',
+      data: props.upperControlPoints.x.map((x, i) => ({ x, y: props.upperControlPoints.y[i] })),
+      borderColor: 'rgba(239, 68, 68, 0.4)',
+      backgroundColor: 'rgb(239, 68, 68)',
+      showLine: true,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 1,
+      borderDash: [5, 5],
+    })
+
+    // Lower control polygon
+    datasets.push({
+      label: 'Lower Control Polygon',
+      data: props.lowerControlPoints.x.map((x, i) => ({ x, y: props.lowerControlPoints.y[i] })),
+      borderColor: 'rgba(59, 130, 246, 0.4)',
+      backgroundColor: 'rgb(59, 130, 246)',
+      showLine: true,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 1,
+      borderDash: [5, 5],
+    })
+  }
+
+  // Reparametrized points (green scatter)
+  if (props.reparamUpperX && props.reparamUpperY && props.reparamLowerX && props.reparamLowerY) {
+    const reparamUpper = props.reparamUpperX.map((x, i) => ({ x, y: props.reparamUpperY![i] }))
+    const reparamLower = props.reparamLowerX.map((x, i) => ({ x, y: props.reparamLowerY![i] }))
+    datasets.push({
+      label: 'Reparametrized Points',
+      data: [...reparamUpper, ...reparamLower],
+      borderColor: 'rgb(34, 197, 94)',
+      backgroundColor: 'rgb(34, 197, 94)',
+      showLine: false,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    })
+  }
+
+  return { datasets }
+})
+
+// Calculate axis ranges
+const axisRanges = computed(() => {
+  const allX = [
+    ...props.originalUpperX,
+    ...props.originalLowerX,
+    ...(hasFit.value ? props.fittedUpperX : []),
+    ...(hasFit.value ? props.fittedLowerX : []),
+    ...(hasControlPoints.value ? props.upperControlPoints.x : []),
+    ...(hasControlPoints.value ? props.lowerControlPoints.x : []),
+    ...(props.reparamUpperX || []),
+    ...(props.reparamLowerX || []),
+  ]
+  const allY = [
+    ...props.originalUpperY,
+    ...props.originalLowerY,
+    ...(hasFit.value ? props.fittedUpperY : []),
+    ...(hasFit.value ? props.fittedLowerY : []),
+    ...(hasControlPoints.value ? props.upperControlPoints.y : []),
+    ...(hasControlPoints.value ? props.lowerControlPoints.y : []),
+    ...(props.reparamUpperY || []),
+    ...(props.reparamLowerY || []),
+  ]
+
+  const xMin = Math.min(...allX)
+  const xMax = Math.max(...allX)
+  const yMin = Math.min(...allY)
+  const yMax = Math.max(...allY)
+
+  // Add padding
+  const xPadding = (xMax - xMin) * 0.05
+  const yPadding = (yMax - yMin) * 0.1
+
+  return {
+    xMin: xMin - xPadding,
+    xMax: xMax + xPadding,
+    yMin: yMin - yPadding,
+    yMax: yMax + yPadding,
+  }
+})
+
+const chartOptions = computed(() => {
+  const ranges = axisRanges.value
+
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    aspectRatio: 2.5,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          padding: 15,
+          font: {
+            size: 11,
+          },
+        },
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: (context: any) => {
+            const point = context.raw
+            return `x: ${point.x.toFixed(6)}, y: ${point.y.toFixed(6)}`
+          },
+        },
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          mode: 'xy' as const,
+        },
+        pan: {
+          enabled: true,
+          mode: 'xy' as const,
+        },
+        limits: {
+          x: {
+            min: ranges.xMin,
+            max: ranges.xMax,
+          },
+          y: {
+            min: ranges.yMin,
+            max: ranges.yMax,
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'linear' as const,
+        position: 'bottom' as const,
+        min: ranges.xMin,
+        max: ranges.xMax,
+        title: {
+          display: true,
+          text: 'x/c',
+          font: { size: 12 },
+        },
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.1)',
+        },
+      },
+      y: {
+        type: 'linear' as const,
+        min: ranges.yMin,
+        max: ranges.yMax,
+        title: {
+          display: true,
+          text: 'y/c',
+          font: { size: 12 },
+        },
+        grid: {
+          display: true,
+          color: 'rgba(0, 0, 0, 0.1)',
+        },
+      },
+    },
+  }
+})
+
+// Reset zoom function
+const resetZoom = () => {
+  if (chartRef.value && chartRef.value.chart) {
+    const chart = chartRef.value.chart as any
+    if (chart && typeof chart.resetZoom === 'function') {
+      chart.resetZoom()
+    }
+  }
+}
+</script>
+
+<template>
+  <div class="w-full h-full">
+    <div class="flex justify-end mb-2 gap-2">
+      <VButton
+        type="button"
+        color="light"
+        size="sm"
+        shadow="sm"
+        title="Reset Zoom"
+        @click="resetZoom"
+      >
+        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+        Reset Zoom
+      </VButton>
+      <VButton
+        v-if="hasControlPoints"
+        type="button"
+        color="light"
+        size="sm"
+        shadow="sm"
+        @click="showControlPolygon = !showControlPolygon"
+      >
+        <Icon :name="showControlPolygon ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
+        {{ showControlPolygon ? 'Hide' : 'Show' }} Control Polygon
+      </VButton>
+    </div>
+    <ClientOnly>
+      <Scatter ref="chartRef" :data="chartData" :options="chartOptions" />
+    </ClientOnly>
+  </div>
+</template>

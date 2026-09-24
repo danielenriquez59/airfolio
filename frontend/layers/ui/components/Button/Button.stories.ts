@@ -1,8 +1,6 @@
 import type { Story } from '@storybook/vue3'
-import { colors, variants } from '../../utils/buttons'
+import { colors, sizes, variants } from '../../utils/buttons'
 import VButton from './Button.vue'
-
-const sizes = ['sm', 'md', 'lg']
 
 export default {
   title: 'Components/Button',
@@ -46,7 +44,7 @@ export const Variants: Story = (args, { argTypes }) => ({
   },
   template: `
   <div :class="args.block ? 'space-y-2' : 'space-x-2'">
-    <VButton v-for="variant in variants" :key="variant" v-bind="args" :color="variant">
+    <VButton v-for="variant in variants" :key="variant" v-bind="args" :variant="variant" color="primary">
       {{ variant }}
     </VButton>
   </div>
