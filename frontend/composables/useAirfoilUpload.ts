@@ -258,9 +258,12 @@ export const useAirfoilUpload = () => {
   /**
    * Store temporary upload data in sessionStorage
    */
+  const LATEST_HASH_KEY = 'airfoil_upload_latest_hash'
+
   const storeTemporaryData = (hash: string, data: UploadData): void => {
     if (process.client) {
       sessionStorage.setItem(`airfoil_upload_${hash}`, JSON.stringify(data))
+      sessionStorage.setItem(LATEST_HASH_KEY, hash)
     }
   }
 
@@ -284,12 +287,30 @@ export const useAirfoilUpload = () => {
     }
   }
 
+  /** Return the most recently stored upload draft, if any. */
+  const retrieveLatestTemporaryData = (): { hash: string; data: UploadData } | null => {
+    if (!process.client)
+      return null
+
+    const hash = sessionStorage.getItem(LATEST_HASH_KEY)
+    if (!hash)
+      return null
+
+    const data = retrieveTemporaryData(hash)
+    if (!data)
+      return null
+
+    return { hash, data }
+  }
+
   /**
    * Clear temporary data from sessionStorage
    */
   const clearTemporaryData = (hash: string): void => {
     if (process.client) {
       sessionStorage.removeItem(`airfoil_upload_${hash}`)
+      if (sessionStorage.getItem(LATEST_HASH_KEY) === hash)
+        sessionStorage.removeItem(LATEST_HASH_KEY)
     }
   }
 
@@ -438,6 +459,7 @@ export const useAirfoilUpload = () => {
     generateDataHash,
     storeTemporaryData,
     retrieveTemporaryData,
+    retrieveLatestTemporaryData,
     clearTemporaryData,
     parseCSV,
     generateNormalizedName,

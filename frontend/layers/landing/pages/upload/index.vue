@@ -30,6 +30,9 @@ const {
   validateAirfoilName,
   generateDataHash,
   storeTemporaryData,
+  retrieveTemporaryData,
+  retrieveLatestTemporaryData,
+  clearTemporaryData,
   generateNormalizedName,
 } = useAirfoilUpload()
 
@@ -83,13 +86,43 @@ const canSubmit = computed(() => {
   )
 })
 
-// Fetch categories on mount
+/** Restore form fields from a stored upload draft. */
+const restoreFromDraft = (data: {
+  name: string
+  displayName?: string
+  description?: string
+  upperSurface: Array<{ x: number; y: number }>
+  lowerSurface: Array<{ x: number; y: number }>
+  sourceUrl?: string
+  categoryId?: string
+}) => {
+  airfoilName.value = data.displayName || data.name
+  description.value = data.description || ''
+  sourceUrl.value = data.sourceUrl || ''
+  selectedCategory.value = data.categoryId
+  upperSurface.value = data.upperSurface.map(p => ({ x: p.x, y: p.y }))
+  lowerSurface.value = data.lowerSurface.map(p => ({ x: p.x, y: p.y }))
+  activeTab.value = 'manual'
+}
+
+// Fetch categories on mount; restore draft when returning from confirmation
 onMounted(async () => {
   try {
     allCategories.value = await fetchCategories()
   } catch (err) {
     console.error('Error fetching categories:', err)
   }
+
+  const queryHash = typeof route.query.hash === 'string' ? route.query.hash : null
+  const draft = queryHash
+    ? (() => {
+        const data = retrieveTemporaryData(queryHash)
+        return data ? { hash: queryHash, data } : null
+      })()
+    : retrieveLatestTemporaryData()
+
+  if (draft)
+    restoreFromDraft(draft.data)
 })
 
 // Watchers
@@ -207,11 +240,16 @@ const handleSubmit = async () => {
 }
 
 const resetForm = () => {
+  const latest = retrieveLatestTemporaryData()
+  if (latest)
+    clearTemporaryData(latest.hash)
+
   airfoilName.value = ''
   description.value = ''
   sourceUrl.value = ''
-  upperSurface.value = []
-  lowerSurface.value = []
+  selectedCategory.value = undefined
+  upperSurface.value = initializeEmptyRows(10)
+  lowerSurface.value = initializeEmptyRows(10)
   errors.value = {}
 }
 </script>

@@ -136,11 +136,11 @@ const exportReparamPoints = () => {
     triggerDownload(content, `${baseName}_reparam_lednicer.dat`)
   }
   else if (exportFormat.value === 'csv') {
-    const lines: string[] = ['surface,x,y']
+    const lines: string[] = ['x,y']
     for (let i = 0; i < upper.x.length; i++)
-      lines.push(`upper,${upper.x[i].toFixed(8)},${upper.y[i].toFixed(8)}`)
+      lines.push(`${upper.x[i].toFixed(8)},${upper.y[i].toFixed(8)}`)
     for (let i = 0; i < lower.x.length; i++)
-      lines.push(`lower,${lower.x[i].toFixed(8)},${lower.y[i].toFixed(8)}`)
+      lines.push(`${lower.x[i].toFixed(8)},${lower.y[i].toFixed(8)}`)
     triggerDownload(lines.join('\n'), `${baseName}_reparam.csv`)
   }
 }

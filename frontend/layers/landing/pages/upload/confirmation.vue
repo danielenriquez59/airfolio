@@ -129,7 +129,10 @@ const handleConfirm = async () => {
 }
 
 const handleBack = async () => {
-  await router.back()
+  if (hash)
+    await router.push(`/upload?hash=${encodeURIComponent(hash)}`)
+  else
+    await router.push('/upload')
 }
 </script>
 
