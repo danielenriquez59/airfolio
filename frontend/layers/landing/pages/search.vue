@@ -247,7 +247,7 @@ useHead({
       </div>
 
       <!-- Loading State (Initial Load) -->
-      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <AirfoilCardSkeleton
           v-for="i in 20"
           :key="`skeleton-${i}`"
@@ -269,7 +269,7 @@ useHead({
       <!-- Results Grid -->
       <div
         v-else
-        class="grid grid-cols-1 md:grid-cols-3 gap-6"
+        class="grid grid-cols-1 md:grid-cols-3 gap-3"
       >
         <AirfoilCard
           v-for="airfoil in searchResults"
