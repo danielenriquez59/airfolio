@@ -66,6 +66,7 @@ const sortOptions: { value: SortField; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'thickness', label: 'Thickness' },
   { value: 'camber', label: 'Camber' },
+  { value: 'uploadDate', label: 'Upload Date' },
 ]
 
 const currentSortLabel = computed(() => {
