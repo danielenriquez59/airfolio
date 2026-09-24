@@ -5,7 +5,7 @@ import type { Database } from '~/types/database.types'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
-export type SortField = 'name' | 'thickness' | 'camber'
+export type SortField = 'name' | 'thickness' | 'camber' | 'uploadDate'
 export type SortDirection = 'asc' | 'desc'
 
 export interface SearchParams {
@@ -100,7 +100,11 @@ export const useAirfoilSearch = () => {
     const needsExcludeFilter = excludeName && excludeName.trim()
 
     // Map sort field to database column
-    const sortColumn = sortBy === 'thickness' ? 'thickness_pct' : sortBy === 'camber' ? 'camber_pct' : 'name'
+    const sortColumn =
+      sortBy === 'thickness' ? 'thickness_pct'
+        : sortBy === 'camber' ? 'camber_pct'
+          : sortBy === 'uploadDate' ? 'created_at'
+            : 'name'
     let orderedQuery = supabaseQuery.order(sortColumn, { ascending: sortDir === 'asc' })
     
     if (!needsExcludeFilter) {
