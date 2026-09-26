@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
+import type { AirfoilListItem } from '~/composables/useAirfoils'
 import { navTabButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
@@ -8,7 +9,7 @@ definePageMeta({
   layout: 'default',
 })
 
-const { searchAirfoils } = useAirfoilSearch()
+const { fetchAirfoilListItems, fetchAirfoilsByIds } = useAirfoils()
 
 import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab.vue'
 
@@ -19,10 +20,10 @@ const isLoadingList = ref(false)
 const isLoadingSelected = ref(false)
 const error = ref<string | null>(null)
 
-// All airfoils for selection panel
-const airfoilsList = ref<Airfoil[]>([])
+// Slim catalog for selection panel
+const airfoilsList = ref<AirfoilListItem[]>([])
 
-// Selected airfoils with full data
+// Selected airfoils with full coordinate data
 const selectedAirfoils = ref<Airfoil[]>([])
 
 /** Chart canvas height in px — taller values exaggerate Y for comparison. */
@@ -53,50 +54,27 @@ const geometries = computed(() =>
     lowerX: airfoil.lower_x_coordinates ?? [],
     lowerY: airfoil.lower_y_coordinates ?? [],
     color: COLORS[idx % COLORS.length],
-  }))
+  })),
 )
 
-// Fetch all airfoils for selection panel
+/** Load slim list rows for the sidebar (no coordinate arrays). */
 const fetchAirfoilsList = async () => {
   isLoadingList.value = true
   error.value = null
 
   try {
-    // Fetch in batches to get all airfoils
-    const batchSize = 1000
-    let allAirfoils: Airfoil[] = []
-    let page = 1
-    let hasMore = true
-
-    while (hasMore) {
-      const result = await searchAirfoils({
-        page,
-        limit: batchSize,
-        thicknessMin: 0,
-        thicknessMax: 1,
-        camberMin: 0,
-        camberMax: 1,
-      })
-
-      if (result.data.length > 0) {
-        allAirfoils = [...allAirfoils, ...result.data]
-        page++
-        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
-      } else {
-        hasMore = false
-      }
-    }
-
-    airfoilsList.value = allAirfoils
-  } catch (err: any) {
+    airfoilsList.value = await fetchAirfoilListItems()
+  }
+  catch (err: any) {
     console.error('Error fetching airfoils list:', err)
     error.value = err.message || 'Failed to load airfoils'
-  } finally {
+  }
+  finally {
     isLoadingList.value = false
   }
 }
 
-// Fetch full data for selected airfoils
+/** Load full geometry rows for the current selection only. */
 const fetchSelectedAirfoils = async () => {
   if (selectedAirfoilIds.value.length === 0) {
     selectedAirfoils.value = []
@@ -104,13 +82,17 @@ const fetchSelectedAirfoils = async () => {
   }
 
   isLoadingSelected.value = true
+  error.value = null
 
   try {
-    // Get full data for selected airfoils from the already loaded list
-    selectedAirfoils.value = airfoilsList.value.filter(a =>
-      selectedAirfoilIds.value.includes(a.id)
-    )
-  } finally {
+    selectedAirfoils.value = await fetchAirfoilsByIds(selectedAirfoilIds.value)
+  }
+  catch (err: any) {
+    console.error('Error fetching selected airfoils:', err)
+    error.value = err.message || 'Failed to load selected airfoil geometry'
+    selectedAirfoils.value = []
+  }
+  finally {
     isLoadingSelected.value = false
   }
 }

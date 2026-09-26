@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { Database } from '~/types/database.types'
-
-type Airfoil = Database['public']['Tables']['airfoils']['Row']
+import type { AirfoilListItem } from '~/composables/useAirfoils'
 
 interface Props {
-  airfoils: Airfoil[]
+  airfoils: AirfoilListItem[]
   modelValue: string[] // Selected airfoil IDs
   maxSelection?: number
   isLoading?: boolean
@@ -36,6 +34,7 @@ const displayedAirfoils = computed(() => {
     const searchTerm = searchQuery.value.trim().toLowerCase()
     filtered = filtered.filter(airfoil =>
       airfoil.name.toLowerCase().includes(searchTerm)
+      || (airfoil.display_name?.toLowerCase().includes(searchTerm) ?? false),
     )
   }
 
@@ -54,17 +53,18 @@ const isValidSelection = computed(() => {
 const toggleSelection = (airfoilId: string) => {
   const currentSelection = [...props.modelValue]
   const index = currentSelection.indexOf(airfoilId)
-  
+
   if (index >= 0) {
     // Deselect
     currentSelection.splice(index, 1)
-  } else {
+  }
+  else {
     // Select (only if under max)
     if (currentSelection.length < props.maxSelection) {
       currentSelection.push(airfoilId)
     }
   }
-  
+
   emit('update:modelValue', currentSelection)
 }
 

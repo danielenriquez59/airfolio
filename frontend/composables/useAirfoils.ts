@@ -5,6 +5,12 @@ import type { Database } from '~/types/database.types'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
+/** Lightweight row for selection lists (no coordinate arrays). */
+export type AirfoilListItem = Pick<
+  Airfoil,
+  'id' | 'name' | 'display_name' | 'thickness_pct' | 'camber_pct'
+>
+
 export const useAirfoils = () => {
   const supabase = useSupabaseClient<Database>()
 
@@ -32,7 +38,7 @@ export const useAirfoils = () => {
   const fetchAirfoilByName = async (name: string): Promise<Airfoil | null> => {
     // Decode the slug (name) from URL format
     const decodedName = decodeURIComponent(name)
-    
+
     const { data, error } = await supabase
       .from('airfoils')
       .select('*')
@@ -106,14 +112,70 @@ export const useAirfoils = () => {
   }
 
   /**
+   * Fetch slim airfoil rows for selection UIs (no coordinate payloads).
+   */
+  const fetchAirfoilListItems = async (): Promise<AirfoilListItem[]> => {
+    const batchSize = 1000
+    let all: AirfoilListItem[] = []
+    let from = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('airfoils')
+        .select('id, name, display_name, thickness_pct, camber_pct')
+        .order('name', { ascending: true })
+        .range(from, from + batchSize - 1)
+
+      if (error) {
+        console.error('Error fetching airfoil list items:', error)
+        throw error
+      }
+
+      if (data && data.length > 0) {
+        all = [...all, ...data]
+        from += batchSize
+        hasMore = data.length === batchSize
+      }
+      else {
+        hasMore = false
+      }
+    }
+
+    return all
+  }
+
+  /**
+   * Fetch full airfoil rows by IDs (includes coordinates).
+   * Results are ordered to match the given id list.
+   */
+  const fetchAirfoilsByIds = async (ids: string[]): Promise<Airfoil[]> => {
+    if (ids.length === 0)
+      return []
+
+    const { data, error } = await supabase
+      .from('airfoils')
+      .select('*')
+      .in('id', ids)
+
+    if (error) {
+      console.error('Error fetching airfoils by ids:', error)
+      throw error
+    }
+
+    const byId = new Map((data || []).map(a => [a.id, a]))
+    return ids.map(id => byId.get(id)).filter((a): a is Airfoil => Boolean(a))
+  }
+
+  /**
    * Get random airfoils (for featured section)
    * Uses RPC function get_random_airfoils
    */
   const fetchRandomAirfoils = async (count = 3): Promise<Airfoil[]> => {
     try {
       // Type assertion needed because RPC function not in generated types
-      const { data, error } = await (supabase.rpc as any)('get_random_airfoils', { 
-        limit_count: count 
+      const { data, error } = await (supabase.rpc as any)('get_random_airfoils', {
+        limit_count: count,
       })
 
       if (error) {
@@ -142,7 +204,8 @@ export const useAirfoils = () => {
       }
 
       return data as Airfoil[]
-    } catch (err: any) {
+    }
+    catch (err: any) {
       console.error('[fetchRandomAirfoils] Exception:', err)
       throw err
     }
@@ -154,7 +217,8 @@ export const useAirfoils = () => {
     fetchAirfoilGeometry,
     fetchAirfoilMetadata,
     fetchAirfoils,
+    fetchAirfoilListItems,
+    fetchAirfoilsByIds,
     fetchRandomAirfoils,
   }
 }
-
