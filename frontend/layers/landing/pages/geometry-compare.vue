@@ -25,6 +25,11 @@ const airfoilsList = ref<Airfoil[]>([])
 // Selected airfoils with full data
 const selectedAirfoils = ref<Airfoil[]>([])
 
+/** Chart canvas height in px — taller values exaggerate Y for comparison. */
+const plotHeight = ref(200)
+const PLOT_HEIGHT_MIN = 100
+const PLOT_HEIGHT_MAX = 500
+
 // Color palette for geometry overlays
 const COLORS = [
   '#3B82F6', // Blue
@@ -218,12 +223,34 @@ onMounted(() => {
             </div>
 
             <!-- Chart Tab -->
-            <div v-else-if="activeTab === 'chart'">
+            <div v-else-if="activeTab === 'chart'" class="space-y-4">
+              <div class="flex flex-wrap items-center gap-3">
+                <label for="plot-y-height" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  Y plot height
+                </label>
+                <input
+                  id="plot-y-height"
+                  v-model.number="plotHeight"
+                  type="range"
+                  :min="PLOT_HEIGHT_MIN"
+                  :max="PLOT_HEIGHT_MAX"
+                  step="10"
+                  class="flex-1 min-w-[12rem] h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                >
+                <span class="text-sm font-mono text-gray-600 w-14 text-right">
+                  {{ plotHeight }}px
+                </span>
+              </div>
+              <p class="text-xs text-gray-500">
+                Increase height to stretch the vertical scale and make thickness differences easier to see.
+              </p>
               <AirfoilGeometry
                 :geometries="geometries"
                 :show-legend="true"
-                :aspect-ratio="7"
+                :height="plotHeight"
                 :zoomable="true"
+                :show-ticks="true"
+                :tick-step="0.1"
               />
             </div>
 
