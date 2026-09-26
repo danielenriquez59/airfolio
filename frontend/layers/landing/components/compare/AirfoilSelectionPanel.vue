@@ -68,23 +68,15 @@ const toggleSelection = (airfoilId: string) => {
   emit('update:modelValue', currentSelection)
 }
 
-// Select all visible
-const selectAllVisible = () => {
-  const visibleIds = displayedAirfoils.value.map(a => a.id)
-  const currentSelection = [...props.modelValue]
-  const newSelection = [...new Set([...currentSelection, ...visibleIds])]
-  
-  // Limit to maxSelection
-  if (newSelection.length > props.maxSelection) {
-    emit('update:modelValue', newSelection.slice(0, props.maxSelection))
-  } else {
-    emit('update:modelValue', newSelection)
-  }
-}
-
 // Deselect all
 const deselectAll = () => {
   emit('update:modelValue', [])
+}
+
+/** Toggle selected-only filter and clear the search input. */
+const toggleShowSelected = () => {
+  showSelectedOnly.value = !showSelectedOnly.value
+  searchQuery.value = ''
 }
 
 // Check if airfoil is selected
@@ -140,17 +132,6 @@ const formatPercentage = (value: number | null | undefined): string => {
           color="primary"
           size="xs"
           class="font-medium"
-          @click="selectAllVisible"
-        >
-          Select All Visible
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          class="font-medium"
           @click="deselectAll"
         >
           Deselect All
@@ -162,7 +143,7 @@ const formatPercentage = (value: number | null | undefined): string => {
           color="primary"
           size="xs"
           class="font-medium"
-          @click="showSelectedOnly = !showSelectedOnly"
+          @click="toggleShowSelected"
         >
           {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
         </VButton>
