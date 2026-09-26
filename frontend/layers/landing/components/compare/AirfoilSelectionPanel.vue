@@ -203,19 +203,12 @@ const formatPercentage = (value: number | null | undefined): string => {
     </div>
 
     <!-- Validation Message -->
-    <div v-if="!isValidSelection" class="mt-4 pt-4 border-t border-gray-200">
-      <p
-        :class="[
-          'text-xs text-center',
-          selectedCount === 0 ? 'text-red-600' : 'text-yellow-600'
-        ]"
-      >
-        <span v-if="selectedCount === 0">
-          Please select at least 1 airfoil to analyze.
-        </span>
-        <span v-else>
-          Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
-        </span>
+    <div
+      v-if="selectedCount > maxSelection"
+      class="mt-4 pt-4 border-t border-gray-200"
+    >
+      <p class="text-xs text-center text-yellow-600">
+        Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
       </p>
     </div>
   </div>
