@@ -72,6 +72,10 @@ const camberEnabled = ref(false)
 const camberMin = ref<number | undefined>()
 const camberMax = ref<number | undefined>()
 
+const areaEnabled = ref(false)
+const areaMin = ref<number | undefined>()
+const areaMax = ref<number | undefined>()
+
 // Analysis parameters
 const reynoldsNumber = ref<number>(500)
 const machNumber = ref<number>(0)
@@ -137,6 +141,15 @@ const loadParamsFromURL = () => {
     }
     if (query.camberMax) {
       camberMax.value = parseFloat(query.camberMax as string)
+    }
+  }
+  if (query.areaEnabled === 'true') {
+    areaEnabled.value = true
+    if (query.areaMin) {
+      areaMin.value = parseFloat(query.areaMin as string)
+    }
+    if (query.areaMax) {
+      areaMax.value = parseFloat(query.areaMax as string)
     }
   }
 
@@ -238,6 +251,15 @@ const updateURL = () => {
     }
     query.camberEnabled = 'true'
   }
+  if (areaEnabled.value) {
+    if (areaMin.value !== undefined) {
+      query.areaMin = areaMin.value.toString()
+    }
+    if (areaMax.value !== undefined) {
+      query.areaMax = areaMax.value.toString()
+    }
+    query.areaEnabled = 'true'
+  }
   
   query.Re = (reynoldsNumber.value * 1000).toString()
   query.Mach = machNumber.value.toString()
@@ -288,7 +310,7 @@ const updateURL = () => {
 // Check if we have URL params (from Performance page)
 const hasURLParams = computed(() => {
   const query = route.query
-  return !!(query.Re || query.includeName || query.thicknessEnabled || query.camberEnabled)
+  return !!(query.Re || query.includeName || query.thicknessEnabled || query.camberEnabled || query.areaEnabled)
 })
 
 /**
@@ -341,6 +363,13 @@ const buildSearchParams = (page: number = 1, limit: number = 1): SearchParams =>
     camberMax: camberEnabled.value && camberMax.value !== undefined
       ? percentageToDecimal(camberMax.value)
       : 1, // Default to 100% (1.0) if filter not enabled
+    // Area: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
+    areaMin: areaEnabled.value && areaMin.value !== undefined
+      ? percentageToDecimal(areaMin.value)
+      : 0,
+    areaMax: areaEnabled.value && areaMax.value !== undefined
+      ? percentageToDecimal(areaMax.value)
+      : 1,
     page,
     limit,
   }
@@ -395,6 +424,12 @@ const loadAnalysisData = async () => {
           : undefined,
         camberMax: camberEnabled.value && camberMax.value !== undefined
           ? percentageToDecimal(camberMax.value)
+          : undefined,
+        areaMin: areaEnabled.value && areaMin.value !== undefined
+          ? percentageToDecimal(areaMin.value)
+          : undefined,
+        areaMax: areaEnabled.value && areaMax.value !== undefined
+          ? percentageToDecimal(areaMax.value)
           : undefined,
         page: 1,
         limit: 10000, // Get all matching airfoils
@@ -502,6 +537,8 @@ const fetchAllAirfoilsInBackground = async () => {
         thicknessMax: 1,
         camberMin: 0,
         camberMax: 1,
+        areaMin: 0,
+        areaMax: 1,
       }
       const result = await searchAirfoils(params)
       
@@ -534,7 +571,7 @@ const fetchFilteredAirfoilsList = async () => {
   }
 
   // Check if no filters are applied
-  const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+  const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
                        !includeName.value.trim() && !excludeName.value.trim()
   
   // If no filters and we have cached all airfoils, use that instead
@@ -597,7 +634,7 @@ const fetchFilteredAirfoilsList = async () => {
 }
 
 // Watch filter changes to update count
-watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax], async () => {
+watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax, areaEnabled, areaMin, areaMax], async () => {
   updateAirfoilCount()
   // Clear filtered list when filters change (will refetch if needed)
   if (selectionMode.value === 'specific') {
@@ -612,7 +649,7 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 watch(selectionMode, async (newMode) => {
   if (newMode === 'specific') {
     // Check if we have cached all airfoils and no filters are applied
-    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
                          !includeName.value.trim() && !excludeName.value.trim()
     
     if (hasNoFilters && allAirfoilsList.value.length > 0) {
@@ -632,7 +669,7 @@ watch(selectionMode, async (newMode) => {
 // Watch for background load completion - update filtered list if user is in specific mode with no filters
 watch([allAirfoilsList, isLoadingAllAirfoils], ([airfoils, isLoading]) => {
   if (!isLoading && airfoils.length > 0 && selectionMode.value === 'specific') {
-    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && 
+    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
                          !includeName.value.trim() && !excludeName.value.trim()
     
     if (hasNoFilters && filteredAirfoilsList.value.length === 0) {
@@ -700,6 +737,15 @@ const handleRunAnalysis = async () => {
       queryParams.camberMax = camberMax.value.toString()
     }
     queryParams.camberEnabled = 'true'
+  }
+  if (areaEnabled.value) {
+    if (areaMin.value !== undefined) {
+      queryParams.areaMin = areaMin.value.toString()
+    }
+    if (areaMax.value !== undefined) {
+      queryParams.areaMax = areaMax.value.toString()
+    }
+    queryParams.areaEnabled = 'true'
   }
   
   queryParams.Re = (reynoldsNumber.value * 1000).toString()
@@ -793,7 +839,7 @@ onMounted(async () => {
       <!-- Conditional Content -->
       <!-- Show filters when "All matching airfoils" mode -->
       <div v-if="selectionMode === 'all'" class="space-y-4">
-        <!-- Geometry Filters (Thickness and Camber) -->
+        <!-- Geometry Filters (Thickness, Camber, and Area) -->
         <div class="space-y-4">
           <!-- Thickness Filter -->
           <div class="flex items-start gap-4 flex-wrap">
@@ -866,6 +912,48 @@ onMounted(async () => {
                 <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
                 <VInput
                   v-model.number="camberMax"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="100"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+            </div>
+          </div>
+
+          <!-- Area Coefficient Filter -->
+          <div class="flex items-start gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
+              <input
+                v-model="areaEnabled"
+                type="checkbox"
+                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <span class="text-sm font-medium text-gray-700">Area</span>
+            </label>
+            <div v-if="areaEnabled" class="flex items-center gap-3 flex-1">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
+                <VInput
+                  v-model.number="areaMin"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  size="sm"
+                  wrapper-class="w-24"
+                />
+              </div>
+              <span class="text-gray-400">%</span>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
+                <VInput
+                  v-model.number="areaMax"
                   type="number"
                   step="1"
                   min="0"

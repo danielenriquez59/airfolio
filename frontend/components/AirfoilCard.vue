@@ -176,10 +176,10 @@ const handleClick = () => {
             </span>
           </div>
 
-          <div v-if="airfoil.te_thickness">
-            <span class="text-gray-500 block mb-0.5">TE Thickness</span>
+          <div v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined">
+            <span class="text-gray-500 block mb-0.5">Area</span>
             <span class="font-semibold text-gray-900">
-              {{ airfoil.te_thickness.toFixed(3) }}
+              {{ (airfoil.area_coefficient * 100).toFixed(1) }}%
             </span>
           </div>
         </div>

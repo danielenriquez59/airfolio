@@ -566,13 +566,13 @@ useHead({
                       {{ airfoil.lower_surface_nodes }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.le_radius" class="col-span-2 min-w-0">
+                  <div v-if="airfoil.le_radius" class="min-w-0">
                     <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.le_radius.toFixed(4) }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.te_thickness" class="col-span-2 min-w-0">
+                  <div v-if="airfoil.te_thickness" class="min-w-0">
                     <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.te_thickness.toFixed(4) }}

@@ -16,6 +16,8 @@ export interface SearchParams {
   thicknessMax?: number
   camberMin?: number
   camberMax?: number
+  areaMin?: number
+  areaMax?: number
   categoryIds?: string[]
   sortBy?: SortField
   sortDir?: SortDirection
@@ -47,6 +49,8 @@ export const useAirfoilSearch = () => {
       thicknessMax,
       camberMin,
       camberMax,
+      areaMin,
+      areaMax,
       categoryIds,
       sortBy = 'name',
       sortDir = 'asc',
@@ -88,6 +92,14 @@ export const useAirfoilSearch = () => {
     }
     if (camberMax !== undefined) {
       supabaseQuery = supabaseQuery.lte('camber_pct', camberMax)
+    }
+
+    // Area coefficient filter
+    if (areaMin !== undefined) {
+      supabaseQuery = supabaseQuery.gte('area_coefficient', areaMin)
+    }
+    if (areaMax !== undefined) {
+      supabaseQuery = supabaseQuery.lte('area_coefficient', areaMax)
     }
 
     // Category filter - only include airfoils with selected categories
