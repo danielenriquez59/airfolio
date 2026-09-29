@@ -183,6 +183,50 @@ def sanitize_array(arr: Any) -> List[Any]:
         return []
 
 
+def orient_airfoil_surfaces(
+    upper: List[Tuple[float, float]],
+    lower: List[Tuple[float, float]],
+) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
+    """
+    Return upper surface TE to LE and lower surface LE to TE.
+
+    Uploads may store both surfaces LE to TE (Lednicer). The closed profile
+    polygon is trailing edge, leading edge, then trailing edge again.
+    """
+    if len(upper) >= 2 and upper[0][0] < upper[-1][0]:
+        upper = upper[::-1]
+    if len(lower) >= 2 and lower[0][0] > lower[-1][0]:
+        lower = lower[::-1]
+    return upper, lower
+
+
+def calculate_area_coefficient(x: List[float], y: List[float]) -> Optional[float]:
+    """
+    Enclosed profile area of a chord-normalized polygon, as A/c^2.
+
+    Uses the shoelace formula. Returns None when the polygon is shorter
+    than three points or contains a non-finite coordinate.
+    """
+    if x is None or y is None or len(x) != len(y) or len(x) < 3:
+        return None
+
+    try:
+        xs = np.asarray(x, dtype=float)
+        ys = np.asarray(y, dtype=float)
+    except (TypeError, ValueError):
+        return None
+
+    if xs.size != ys.size or xs.size < 3:
+        return None
+    if not np.isfinite(xs).all() or not np.isfinite(ys).all():
+        return None
+
+    area = 0.5 * abs(float(np.dot(xs, np.roll(ys, -1)) - np.dot(ys, np.roll(xs, -1))))
+    if not np.isfinite(area):
+        return None
+    return area
+
+
 def calculate_properties(x: List[float], y: List[float]) -> Dict[str, Any]:
     """
     Calculate geometric properties of an airfoil from x and y coordinate arrays.

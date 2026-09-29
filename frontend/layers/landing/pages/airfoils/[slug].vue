@@ -548,6 +548,12 @@ useHead({
                       </span>
                     </dd>
                   </div>
+                  <div v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined" class="min-w-0">
+                    <dt class="text-sm text-gray-500">Area (A/c²)</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ (airfoil.area_coefficient * 100).toFixed(2) }}% c²
+                    </dd>
+                  </div>
                   <div v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">

@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       airfoils: {
         Row: {
+          area_coefficient: number | null
           camber_loc_pct: number | null
           camber_pct: number | null
           category: string | null
@@ -65,6 +66,7 @@ export type Database = {
           upper_y_coordinates: number[] | null
         }
         Insert: {
+          area_coefficient?: number | null
           camber_loc_pct?: number | null
           camber_pct?: number | null
           category?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           upper_y_coordinates?: number[] | null
         }
         Update: {
+          area_coefficient?: number | null
           camber_loc_pct?: number | null
           camber_pct?: number | null
           category?: string | null

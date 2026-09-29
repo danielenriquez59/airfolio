@@ -16,6 +16,8 @@ from utils import (
     validate_monotonic,
     extract_coordinates,
     calculate_properties,
+    calculate_area_coefficient,
+    orient_airfoil_surfaces,
     deflect_trailing_edge_flap,
 )
 from airfoil_analysis import analyze_airfoil
@@ -491,10 +493,7 @@ def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surf
 
     # AeroSandbox expects a closed wrap: TE -> LE (upper) then LE -> TE (lower).
     # Uploads may store both surfaces LE -> TE (Lednicer); normalize before combining.
-    if len(upper) >= 2 and upper[0][0] < upper[-1][0]:
-        upper = upper[::-1]
-    if len(lower) >= 2 and lower[0][0] > lower[-1][0]:
-        lower = lower[::-1]
+    upper, lower = orient_airfoil_surfaces(upper, lower)
 
     # Extract coordinates (normalized order for DB consistency)
     coords = extract_coordinates(upper, lower)
@@ -512,6 +511,7 @@ def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surf
         'thickness_loc_pct': properties['max_thickness_location'],
         'camber_pct': properties['max_camber'],
         'camber_loc_pct': properties['max_camber_location'],
+        'area_coefficient': calculate_area_coefficient(all_x, all_y),
         'le_radius': properties['le_radius'],
         'te_thickness': properties['te_thickness'],
         'te_angle': properties['te_angle'],

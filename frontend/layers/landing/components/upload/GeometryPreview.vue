@@ -10,6 +10,7 @@ interface Props {
     thickness_loc_pct?: number
     camber_pct?: number
     camber_loc_pct?: number
+    area_coefficient?: number
     le_radius?: number
     te_thickness?: number
     te_angle?: number
@@ -28,6 +29,11 @@ const formatNumber = (value: number | undefined): string => {
 const formatPercent = (value: number | undefined): string => {
   if (value === undefined || value === null) return 'N/A'
   return `${(value * 100).toFixed(2)}%`
+}
+
+const formatArea = (value: number | undefined): string => {
+  if (value === undefined || value === null || !Number.isFinite(value)) return 'N/A'
+  return `${(value * 100).toFixed(2)}% c²`
 }
 </script>
 
@@ -102,6 +108,17 @@ const formatPercent = (value: number | undefined): string => {
           <div class="flex justify-between">
             <span class="text-gray-600">Angle:</span>
             <span class="font-medium text-gray-900">{{ properties.te_angle?.toFixed(2) }}°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Area -->
+      <div class="bg-white rounded-lg shadow p-4 md:col-span-2">
+        <h4 class="text-sm font-semibold text-gray-900 mb-3">Area</h4>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600">A/c²:</span>
+            <span class="font-medium text-gray-900">{{ formatArea(properties.area_coefficient) }}</span>
           </div>
         </div>
       </div>
