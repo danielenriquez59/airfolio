@@ -674,6 +674,12 @@ useHead({
                       </span>
                     </dd>
                   </div>
+                  <div v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined" class="min-w-0">
+                    <dt class="text-sm text-gray-500">Area (A/c²)</dt>
+                    <dd class="text-lg font-semibold text-gray-900">
+                      {{ (airfoil.area_coefficient * 100).toFixed(2) }}% c²
+                    </dd>
+                  </div>
                   <div v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined" class="min-w-0">
                     <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
                     <dd class="text-lg font-semibold text-gray-900">
@@ -686,13 +692,13 @@ useHead({
                       {{ airfoil.lower_surface_nodes }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.le_radius" class="col-span-2 min-w-0">
+                  <div v-if="airfoil.le_radius" class="min-w-0">
                     <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.le_radius.toFixed(4) }}
                     </dd>
                   </div>
-                  <div v-if="airfoil.te_thickness" class="col-span-2 min-w-0">
+                  <div v-if="airfoil.te_thickness" class="min-w-0">
                     <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
                     <dd class="text-lg font-semibold text-gray-900">
                       {{ airfoil.te_thickness.toFixed(4) }}

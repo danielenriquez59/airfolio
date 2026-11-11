@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { Database } from '~/types/database.types'
-
-type Airfoil = Database['public']['Tables']['airfoils']['Row']
+import type { AirfoilListItem } from '~/composables/useAirfoils'
 
 interface Props {
-  airfoils: Airfoil[]
+  airfoils: AirfoilListItem[]
   modelValue: string[] // Selected airfoil IDs
   maxSelection?: number
   isLoading?: boolean
@@ -36,6 +34,7 @@ const displayedAirfoils = computed(() => {
     const searchTerm = searchQuery.value.trim().toLowerCase()
     filtered = filtered.filter(airfoil =>
       airfoil.name.toLowerCase().includes(searchTerm)
+      || (airfoil.display_name?.toLowerCase().includes(searchTerm) ?? false),
     )
   }
 
@@ -54,37 +53,30 @@ const isValidSelection = computed(() => {
 const toggleSelection = (airfoilId: string) => {
   const currentSelection = [...props.modelValue]
   const index = currentSelection.indexOf(airfoilId)
-  
+
   if (index >= 0) {
     // Deselect
     currentSelection.splice(index, 1)
-  } else {
+  }
+  else {
     // Select (only if under max)
     if (currentSelection.length < props.maxSelection) {
       currentSelection.push(airfoilId)
     }
   }
-  
-  emit('update:modelValue', currentSelection)
-}
 
-// Select all visible
-const selectAllVisible = () => {
-  const visibleIds = displayedAirfoils.value.map(a => a.id)
-  const currentSelection = [...props.modelValue]
-  const newSelection = [...new Set([...currentSelection, ...visibleIds])]
-  
-  // Limit to maxSelection
-  if (newSelection.length > props.maxSelection) {
-    emit('update:modelValue', newSelection.slice(0, props.maxSelection))
-  } else {
-    emit('update:modelValue', newSelection)
-  }
+  emit('update:modelValue', currentSelection)
 }
 
 // Deselect all
 const deselectAll = () => {
   emit('update:modelValue', [])
+}
+
+/** Toggle selected-only filter and clear the search input. */
+const toggleShowSelected = () => {
+  showSelectedOnly.value = !showSelectedOnly.value
+  searchQuery.value = ''
 }
 
 // Check if airfoil is selected
@@ -140,17 +132,6 @@ const formatPercentage = (value: number | null | undefined): string => {
           color="primary"
           size="xs"
           class="font-medium"
-          @click="selectAllVisible"
-        >
-          Select All Visible
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          class="font-medium"
           @click="deselectAll"
         >
           Deselect All
@@ -162,7 +143,7 @@ const formatPercentage = (value: number | null | undefined): string => {
           color="primary"
           size="xs"
           class="font-medium"
-          @click="showSelectedOnly = !showSelectedOnly"
+          @click="toggleShowSelected"
         >
           {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
         </VButton>
@@ -222,19 +203,12 @@ const formatPercentage = (value: number | null | undefined): string => {
     </div>
 
     <!-- Validation Message -->
-    <div v-if="!isValidSelection" class="mt-4 pt-4 border-t border-gray-200">
-      <p
-        :class="[
-          'text-xs text-center',
-          selectedCount === 0 ? 'text-red-600' : 'text-yellow-600'
-        ]"
-      >
-        <span v-if="selectedCount === 0">
-          Please select at least 1 airfoil to analyze.
-        </span>
-        <span v-else>
-          Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
-        </span>
+    <div
+      v-if="selectedCount > maxSelection"
+      class="mt-4 pt-4 border-t border-gray-200"
+    >
+      <p class="text-xs text-center text-yellow-600">
+        Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
       </p>
     </div>
   </div>

@@ -51,6 +51,18 @@ const camberMax = computed(() => {
   // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
   return num >= 1 ? num / 100 : num
 })
+const areaMin = computed(() => {
+  const val = route.query.areaMin
+  if (!val) return undefined
+  const num = parseFloat(val as string)
+  return num >= 1 ? num / 100 : num
+})
+const areaMax = computed(() => {
+  const val = route.query.areaMax
+  if (!val) return undefined
+  const num = parseFloat(val as string)
+  return num >= 1 ? num / 100 : num
+})
 
 const categoryIds = computed(() => {
   const val = route.query.categoryIds as string
@@ -113,6 +125,8 @@ const performSearch = async (reset = false) => {
       thicknessMax: thicknessMax.value,
       camberMin: camberMin.value,
       camberMax: camberMax.value,
+      areaMin: areaMin.value,
+      areaMax: areaMax.value,
       categoryIds: categoryIds.value,
       sortBy: sortBy.value,
       sortDir: sortDir.value,
@@ -247,7 +261,7 @@ useHead({
       </div>
 
       <!-- Loading State (Initial Load) -->
-      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <AirfoilCardSkeleton
           v-for="i in 20"
           :key="`skeleton-${i}`"
@@ -269,7 +283,7 @@ useHead({
       <!-- Results Grid -->
       <div
         v-else
-        class="grid grid-cols-1 md:grid-cols-3 gap-6"
+        class="grid grid-cols-1 md:grid-cols-3 gap-3"
       >
         <AirfoilCard
           v-for="airfoil in searchResults"

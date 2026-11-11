@@ -20,6 +20,10 @@ const camberEnabled = ref(false)
 const camberMin = ref<number | undefined>()
 const camberMax = ref<number | undefined>()
 
+const areaEnabled = ref(false)
+const areaMin = ref<number | undefined>()
+const areaMax = ref<number | undefined>()
+
 const categoryEnabled = ref(false)
 const selectedCategoryIds = ref<string[]>([])
 const allCategories = ref<Category[]>([])
@@ -79,6 +83,24 @@ onMounted(async () => {
       : undefined
   }
 
+  // Check area coefficient filters
+  if (route.query.areaMin || route.query.areaMax) {
+    areaEnabled.value = true
+    const minVal = route.query.areaMin
+      ? parseFloat(route.query.areaMin as string)
+      : undefined
+    const maxVal = route.query.areaMax
+      ? parseFloat(route.query.areaMax as string)
+      : undefined
+
+    areaMin.value = minVal !== undefined
+      ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
+      : undefined
+    areaMax.value = maxVal !== undefined
+      ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
+      : undefined
+  }
+
   // Check category filters
   if (route.query.categoryIds) {
     categoryEnabled.value = true
@@ -100,6 +122,14 @@ watch(camberEnabled, (enabled) => {
   if (!enabled) {
     camberMin.value = undefined
     camberMax.value = undefined
+    updateURL()
+  }
+})
+
+watch(areaEnabled, (enabled) => {
+  if (!enabled) {
+    areaMin.value = undefined
+    areaMax.value = undefined
     updateURL()
   }
 })
@@ -151,6 +181,16 @@ watch([camberMin, camberMax], () => {
   }
 })
 
+watch([areaMin, areaMax], () => {
+  if (areaEnabled.value) {
+    if (areaMin.value !== undefined || areaMax.value !== undefined) {
+      debouncedUpdate()
+    } else {
+      updateURL()
+    }
+  }
+})
+
 watch(selectedCategoryIds, () => {
   if (categoryEnabled.value) {
     updateURL()
@@ -185,6 +225,16 @@ const updateURL = () => {
       query.camberMax = camberMax.value.toString()
     }
   }
+
+  // Add area coefficient filters if enabled (store as percentage in URL)
+  if (areaEnabled.value) {
+    if (areaMin.value !== undefined && areaMin.value !== null) {
+      query.areaMin = areaMin.value.toString()
+    }
+    if (areaMax.value !== undefined && areaMax.value !== null) {
+      query.areaMax = areaMax.value.toString()
+    }
+  }
   
   // Add category filters if enabled
   if (categoryEnabled.value && selectedCategoryIds.value.length > 0) {
@@ -214,6 +264,7 @@ const hasActiveFilters = computed(() => {
   return searchQuery.value.trim() !== '' ||
     thicknessEnabled.value ||
     camberEnabled.value ||
+    areaEnabled.value ||
     categoryEnabled.value
 })
 
@@ -226,6 +277,9 @@ const clearFilters = () => {
   camberEnabled.value = false
   camberMin.value = undefined
   camberMax.value = undefined
+  areaEnabled.value = false
+  areaMin.value = undefined
+  areaMax.value = undefined
   categoryEnabled.value = false
   selectedCategoryIds.value = []
   updateURL()
@@ -358,6 +412,42 @@ const clearFilters = () => {
               size="sm"
               wrapper-class="w-20"
               :disabled="!camberEnabled"
+            />
+          </div>
+
+          <!-- Area Coefficient Filter Row -->
+          <label class="flex items-center gap-1 cursor-pointer min-w-0">
+            <input
+              v-model="areaEnabled"
+              type="checkbox"
+              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0"
+            />
+            <span class="text-sm font-medium text-gray-700 truncate">Area</span>
+          </label>
+          <div class="flex items-center gap-1">
+            <VInput
+              v-model.number="areaMin"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="0"
+              size="sm"
+              wrapper-class="w-20"
+              :disabled="!areaEnabled"
+            />
+          </div>
+          <div class="flex items-center gap-1">
+            <VInput
+              v-model.number="areaMax"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="0"
+              size="sm"
+              wrapper-class="w-20"
+              :disabled="!areaEnabled"
             />
           </div>
         </div>

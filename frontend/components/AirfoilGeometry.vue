@@ -92,6 +92,10 @@ interface Props {
   showMarkerToggle?: boolean
   /** Show title */
   showTitle?: boolean
+  /** Show X/Y tick labels with equal step size on both axes */
+  showTicks?: boolean
+  /** Tick step for both axes when showTicks is true (e.g. 0.1 over 0–1) */
+  tickStep?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -102,6 +106,8 @@ const props = withDefaults(defineProps<Props>(), {
   showPointsOnHover: false,
   showMarkerToggle: false,
   showTitle: false,
+  showTicks: false,
+  tickStep: 0.1,
 })
 
 // Color palette for multiple geometries
@@ -308,12 +314,16 @@ const chartOptions = computed(() => {
           },
           limits: {
             x: {
-              min: ranges.xMin,
-              max: ranges.xMax,
+              min: props.showTicks ? 0 : ranges.xMin,
+              max: props.showTicks ? 1 : ranges.xMax,
             },
             y: {
-              min: ranges.yMin,
-              max: ranges.yMax,
+              min: props.showTicks
+                ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
+                : ranges.yMin,
+              max: props.showTicks
+                ? Math.ceil(ranges.yMax / props.tickStep) * props.tickStep
+                : ranges.yMax,
             },
           },
         },
@@ -323,8 +333,8 @@ const chartOptions = computed(() => {
       x: {
         type: 'linear' as const,
         position: 'bottom' as const,
-        min: ranges.xMin,
-        max: ranges.xMax,
+        min: props.showTicks ? 0 : ranges.xMin,
+        max: props.showTicks ? 1 : ranges.xMax,
         title: {
           display: false,
           text: 'Chord (x/c)',
@@ -337,8 +347,8 @@ const chartOptions = computed(() => {
           color: 'rgba(0, 0, 0, 0.1)',
         },
         ticks: {
-          display: false,
-          stepSize: 10,
+          display: props.showTicks,
+          stepSize: props.showTicks ? props.tickStep : 10,
           callback: function(value: any) {
             const num = typeof value === 'number' ? value : parseFloat(value)
             // Format to at most 2 decimal places, removing trailing zeros
@@ -348,8 +358,12 @@ const chartOptions = computed(() => {
       },
       y: {
         type: 'linear' as const,
-        min: props.aspectRatio === null ? ranges.yMin : ranges.yMin - 0.001,
-        max: props.aspectRatio === null ? ranges.yMax : ranges.yMax + 0.001,
+        min: props.showTicks
+          ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
+          : (props.aspectRatio === null ? ranges.yMin : ranges.yMin - 0.001),
+        max: props.showTicks
+          ? Math.ceil(ranges.yMax / props.tickStep) * props.tickStep
+          : (props.aspectRatio === null ? ranges.yMax : ranges.yMax + 0.001),
         title: {
           display: false,
           text: 'Thickness (y/c)',
@@ -362,8 +376,8 @@ const chartOptions = computed(() => {
           color: 'rgba(0, 0, 0, 0.1)',
         },
         ticks: {
-          display: false,
-          stepSize: 5,
+          display: props.showTicks,
+          stepSize: props.showTicks ? props.tickStep : 5,
           callback: function(value: any) {
             const num = typeof value === 'number' ? value : parseFloat(value)
             // Format to at most 2 decimal places, removing trailing zeros

@@ -52,6 +52,8 @@ const getSortValue = (airfoil: Airfoil, column: string): any => {
       return airfoil.camber_pct
     case 'camberLoc':
       return airfoil.camber_loc_pct
+    case 'area':
+      return airfoil.area_coefficient
     case 'leRadius':
       return airfoil.le_radius
     case 'teAngle':
@@ -130,6 +132,7 @@ const exportToCSV = () => {
     'Thickness Location (%)',
     'Camber (%)',
     'Camber Location (%)',
+    'Area (% c²)',
     'LE Radius',
     'TE Angle (deg)',
     'TE Thickness',
@@ -143,6 +146,7 @@ const exportToCSV = () => {
     formatPercent(airfoil.thickness_loc_pct),
     formatPercent(airfoil.camber_pct),
     formatPercent(airfoil.camber_loc_pct),
+    formatPercent(airfoil.area_coefficient),
     formatNumber(airfoil.le_radius, 4),
     formatNumber(airfoil.te_angle, 2),
     formatNumber(airfoil.te_thickness, 4),
@@ -174,6 +178,7 @@ const columns = [
   { key: 'thicknessLoc', label: 'Thickness Loc (%)' },
   { key: 'camber', label: 'Camber (%)' },
   { key: 'camberLoc', label: 'Camber Loc (%)' },
+  { key: 'area', label: 'Area (% c²)' },
   { key: 'leRadius', label: 'LE Radius' },
   { key: 'teAngle', label: 'TE Angle (deg)' },
   { key: 'teThickness', label: 'TE Thickness' },
@@ -247,6 +252,9 @@ const columns = [
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
               {{ formatPercent(airfoil.camber_loc_pct) }}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+              {{ formatPercent(airfoil.area_coefficient) }}
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
               {{ formatNumber(airfoil.le_radius, 4) }}
