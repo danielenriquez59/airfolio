@@ -298,14 +298,20 @@ export const useAirfoils = () => {
       throw cacheError
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('airfoils')
       .delete()
       .eq('id', id)
+      .select('id')
 
     if (error) {
       console.error('Error deleting airfoil:', error)
       throw error
+    }
+
+    // RLS silently filters blocked deletes, so zero rows means it did not happen.
+    if (!data || data.length === 0) {
+      throw new Error('Airfoil was not deleted. You may not have permission to delete airfoils.')
     }
   }
 

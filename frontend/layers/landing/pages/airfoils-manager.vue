@@ -2,6 +2,7 @@
 import type { Database } from '~/types/database.types'
 import { formatCategoryName } from '~/utils/categoryUtils'
 import { useDebounceFn } from '@vueuse/core'
+import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue'
 
 definePageMeta({
   layout: 'detail',
@@ -20,7 +21,7 @@ useHead({
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
 
-const { fetchAllAirfoils, updateAirfoil } = useAirfoils()
+const { fetchAllAirfoils, updateAirfoil, deleteAirfoil } = useAirfoils()
 const { fetchCategories } = useCategories()
 
 // State
@@ -32,8 +33,22 @@ const error = ref<string | null>(null)
 
 // Search and sort state
 const searchQuery = ref('')
-const sortColumn = ref<'name' | 'display_name' | 'thickness_pct' | 'camber_pct' | 'category'>('name')
+type SortColumn = 'name' | 'display_name' | 'thickness_pct' | 'camber_pct' | 'category' | 'created_at'
+const sortColumn = ref<SortColumn>('name')
 const sortDirection = ref<'asc' | 'desc'>('asc')
+
+const sortOptions: { value: SortColumn; label: string }[] = [
+  { value: 'name', label: 'Name' },
+  { value: 'display_name', label: 'Display Name' },
+  { value: 'thickness_pct', label: 'Thickness' },
+  { value: 'camber_pct', label: 'Camber' },
+  { value: 'category', label: 'Category' },
+  { value: 'created_at', label: 'Upload Date' },
+]
+
+const currentSortLabel = computed(() => {
+  return sortOptions.find(o => o.value === sortColumn.value)?.label || 'Name'
+})
 
 // Inline editing state
 const editingCell = ref<{ airfoilId: string; field: 'display_name' | 'description' } | null>(null)
@@ -87,6 +102,10 @@ const filteredAndSortedAirfoils = computed(() => {
       case 'category':
         aVal = a.category ? categoryMap.value.get(a.category)?.name || '' : ''
         bVal = b.category ? categoryMap.value.get(b.category)?.name || '' : ''
+        break
+      case 'created_at':
+        aVal = a.created_at || ''
+        bVal = b.created_at || ''
         break
       default:
         return 0
@@ -239,6 +258,38 @@ const getError = (airfoilId: string, field: 'display_name' | 'description'): str
   return errorCells.value.get(`${airfoilId}-${field}`) || null
 }
 
+// Delete state
+const deleteTarget = ref<Airfoil | null>(null)
+const showDeleteModal = ref(false)
+const isDeleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+/** Open the delete confirmation modal for an airfoil. */
+const openDeleteModal = (airfoil: Airfoil) => {
+  if (isDeleting.value) return
+  deleteTarget.value = airfoil
+  deleteError.value = null
+  showDeleteModal.value = true
+}
+
+/** Hard-delete the target airfoil and its performance cache, then drop it from the table. */
+const confirmDeleteAirfoil = async () => {
+  if (!deleteTarget.value || isDeleting.value) return
+  const id = deleteTarget.value.id
+  isDeleting.value = true
+  deleteError.value = null
+  try {
+    await deleteAirfoil(id)
+    airfoils.value = airfoils.value.filter((a) => a.id !== id)
+    showDeleteModal.value = false
+    deleteTarget.value = null
+  } catch (e: unknown) {
+    deleteError.value = e instanceof Error ? e.message : 'Failed to delete airfoil'
+  } finally {
+    isDeleting.value = false
+  }
+}
+
 // Load data on mount
 onMounted(() => {
   loadData()
@@ -295,8 +346,66 @@ watch(searchQuery, () => {
             Clear
           </button>
         </div>
-        <div class="text-sm text-gray-600">
-          Showing {{ filteredAndSortedAirfoils.length }} of {{ airfoils.length }} airfoils
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-gray-600">
+            Showing {{ filteredAndSortedAirfoils.length }} of {{ airfoils.length }} airfoils
+          </div>
+
+          <!-- Sort Controls -->
+          <div class="flex">
+            <Menu as="div" class="relative">
+              <MenuButton
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+              >
+                <span class="text-gray-500">Sort:</span>
+                {{ currentSortLabel }}
+                <Icon name="heroicons:chevron-down" class="w-4 h-4 text-gray-400" />
+              </MenuButton>
+
+              <transition
+                enter-active-class="transition duration-100 ease-out"
+                enter-from-class="transform scale-95 opacity-0"
+                enter-to-class="transform scale-100 opacity-100"
+                leave-active-class="transition duration-75 ease-in"
+                leave-from-class="transform scale-100 opacity-100"
+                leave-to-class="transform scale-95 opacity-0"
+              >
+                <MenuItems
+                  class="absolute right-0 z-20 mt-1 w-40 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                >
+                  <div class="py-1">
+                    <MenuItem
+                      v-for="option in sortOptions"
+                      :key="option.value"
+                      v-slot="{ active }"
+                    >
+                      <button
+                        class="w-full text-left px-4 py-2 text-sm"
+                        :class="[
+                          active ? 'bg-gray-100' : '',
+                          sortColumn === option.value ? 'text-indigo-600 font-medium' : 'text-gray-700'
+                        ]"
+                        @click="sortColumn = option.value"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </MenuItem>
+                  </div>
+                </MenuItems>
+              </transition>
+            </Menu>
+
+            <button
+              class="inline-flex items-center px-2.5 py-1.5 text-gray-700 bg-white border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+              :title="sortDirection === 'asc' ? 'Ascending' : 'Descending'"
+              @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+            >
+              <Icon
+                :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
+                class="w-4 h-4"
+              />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -312,7 +421,7 @@ watch(searchQuery, () => {
             <thead class="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   @click="handleSort('name')"
                 >
                   <div class="flex items-center gap-2">
@@ -325,7 +434,7 @@ watch(searchQuery, () => {
                   </div>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   @click="handleSort('display_name')"
                 >
                   <div class="flex items-center gap-2">
@@ -338,12 +447,12 @@ watch(searchQuery, () => {
                   </div>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                 >
                   Description
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   @click="handleSort('thickness_pct')"
                 >
                   <div class="flex items-center gap-2">
@@ -356,7 +465,7 @@ watch(searchQuery, () => {
                   </div>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   @click="handleSort('camber_pct')"
                 >
                   <div class="flex items-center gap-2">
@@ -369,7 +478,7 @@ watch(searchQuery, () => {
                   </div>
                 </th>
                 <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   @click="handleSort('category')"
                 >
                   <div class="flex items-center gap-2">
@@ -381,6 +490,9 @@ watch(searchQuery, () => {
                     />
                   </div>
                 </th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -391,15 +503,16 @@ watch(searchQuery, () => {
                 :class="{ 'opacity-50': isSaving(airfoil.id) }"
               >
                 <!-- Name (read-only) -->
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 max-w-[10rem] truncate" :title="airfoil.name">
                   {{ airfoil.name }}
                 </td>
 
                 <!-- Display Name (editable) -->
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <td class="px-3 py-2 text-sm max-w-[12rem]">
                   <div v-if="!isEditing(airfoil.id, 'display_name')" class="flex items-center gap-2">
                     <span
-                      class="text-gray-900 cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                      class="text-gray-900 cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded transition-colors truncate"
+                      :title="getDisplayName(airfoil)"
                       @click="startEdit(airfoil, 'display_name')"
                     >
                       {{ getDisplayName(airfoil) }}
@@ -430,7 +543,7 @@ watch(searchQuery, () => {
                 </td>
 
                 <!-- Description (editable) -->
-                <td class="px-6 py-4 text-sm max-w-md">
+                <td class="px-3 py-2 text-sm max-w-[16rem]">
                   <div v-if="!isEditing(airfoil.id, 'description')" class="flex items-center gap-2">
                     <span
                       class="text-gray-600 cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded transition-colors truncate"
@@ -455,17 +568,17 @@ watch(searchQuery, () => {
                 </td>
 
                 <!-- Thickness (read-only) -->
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                   {{ formatPercent(airfoil.thickness_pct) }}
                 </td>
 
                 <!-- Camber (read-only) -->
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                   {{ formatPercent(airfoil.camber_pct) }}
                 </td>
 
                 <!-- Category (read-only) -->
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <td class="px-3 py-2 whitespace-nowrap text-sm">
                   <span
                     v-if="getCategoryName(airfoil)"
                     class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full"
@@ -473,6 +586,19 @@ watch(searchQuery, () => {
                     {{ formatCategoryName(getCategoryName(airfoil)!) }}
                   </span>
                   <span v-else class="text-gray-400">—</span>
+                </td>
+
+                <!-- Actions -->
+                <td class="px-3 py-2 whitespace-nowrap text-sm text-right">
+                  <button
+                    type="button"
+                    class="text-red-600 hover:text-red-800 disabled:opacity-50"
+                    :disabled="isDeleting || isSaving(airfoil.id)"
+                    :title="`Delete ${getDisplayName(airfoil)}`"
+                    @click="openDeleteModal(airfoil)"
+                  >
+                    <Icon name="heroicons:trash" class="h-5 w-5" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -489,5 +615,40 @@ watch(searchQuery, () => {
         </div>
       </div>
     </div>
+
+    <!-- Delete confirmation modal -->
+    <VModal v-model="showDeleteModal">
+      <VModalHeader dismissable>
+        Delete Airfoil
+      </VModalHeader>
+      <VModalBody>
+        <p class="text-sm text-gray-700">
+          Permanently delete
+          <span class="font-semibold">{{ deleteTarget ? getDisplayName(deleteTarget) : '' }}</span>
+          and all related performance cache? This cannot be undone.
+        </p>
+        <div v-if="deleteError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-800">{{ deleteError }}</p>
+        </div>
+      </VModalBody>
+      <VModalFooter>
+        <VButton
+          type="button"
+          color="light"
+          :disabled="isDeleting"
+          @click="showDeleteModal = false"
+        >
+          Cancel
+        </VButton>
+        <VButton
+          type="button"
+          color="error"
+          :disabled="isDeleting"
+          @click="confirmDeleteAirfoil"
+        >
+          {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
+        </VButton>
+      </VModalFooter>
+    </VModal>
   </div>
 </template>
