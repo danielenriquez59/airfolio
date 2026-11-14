@@ -21,11 +21,25 @@ const { downloadLednicer, downloadSelig, downloadOpenVSP } = useAirfoilDownload(
 const { submitAnalysis } = useAnalysis()
 const { fetchCategories } = useCategories()
 
-const airfoil = ref<Airfoil | null>(null)
-const category = ref<Category | null>(null)
-const loading = ref(true)
-const error = ref<string | null>(null)
-const categoryMap = ref<Map<string, Category>>(new Map())
+const airfoilSlug = computed(() => route.params.slug as string)
+
+// Fetched during prerender so the generated HTML carries the data; lazy keeps client-side navigation instant
+const pageData = useAsyncData(`airfoil:${airfoilSlug.value}`, async () => {
+  const [airfoil, categories] = await Promise.all([fetchAirfoilByName(airfoilSlug.value), fetchCategories()])
+  return { airfoil, category: categories.find(cat => cat.id === airfoil?.category) ?? null }
+}, { lazy: true })
+const { data: page, error: loadError, pending: loading } = pageData
+// A failed fetch during prerender must fail the route (not be saved as an error page); the browser then loads it via the SPA fallback
+if (import.meta.server) {
+  await pageData
+  if (loadError.value)
+    throw createError({ statusCode: 500, statusMessage: 'Could not load airfoil', fatal: true })
+}
+const airfoil = computed<Airfoil | null>(() => page.value?.airfoil ?? null)
+const category = computed<Category | null>(() => page.value?.category ?? null)
+const error = computed<string | null>(() => loadError.value
+  ? (loadError.value.message || 'Failed to load airfoil')
+  : (page.value && !page.value.airfoil ? 'Airfoil not found' : null))
 
 // Geometry tab state
 const activeGeometryTab = ref<'plot' | 'bezier'>('plot')
@@ -170,8 +184,6 @@ watchEffect(() => {
   }
 })
 
-const airfoilSlug = computed(() => route.params.slug as string)
-
 // Helper function to get display name (display_name if available, otherwise name)
 const getDisplayName = (airfoil: Airfoil | null): string => {
   if (!airfoil) return ''
@@ -294,57 +306,27 @@ const handleSelectionChange = async (entries: PerformanceCache[]) => {
   })
 }
 
-// Fetch airfoil data by name (slug)
-onMounted(async () => {
-  try {
-    loading.value = true
-    error.value = null
-    
-    // Fetch categories map
-    const categories = await fetchCategories()
-    categories.forEach(cat => {
-      categoryMap.value.set(cat.id, cat)
-    })
-    
-    const data = await fetchAirfoilByName(airfoilSlug.value)
-    
-    if (!data) {
-      error.value = 'Airfoil not found'
-      return
-    }
-    
-    airfoil.value = data
-    
-    // Get category if airfoil has one
-    if (data.category && categoryMap.value.has(data.category)) {
-      category.value = categoryMap.value.get(data.category) || null
-    }
-    
-    // Update URL if slug doesn't match (for proper SEO/redirects)
-    const currentSlug = createSlug(data.name)
-    if (route.params.slug !== currentSlug) {
-      await navigateTo(`/airfoils/${currentSlug}`, { replace: true })
-    }
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load airfoil'
-    console.error('Error loading airfoil:', err)
-  } finally {
-    loading.value = false
-  }
+// Same address as the sitemap entry, whatever spelling of the slug was requested
+const pageUrl = withSiteUrl(computed(() => `/airfoils/${createSlug(airfoil.value?.name ?? airfoilSlug.value)}`))
+const pageTitle = computed(() => {
+  if (airfoil.value) return `${getDisplayName(airfoil.value).toUpperCase()} Airfoil - Coordinates, Geometry and Polars`
+  return error.value === 'Airfoil not found' ? 'Airfoil not found' : 'Airfoil Details'
 })
+const pageDescription = computed(() => airfoil.value
+  ? airfoilMetaDescription(airfoil.value, getDisplayName(airfoil.value).toUpperCase(), category.value ? formatCategoryName(category.value.name) : undefined)
+  : 'View detailed airfoil geometry, performance data, and analysis results.')
 
 useHead({
-  title: () => airfoil.value
-    ? `${getDisplayName(airfoil.value)} - Airfoil Details | Airfolio`
-    : 'Airfoil Details - Airfolio',
+  title: pageTitle,
+  link: [{ rel: 'canonical', href: pageUrl }],
   meta: [
-    {
-      name: 'description',
-      content: () => airfoil.value
-        ? `View geometry, performance data, and analysis results for ${getDisplayName(airfoil.value)}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
-        : 'View detailed airfoil geometry, performance data, and analysis results.'
-    }
-  ]
+    { name: 'description', content: pageDescription },
+    { property: 'og:title', content: pageTitle },
+    { property: 'og:description', content: pageDescription },
+    { property: 'og:url', content: pageUrl },
+    { name: 'twitter:title', content: pageTitle },
+    { name: 'twitter:description', content: pageDescription },
+  ],
 })
 </script>
 
@@ -650,7 +632,8 @@ useHead({
                   Added
                 </dt>
                 <dd class="mt-1 text-gray-900">
-                  {{ new Date(airfoil.created_at).toLocaleDateString() }}
+                  <!-- the visitor's locale and time zone are only known in the browser -->
+                  <ClientOnly>{{ new Date(airfoil.created_at).toLocaleDateString() }}</ClientOnly>
                 </dd>
               </div>
             </dl>

@@ -16,7 +16,6 @@ export default defineNuxtConfig({
         { property: 'og:image', content: 'https://airfolio.live/og-image.png' },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
-        { property: 'og:url', content: 'https://airfolio.live' },
         { property: 'og:type', content: 'website' },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:image', content: 'https://airfolio.live/og-image.png' },
@@ -39,6 +38,8 @@ export default defineNuxtConfig({
   site: {
     url: process.env.NUXT_PUBLIC_SITE_URL,
     name: 'Airfolio',
+    // pages are generated as <route>/index.html, which Netlify serves at the slash form without a redirect
+    trailingSlash: true,
   },
   sitemap: {
     sources: [
@@ -109,19 +110,25 @@ export default defineNuxtConfig({
         }
 
         console.log('📡 Fetching airfoils for pre-rendering...')
-        const response = await fetch(`${supabaseUrl}/rest/v1/airfoils?select=name&limit=10000`, {
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-          },
-        })
+        // Supabase returns at most 1000 rows per request, so page until a short page
+        const airfoils: { name: string }[] = []
+        for (let offset = 0; ; offset += 1000) {
+          const response = await fetch(`${supabaseUrl}/rest/v1/airfoils?select=name&order=name&offset=${offset}&limit=1000`, {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+            },
+          })
 
-        if (!response.ok) {
-          console.warn(`⚠️  Failed to fetch airfoils: ${response.status} ${response.statusText}`)
-          return
+          if (!response.ok) {
+            console.warn(`⚠️  Failed to fetch airfoils: ${response.status} ${response.statusText}`)
+            return
+          }
+
+          const page = await response.json()
+          airfoils.push(...page)
+          if (page.length < 1000) break
         }
-
-        const airfoils = await response.json()
         const airfoilRoutes = airfoils.map((airfoil: { name: string }) => 
           `/airfoils/${encodeURIComponent(airfoil.name)}`
         )
