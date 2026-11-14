@@ -13,7 +13,7 @@
 # Old URL of the 2D analysis page; must stay above the SPA fallback (query string is kept)
 [[redirects]]
   from = "/tools/mfoil"
-  to = "/tools/numerical-analysis-2d"
+  to = "/tools/numerical-analysis-2d/"
   status = 301
 
 # Handle Single Page Application (SPA) routing fallback

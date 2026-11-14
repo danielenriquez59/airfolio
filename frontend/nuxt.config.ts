@@ -45,6 +45,8 @@ export default defineNuxtConfig({
     sources: [
       '/api/sitemap-urls'
     ],
+    // the only <img> found on pages is the Buy me a coffee button; the home image is set in routeRules
+    discoverImages: false,
   },
   runtimeConfig: {
     public: {
@@ -151,8 +153,9 @@ export default defineNuxtConfig({
     }
   },
   
-  // Old URL of the 2D analysis page (Netlify redirects it in netlify.toml)
   routeRules: {
+    '/': { sitemap: { images: [{ loc: '/og-image.png' }] } },
+    // Old URL of the 2D analysis page, for the dev server; Netlify redirects it in netlify.toml
     '/tools/mfoil': { redirect: { to: '/tools/numerical-analysis-2d', statusCode: 301 } },
   },
 
@@ -161,6 +164,8 @@ export default defineNuxtConfig({
     prerender: {
       failOnError: false,
       crawlLinks: true,
+      // a generated redirect page at tools/mfoil/ would shadow the netlify.toml rule and drop the query string
+      ignore: ['/tools/mfoil'],
     },
   },
 })
