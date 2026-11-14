@@ -431,14 +431,17 @@ const loadAnalysisData = async () => {
         areaMax: areaEnabled.value && areaMax.value !== undefined
           ? percentageToDecimal(areaMax.value)
           : undefined,
-        page: 1,
-        limit: 10000, // Get all matching airfoils
       }
 
-      // Query airfoils with geometry filters
-      const searchResult = await searchAirfoils(searchParams)
-      airfoilIds = searchResult.data.map(a => a.id)
-      airfoilNames = searchResult.data.map(a => a.name)
+      // Supabase returns at most 1000 rows per request, so page through all matching airfoils
+      airfoilIds = []
+      airfoilNames = []
+      for (let page = 1; ; page++) {
+        const { data } = await searchAirfoils({ ...searchParams, page, limit: 1000 })
+        airfoilIds.push(...data.map(a => a.id))
+        airfoilNames.push(...data.map(a => a.name))
+        if (data.length < 1000) break
+      }
     }
 
     if (airfoilIds.length === 0) {

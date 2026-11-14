@@ -65,6 +65,7 @@ watch(
   () => [seriesType.value, naca4Params.value, naca5Params.value],
   () => {
     regenerateCoordinates()
+    analysisResults.value = null // the old polar belongs to the previous shape
   },
   { deep: true }
 )

@@ -109,25 +109,27 @@ const removeDuplicates = (
 }
 
 /**
- * Sort upper surface coordinates by X descending (TE to LE)
+ * Upper surface coordinates ordered TE to LE
  */
 const sortUpperCoordinates = (
   upperX: number[],
   upperY: number[]
 ): Array<[number, number]> => {
   const coords = upperX.map((x, i) => [x, upperY[i]] as [number, number])
-  return coords.sort((a, b) => b[0] - a[0]) // Descending X
+  // Orient only: sorting by x scrambles the points of a nose that reaches x < 0
+  return coords.length > 1 && coords[0][0] < coords[coords.length - 1][0] ? coords.reverse() : coords
 }
 
 /**
- * Sort lower surface coordinates by X ascending (LE to TE)
+ * Lower surface coordinates ordered LE to TE
  */
 const sortLowerCoordinates = (
   lowerX: number[],
   lowerY: number[]
 ): Array<[number, number]> => {
   const coords = lowerX.map((x, i) => [x, lowerY[i]] as [number, number])
-  return coords.sort((a, b) => a[0] - b[0]) // Ascending X
+  // Orient only: sorting by x scrambles the points of a nose that reaches x < 0
+  return coords.length > 1 && coords[0][0] > coords[coords.length - 1][0] ? coords.reverse() : coords
 }
 
 /**
@@ -210,7 +212,8 @@ export const exportCSTSelig = (
 
   // Remove duplicates from both surfaces
   const upperCoords = removeDuplicates(upperCoordsSorted)
-  const lowerCoords = removeDuplicates(lowerCoordsSorted)
+  // Selig is one loop: the leading-edge point ends the upper surface, so drop it from the lower
+  const lowerCoords = removeDuplicates([upperCoords[upperCoords.length - 1], ...lowerCoordsSorted]).slice(1)
 
   // Build file content
   const lines: string[] = []

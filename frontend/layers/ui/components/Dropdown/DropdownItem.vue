@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { MenuItem } from '@headlessui/vue'
 
+// $attrs is bound by hand below; without this the click listener is attached twice
+defineOptions({ inheritAttrs: false })
+
 const props = withDefaults(
   defineProps<{
     text?: string

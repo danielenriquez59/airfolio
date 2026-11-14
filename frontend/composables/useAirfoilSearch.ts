@@ -78,6 +78,12 @@ export const useAirfoilSearch = () => {
       supabaseQuery = supabaseQuery.ilike('name', includeTerm)
     }
 
+    // Exclude name filter
+    if (excludeName && excludeName.trim()) {
+      const excludeTerm = `%${excludeName.trim()}%`
+      supabaseQuery = supabaseQuery.not('name', 'ilike', excludeTerm)
+    }
+
     // Thickness filter
     if (thicknessMin !== undefined) {
       supabaseQuery = supabaseQuery.gte('thickness_pct', thicknessMin)
@@ -107,52 +113,26 @@ export const useAirfoilSearch = () => {
       supabaseQuery = supabaseQuery.in('category', categoryIds)
     }
 
-    // For exclude filter, we need to fetch all matching results first, then filter client-side
-    // because Supabase PostgREST doesn't directly support NOT ILIKE
-    const needsExcludeFilter = excludeName && excludeName.trim()
-
     // Map sort field to database column
     const sortColumn =
       sortBy === 'thickness' ? 'thickness_pct'
         : sortBy === 'camber' ? 'camber_pct'
           : sortBy === 'uploadDate' ? 'created_at'
             : 'name'
-    let orderedQuery = supabaseQuery.order(sortColumn, { ascending: sortDir === 'asc' })
-    
-    if (!needsExcludeFilter) {
-      // Normal pagination when no exclude filter
-      orderedQuery = orderedQuery.range(offset, offset + limit - 1)
-    }
-    // If exclude filter needed, fetch all results (no range limit)
-
-    const { data, error, count: rawCount } = await orderedQuery
+    const { data, error, count } = await supabaseQuery
+      .order(sortColumn, { ascending: sortDir === 'asc' })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('Error searching airfoils:', error)
       throw error
     }
 
-    let filteredData = data || []
-    let finalCount = rawCount || 0
-
-    // Apply exclude filter client-side if needed
-    if (needsExcludeFilter && filteredData.length > 0) {
-      const excludeTerm = excludeName.trim().toLowerCase()
-      filteredData = filteredData.filter(airfoil => 
-        !airfoil.name.toLowerCase().includes(excludeTerm)
-      )
-      finalCount = filteredData.length
-      
-      // Apply pagination after filtering
-      const startIdx = offset
-      const endIdx = offset + limit
-      filteredData = filteredData.slice(startIdx, endIdx)
-    }
-
+    const finalCount = count || 0
     const totalPages = finalCount ? Math.ceil(finalCount / limit) : 0
 
     return {
-      data: filteredData,
+      data: data || [],
       count: finalCount,
       page,
       limit,

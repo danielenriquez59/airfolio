@@ -13,6 +13,9 @@ type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 function conditionsMatch(inputs: any, conditions: AnalysisConditions): boolean {
   if (!inputs || typeof inputs !== 'object') return false
 
+  // Rows written by the control-surface page are flapped polars, never the clean airfoil
+  if ((inputs.deflection ?? 0) !== 0) return false
+
   // Check Re
   if (Math.abs((inputs.Re ?? 0) - conditions.Re) > 0.01) return false
 
@@ -113,10 +116,13 @@ export const usePerformanceCache = () => {
   ): Promise<CachedPerformanceData[]> => {
     const results: CachedPerformanceData[] = []
 
-    // Check cache for each airfoil
-    const cacheChecks = await Promise.all(
-      airfoilIds.map(id => fetchCachedData(id, conditions))
-    )
+    // Check cache for each airfoil, 50 at a time: thousands of requests at once make the browser refuse them
+    const cacheChecks: (PerformanceCache | null)[] = []
+    for (let i = 0; i < airfoilIds.length; i += 50) {
+      cacheChecks.push(...await Promise.all(
+        airfoilIds.slice(i, i + 50).map(id => fetchCachedData(id, conditions))
+      ))
+    }
 
     // Determine which airfoils need analysis
     const needsAnalysis: string[] = []
@@ -131,15 +137,19 @@ export const usePerformanceCache = () => {
       }
     })
 
-    // Run analysis for airfoils not in cache
-    let analysisResults: Record<string, any> = {}
-    if (needsAnalysis.length > 0) {
+    // Run analysis for airfoils not in cache, 200 per request: the backend cannot look up thousands of IDs at once
+    const analysisResults = new Map<string, any>()
+    for (let i = 0; i < needsAnalysis.length; i += 200) {
+      const chunk = needsAnalysis.slice(i, i + 200)
       try {
-        const response = await submitAnalysis(needsAnalysis, conditions)
-        if (response.results) {
-          // Backend returns results keyed by airfoil name
-          analysisResults = response.results
-        }
+        const { results: chunkResults } = await submitAnalysis(chunk, conditions)
+        if (!chunkResults) continue
+        // Backend keys results by airfoil name, except for a single airfoil, where it returns the polar itself
+        const inOrder = Object.values(chunkResults)
+        chunk.forEach((id, k) => {
+          const name = airfoilNames[airfoilIds.indexOf(id)]
+          analysisResults.set(id, chunk.length === 1 ? chunkResults : (chunkResults[name] || inOrder[k]))
+        })
       } catch (err: any) {
         console.error('Error running analysis:', err)
         throw err
@@ -168,8 +178,7 @@ export const usePerformanceCache = () => {
           cached: true,
         })
       } else {
-        // Find result in analysis response (keyed by name)
-        const result = analysisResults[name] || Object.values(analysisResults)[idx]
+        const result = analysisResults.get(id)
         if (result) {
           results.push({
             airfoilId: id,

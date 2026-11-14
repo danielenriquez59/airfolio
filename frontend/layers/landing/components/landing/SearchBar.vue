@@ -33,7 +33,6 @@ const showFilters = ref(false)
 
 // Helper functions to convert between display (percentage) and database (decimal) format
 const percentageToDecimal = (value: number): number => value / 100
-const decimalToPercentage = (value: number): number => value * 100
 
 // Initialize from URL params on mount
 onMounted(async () => {
@@ -54,15 +53,8 @@ onMounted(async () => {
     const maxVal = route.query.thicknessMax
       ? parseFloat(route.query.thicknessMax as string)
       : undefined
-
-    // Convert from database format (0.1) to display format (10) if needed
-    // If value is < 1, it's likely in decimal format, convert to percentage
-    thicknessMin.value = minVal !== undefined
-      ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
-      : undefined
-    thicknessMax.value = maxVal !== undefined
-      ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
-      : undefined
+    thicknessMin.value = minVal
+    thicknessMax.value = maxVal
   }
 
   // Check camber filters
@@ -76,12 +68,8 @@ onMounted(async () => {
       : undefined
 
     // Convert from database format (0.1) to display format (10) if needed
-    camberMin.value = minVal !== undefined
-      ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
-      : undefined
-    camberMax.value = maxVal !== undefined
-      ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
-      : undefined
+    camberMin.value = minVal
+    camberMax.value = maxVal
   }
 
   // Check area coefficient filters
@@ -94,12 +82,8 @@ onMounted(async () => {
       ? parseFloat(route.query.areaMax as string)
       : undefined
 
-    areaMin.value = minVal !== undefined
-      ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
-      : undefined
-    areaMax.value = maxVal !== undefined
-      ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
-      : undefined
+    areaMin.value = minVal
+    areaMax.value = maxVal
   }
 
   // Check category filters
@@ -201,6 +185,10 @@ watch(selectedCategoryIds, (ids) => {
 // Update URL function - stores percentage values (10 for 10%) in URL
 const updateURL = () => {
   const query: Record<string, string> = {}
+
+  // Keep the chosen sort; this query replaces the whole URL
+  for (const k of ['sortBy', 'sortDir'])
+    if (typeof route.query[k] === 'string') query[k] = route.query[k] as string
 
   // Add search query if present
   if (searchQuery.value.trim()) {

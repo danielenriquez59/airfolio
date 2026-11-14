@@ -63,6 +63,7 @@ watch(
     if (cstParameters.value) {
       regenerateCoordinates()
     }
+    analysisResults.value = null // the old polar belongs to the previous shape
   },
   { deep: true }
 )

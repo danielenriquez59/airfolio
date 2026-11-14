@@ -27,41 +27,37 @@ const thicknessMin = computed(() => {
   const val = route.query.thicknessMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const thicknessMax = computed(() => {
   const val = route.query.thicknessMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const camberMin = computed(() => {
   const val = route.query.camberMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const camberMax = computed(() => {
   const val = route.query.camberMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const areaMin = computed(() => {
   const val = route.query.areaMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const areaMax = computed(() => {
   const val = route.query.areaMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 
 const categoryIds = computed(() => {
@@ -178,8 +174,8 @@ useInfiniteScroll(
 )
 
 useHead({
-  title: searchQuery.value 
-    ? `${searchQuery.value} - Search Airfoils | Airfolio` 
+  title: () => searchQuery.value
+    ? `${searchQuery.value} - Search Airfoils | Airfolio`
     : 'Search Airfoils - Airfolio',
   meta: [
     {

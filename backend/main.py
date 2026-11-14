@@ -470,6 +470,8 @@ async def analyze(request: AnalysisRequest):
                     detail=f"Error running comparison analysis: {str(e)}"
                 )
     
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error submitting analysis: {str(e)}")
 

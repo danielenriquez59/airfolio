@@ -334,13 +334,13 @@ onMounted(async () => {
 })
 
 useHead({
-  title: airfoil.value 
-    ? `${getDisplayName(airfoil.value)} - Airfoil Details | Airfolio` 
+  title: () => airfoil.value
+    ? `${getDisplayName(airfoil.value)} - Airfoil Details | Airfolio`
     : 'Airfoil Details - Airfolio',
   meta: [
     {
       name: 'description',
-      content: airfoil.value 
+      content: () => airfoil.value
         ? `View geometry, performance data, and analysis results for ${getDisplayName(airfoil.value)}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
         : 'View detailed airfoil geometry, performance data, and analysis results.'
     }
