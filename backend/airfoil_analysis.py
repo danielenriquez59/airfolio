@@ -17,7 +17,7 @@ def analyze_airfoil(
     alpha_range: List[float] = None,  # [start, end, step]
     n_crit: float = 9.0,
     airfoil_name: str = "Airfoil",
-    model_size: str = "xsmall"
+    model_size: str = "xlarge"
 ) -> Dict[str, Any]:
     """
     Analyze an airfoil using AeroSandbox NeuralFoil.
@@ -32,7 +32,7 @@ def analyze_airfoil(
         alpha_range: List [start, end, step] for angle of attack range in degrees
         n_crit: Critical N-factor (default: 9.0)
         airfoil_name: Name of the airfoil (default: "Airfoil")
-        model_size: NeuralFoil model size - "xsmall", "small", "medium", "large" (default: "xsmall")
+        model_size: NeuralFoil model size, "xxsmall" to "xxxlarge" (default: "xlarge")
     
     Returns:
         Dictionary containing analysis results:
