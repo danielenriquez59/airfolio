@@ -112,13 +112,15 @@ export const usePerformanceCache = () => {
   const runAnalysisIfNeeded = async (
     airfoilIds: string[],
     airfoilNames: string[],
-    conditions: AnalysisConditions
+    conditions: AnalysisConditions,
+    onProgress?: (message: string) => void
   ): Promise<CachedPerformanceData[]> => {
     const results: CachedPerformanceData[] = []
 
     // Check cache for each airfoil, 50 at a time: thousands of requests at once make the browser refuse them
     const cacheChecks: (PerformanceCache | null)[] = []
     for (let i = 0; i < airfoilIds.length; i += 50) {
+      onProgress?.(`Checking saved results… ${i.toLocaleString()} of ${airfoilIds.length.toLocaleString()}`)
       cacheChecks.push(...await Promise.all(
         airfoilIds.slice(i, i + 50).map(id => fetchCachedData(id, conditions))
       ))
@@ -141,6 +143,7 @@ export const usePerformanceCache = () => {
     const analysisResults = new Map<string, any>()
     for (let i = 0; i < needsAnalysis.length; i += 200) {
       const chunk = needsAnalysis.slice(i, i + 200)
+      onProgress?.(`Analysing… ${i.toLocaleString()} of ${needsAnalysis.length.toLocaleString()} airfoils`)
       try {
         const { results: chunkResults } = await submitAnalysis(chunk, conditions)
         if (!chunkResults) continue

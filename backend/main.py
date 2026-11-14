@@ -237,7 +237,7 @@ async def health():
 
 
 @app.post("/api/analyze", response_model=AnalysisResponse)
-async def analyze(request: AnalysisRequest):
+def analyze(request: AnalysisRequest):
     """
     Submit an airfoil analysis job (single or multiple airfoils).
     
@@ -383,10 +383,11 @@ async def analyze(request: AnalysisRequest):
                 # Step 2: Batch query for all cached results at once
                 cache_lookup = {}  # airfoil_id -> cached_outputs
                 try:
-                    # Fetch all potential cache entries for these airfoils in a single query
+                    # The hash includes the airfoil id, so querying by hash returns only this condition's rows
+                    # (querying by airfoil_id pulled every cached condition and hit PostgREST's 1000-row cap)
                     cache_response = supabase.table('performance_cache').select(
                         'airfoil_id, cond_hash, outputs'
-                    ).in_('airfoil_id', list(airfoil_hash_map.keys())).execute()
+                    ).in_('cond_hash', [cond_hash for _, cond_hash in airfoil_hash_map.values()]).execute()
                     
                     if cache_response.data:
                         # Build a set of expected (airfoil_id, cond_hash) pairs for fast lookup
@@ -410,6 +411,7 @@ async def analyze(request: AnalysisRequest):
                 
                 # Step 3: Process each airfoil (now just a map lookup, no DB queries!)
                 comparison_results = {}
+                cache_rows = []
                 n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
                 
                 for airfoil_id in request.airfoil_ids:
@@ -443,18 +445,20 @@ async def analyze(request: AnalysisRequest):
                         
                         comparison_results[airfoil_name] = analysis_results
                         
-                        # Store in cache
-                        try:
-                            cache_data = {
-                                'airfoil_id': airfoil_id,
-                                'cond_hash': cond_hash,
-                                'inputs': request.conditions.model_dump(),
-                                'outputs': analysis_results
-                            }
-                            supabase.table('performance_cache').insert(cache_data).execute()
-                        except Exception as e:
-                            print(f"Failed to cache {airfoil_name}: {e}")
+                        cache_rows.append({
+                            'airfoil_id': airfoil_id,
+                            'cond_hash': cond_hash,
+                            'inputs': request.conditions.model_dump(),
+                            'outputs': analysis_results
+                        })
                 
+                # One insert for all new results: a round trip per row cost ~0.1 s each
+                if cache_rows:
+                    try:
+                        supabase.table('performance_cache').insert(cache_rows).execute()
+                    except Exception as e:
+                        print(f"Failed to cache {len(cache_rows)} results: {e}")
+
                 # Return combined results immediately
                 return AnalysisResponse(
                     job_id=None,
@@ -528,7 +532,7 @@ def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surf
 # Airfoil Upload Endpoints
 
 @app.post("/api/airfoils/validate", response_model=AirfoilValidationResponse)
-async def validate_airfoil(request: AirfoilValidationRequest):
+def validate_airfoil(request: AirfoilValidationRequest):
     """
     Validate airfoil coordinates and calculate geometric properties.
     """
@@ -590,7 +594,7 @@ async def validate_airfoil(request: AirfoilValidationRequest):
 
 
 @app.post("/api/airfoils/create", response_model=AirfoilCreateResponse)
-async def create_airfoil(request: AirfoilCreateRequest):
+def create_airfoil(request: AirfoilCreateRequest):
     """
     Create a new airfoil in the database.
     """
@@ -607,7 +611,7 @@ async def create_airfoil(request: AirfoilCreateRequest):
             upper_surface=request.upper_surface,
             lower_surface=request.lower_surface,
         )
-        validation = await validate_airfoil(validation_request)
+        validation = validate_airfoil(validation_request)
         if not validation.valid:
             return AirfoilCreateResponse(
                 success=False,
@@ -679,7 +683,7 @@ async def create_airfoil(request: AirfoilCreateRequest):
 # Control Surface Analysis Endpoint
 
 @app.post("/api/control-surface/analyze", response_model=ControlSurfaceAnalysisResponse)
-async def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
+def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
     """
     Analyze airfoil with trailing edge flap deflections.
     For each flap configuration, checks cache first, then generates deflected geometry
@@ -856,7 +860,7 @@ async def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
 
 
 @app.post("/api/analyze-transient")
-async def analyze_transient(request: TransientAnalysisRequest):
+def analyze_transient(request: TransientAnalysisRequest):
     """
     Analyze transient airfoil coordinates directly (no caching, no database lookup).
     This unified endpoint is for CST, NACA, or any custom airfoil that shouldn't be cached.
@@ -922,7 +926,7 @@ async def analyze_transient(request: TransientAnalysisRequest):
 
 
 @app.post("/api/analyze-cst")
-async def analyze_cst(request: CSTAnalysisRequest):
+def analyze_cst(request: CSTAnalysisRequest):
     """
     Analyze CST-generated airfoil coordinates directly (no caching, no database lookup).
     Legacy endpoint - redirects to analyze-transient for backward compatibility.
@@ -940,11 +944,11 @@ async def analyze_cst(request: CSTAnalysisRequest):
         n_crit=request.n_crit,
         airfoil_name="CST Airfoil"
     )
-    return await analyze_transient(transient_request)
+    return analyze_transient(transient_request)
 
 
 @app.post("/api/analyze-naca")
-async def analyze_naca(request: NACAAnalysisRequest):
+def analyze_naca(request: NACAAnalysisRequest):
     """
     Analyze NACA-generated airfoil coordinates directly (no caching, no database lookup).
     Legacy endpoint - redirects to analyze-transient for backward compatibility.
@@ -962,11 +966,11 @@ async def analyze_naca(request: NACAAnalysisRequest):
         n_crit=request.n_crit,
         airfoil_name=request.naca_designation
     )
-    return await analyze_transient(transient_request)
+    return analyze_transient(transient_request)
 
 
 @app.post("/api/bezier-fit", response_model=BezierFitResponse)
-async def bezier_fit(request: BezierFitRequest):
+def bezier_fit(request: BezierFitRequest):
     """
     Fit Bezier curves to airfoil coordinates.
     Returns control points and fitted curve data for upper and lower surfaces.

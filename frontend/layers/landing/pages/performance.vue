@@ -47,6 +47,7 @@ const performanceMode = ref<'performance' | 'detail'>('performance')
 
 // Loading and error states
 const isLoading = ref(false)
+const progressMessage = ref('')
 const error = ref<string | null>(null)
 
 // Data context (from analysis conditions)
@@ -470,7 +471,7 @@ const loadAnalysisData = async () => {
     }
 
     // Run analysis (checks cache and runs if needed)
-    const performanceData = await runAnalysisIfNeeded(airfoilIds, airfoilNames, conditions)
+    const performanceData = await runAnalysisIfNeeded(airfoilIds, airfoilNames, conditions, m => { progressMessage.value = m })
 
     if (performanceData.length === 0) {
       error.value = 'No performance data available.'
@@ -493,6 +494,7 @@ const loadAnalysisData = async () => {
     error.value = err.message || 'Failed to load analysis data'
   } finally {
     isLoading.value = false
+    progressMessage.value = ''
   }
 }
 
@@ -1053,6 +1055,7 @@ onMounted(async () => {
           <span v-if="isLoading" class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
           <span>{{ isLoading ? 'Running Analysis...' : 'Run NN Analysis' }}</span>
         </VButton>
+        <p v-if="isLoading && progressMessage" class="mt-2 text-sm text-gray-500" role="status">{{ progressMessage }}</p>
         <p
           v-if="!canRunAnalysis && !isLoading"
           id="perf-run-reason"
