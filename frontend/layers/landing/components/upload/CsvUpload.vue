@@ -19,15 +19,14 @@ const isLoading = ref(false)
 
 const isDragging = ref(false)
 
-const triggerFileInput = () => {
+function triggerFileInput() {
   fileInput.value?.click()
 }
 
-const clearFile = () => {
+function clearFile() {
   fileName.value = ''
-  if (fileInput.value) {
+  if (fileInput.value)
     fileInput.value.value = ''
-  }
 }
 
 async function loadFile(file: File) {
@@ -41,14 +40,17 @@ async function loadFile(file: File) {
     if (result.error) {
       emit('error', result.error)
       clearFile()
-    } else {
+    }
+    else {
       emit('load', { upper: result.upper, lower: result.lower, airfoilName: result.airfoilName })
     }
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to read file'
     emit('error', message)
     clearFile()
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }

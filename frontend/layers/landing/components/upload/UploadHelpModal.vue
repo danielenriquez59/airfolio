@@ -65,15 +65,25 @@ defineEmits<{
 
             <section>
               <h3 class="mb-2 text-sm font-semibold text-gray-900">
-                Method 2: Manual entry
+                Method 2: Edit points
               </h3>
               <ol class="ml-5 list-decimal space-y-1">
-                <li>Use the <strong>Manual entry</strong> tab</li>
-                <li>Enter X and Y values for upper surface (minimum 10 points)</li>
-                <li>Continue adding rows for lower surface (minimum 10 points)</li>
+                <li>Use the <strong>Edit points</strong> tab (a loaded file lands here too)</li>
+                <li>Type or paste one point per line as <code>x y</code> or <code>x, y</code></li>
+                <li>Enter at least 10 points for each surface</li>
                 <li>X values must be monotonic (all increasing or all decreasing)</li>
-                <li>Click <strong>Add row</strong> to add more coordinate pairs</li>
+                <li>The plot updates as you type</li>
               </ol>
+            </section>
+
+            <section>
+              <h3 class="mb-2 text-sm font-semibold text-gray-900">
+                Smoothing with a CST fit
+              </h3>
+              <p>
+                Digitized points from a paper are often noisy. Open the <strong>CST fit</strong> tab on the
+                geometry view to fit a smooth CST curve and replace your points with it before uploading.
+              </p>
             </section>
 
             <section class="rounded-lg border border-warning-200 bg-warning-50 p-4">

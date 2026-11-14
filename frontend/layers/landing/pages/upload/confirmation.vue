@@ -13,9 +13,9 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'Review calculated airfoil properties before submitting to the database.'
-    }
-  ]
+      content: 'Review calculated airfoil properties before submitting to the database.',
+    },
+  ],
 })
 
 const route = useRoute()
@@ -46,7 +46,7 @@ onMounted(async () => {
 
     // Fetch categories map
     const categories = await fetchCategories()
-    categories.forEach(cat => {
+    categories.forEach((cat) => {
       categoryMap.value.set(cat.id, cat)
     })
 
@@ -76,16 +76,19 @@ onMounted(async () => {
     }
 
     calculatedProperties.value = response.calculated_properties
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Confirmation error:', err)
     error.value = err instanceof Error ? err.message : 'Failed to load confirmation page'
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 })
 
-const handleConfirm = async () => {
-  if (!uploadData.value || !calculatedProperties.value) return
+async function handleConfirm() {
+  if (!uploadData.value || !calculatedProperties.value)
+    return
 
   isConfirming.value = true
   error.value = ''
@@ -100,12 +103,11 @@ const handleConfirm = async () => {
       lower_surface: uploadData.value.lowerSurface,
       source_url: uploadData.value.sourceUrl,
     }
-    
+
     // Include category if selected
-    if (uploadData.value.categoryId) {
+    if (uploadData.value.categoryId)
       body.category = uploadData.value.categoryId
-    }
-    
+
     const response = await $fetch(`${config.public.backendUrl}/api/airfoils/create`, {
       method: 'POST',
       body,
@@ -117,18 +119,21 @@ const handleConfirm = async () => {
 
       // Redirect to airfoil detail page
       await router.push(`/airfoils/${encodeURIComponent(response.slug)}`)
-    } else {
+    }
+    else {
       error.value = 'Failed to create airfoil. Please try again.'
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Confirmation error:', err)
     error.value = err instanceof Error ? err.message : 'Failed to create airfoil'
-  } finally {
+  }
+  finally {
     isConfirming.value = false
   }
 }
 
-const handleBack = async () => {
+async function handleBack() {
   if (hash)
     await router.push(`/upload?hash=${encodeURIComponent(hash)}`)
   else
@@ -185,6 +190,9 @@ const handleBack = async () => {
       </div>
 
       <template #actions>
+        <p class="w-full text-sm font-medium text-error-600">
+          You will not be able to delete this airfoil once uploaded.
+        </p>
         <VButton type="button" color="light" :disabled="isConfirming" @click="handleBack">
           <Icon name="heroicons:arrow-left-20-solid" class="h-4 w-4" aria-hidden="true" />
           Back to edit
