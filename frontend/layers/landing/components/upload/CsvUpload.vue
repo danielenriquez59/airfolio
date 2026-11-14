@@ -142,7 +142,7 @@ const exampleDAT = `NACA-0012
           File format
         </h4>
         <ul class="ml-4 list-disc space-y-1 text-xs text-gray-700">
-          <li>First row: airfoil name (alphanumeric, hyphens, max 12 characters)</li>
+          <li>First row: airfoil name (letters, numbers, spaces, hyphens, underscores and periods only)</li>
           <li>Upper surface coordinates (minimum 10 points)</li>
           <li>Optional blank line separator (auto-detected if missing)</li>
           <li>Lower surface coordinates (minimum 10 points)</li>

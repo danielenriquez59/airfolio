@@ -54,7 +54,7 @@ defineEmits<{
 0.005,-0.00802
 ...</pre>
               <ul class="ml-5 list-disc space-y-1">
-                <li>First row: airfoil name (alphanumeric, hyphens allowed, max 12 characters)</li>
+                <li>First row: airfoil name (letters, numbers, spaces, hyphens, underscores and periods only)</li>
                 <li>Upper surface coordinates (minimum 10 points, one per row)</li>
                 <li>Optional blank line separating surfaces (auto-detected if missing)</li>
                 <li>Lower surface coordinates (minimum 10 points)</li>
@@ -93,7 +93,7 @@ defineEmits<{
               <ul class="ml-5 list-disc space-y-1 text-warning-800">
                 <li>X-coordinates must be <strong>monotonic</strong> (strictly increasing OR decreasing)</li>
                 <li>Both upper and lower surfaces must have at least <strong>10 coordinate pairs</strong></li>
-                <li>Airfoil name must be alphanumeric with hyphens allowed, maximum 12 characters</li>
+                <li>Airfoil name (letters, numbers, spaces, hyphens, underscores and periods only)</li>
                 <li>All values must be valid numbers</li>
                 <li>X and Y values should be within reasonable aerodynamic ranges</li>
                 <li>Blank line separator is optional - the system will auto-detect the split point</li>

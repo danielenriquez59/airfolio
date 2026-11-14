@@ -99,8 +99,10 @@ class AirfoilValidationResponse(BaseModel):
 
 class AirfoilCreateRequest(BaseModel):
     """Request to create a new airfoil"""
-    name: str = Field(..., min_length=1, description="Normalized airfoil name (alphanumeric only)")
-    display_name: Optional[str] = Field(None, description="Display name (any characters, defaults to name if not provided)")
+    # lower-case and address-safe: Netlify lower-cases paths, so other names break the airfoil page
+    name: str = Field(..., pattern=r"^[a-z0-9._-]+$", description="Normalized airfoil name (alphanumeric only)")
+    # same rule as validateNameFormat in frontend/composables/useAirfoilUpload.ts
+    display_name: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9 ._-]+$", description="Display name (letters, digits, spaces, hyphens, underscores, periods; defaults to name if not provided)")
     description: Optional[str] = None
     upper_surface: List[CoordinatePair] = Field(..., description="Upper surface coordinates")
     lower_surface: List[CoordinatePair] = Field(..., description="Lower surface coordinates")
