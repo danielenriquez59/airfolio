@@ -19,7 +19,7 @@ const navigation: NavigationItem[] = [
       { title: 'Geometry Compare', to: '/geometry-compare' },
       { divider: true },
       { header: 'Analyze' },
-      { title: 'Numerical Analysis 2D', to: '/tools/mfoil' },
+      { title: 'Numerical Analysis 2D', to: '/tools/numerical-analysis-2d' },
       { divider: true },
       { header: 'Generate' },
       { title: 'Upload', to: '/upload' },

@@ -42,10 +42,12 @@ interface PerformanceDataPoint {
 interface Props {
   performanceData: PerformanceDataPoint[]
   showControls?: boolean // Whether to show reset zoom and tooltip toggle buttons
+  showExplanation?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showControls: true
+  showControls: true,
+  showExplanation: true
 })
 
 /**
@@ -276,7 +278,7 @@ defineExpose({
     </div>
 
     <!-- Plot Explanation (Collapsible) -->
-    <details class="group rounded-lg border border-gray-200">
+    <details v-if="showExplanation" class="group rounded-lg border border-gray-200">
       <summary
         class="flex cursor-pointer items-center justify-between rounded-lg px-4 py-3 text-sm font-medium text-gray-900 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
       >

@@ -144,6 +144,11 @@ export default defineNuxtConfig({
     }
   },
   
+  // Old URL of the 2D analysis page (Netlify redirects it in netlify.toml)
+  routeRules: {
+    '/tools/mfoil': { redirect: { to: '/tools/numerical-analysis-2d', statusCode: 301 } },
+  },
+
   nitro: {
     preset: 'static',
     prerender: {

@@ -414,7 +414,7 @@ useHead({
           </VButton>
           <VButton
             v-if="airfoil.id"
-            :to="`/tools/mfoil?airfoil=${encodeURIComponent(airfoilSlug)}`"
+            :to="`/tools/numerical-analysis-2d?airfoil=${encodeURIComponent(airfoilSlug)}`"
             color="light"
           >
             <Icon name="tabler:wind" class="h-4 w-4" aria-hidden="true" />

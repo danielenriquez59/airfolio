@@ -141,6 +141,7 @@ function startRun() {
 }
 
 const converged = computed(() => results.value.filter(p => p.converged))
+const lastPoint = computed(() => results.value.find(p => p.alpha === latestAlpha.value))
 const airfoilLabel = computed(() => airfoil.value?.display_name || airfoil.value?.name || '')
 
 const polarData = computed(() => [{
@@ -194,8 +195,16 @@ function downloadCSV() {
     <PageHeader
       eyebrow="Tools"
       title="Numerical Analysis 2D"
-      subtitle="Run a viscous polar with mfoil, an XFOIL-style panel and boundary-layer solver, entirely in your browser. Nothing is sent to a server."
-    />
+    >
+      <template #subtitle>
+        Run a viscous polar with <a
+          href="https://websites.umich.edu/kfid/codes.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-primary-600 underline hover:text-primary-700"
+        >mfoil</a>, an XFOIL-style panel and boundary-layer solver, entirely in your browser.
+      </template>
+    </PageHeader>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Inputs -->
@@ -316,6 +325,14 @@ function downloadCSV() {
             <p v-else class="mt-2 text-xs text-gray-500">
               {{ alphas.length }} angles
             </p>
+            <p
+              v-if="isRunning && lastPoint"
+              class="mt-1 text-xs"
+              :class="lastPoint.converged ? 'text-gray-600' : 'text-warning-700'"
+              aria-live="polite"
+            >
+              AoA {{ lastPoint.alpha }}° {{ lastPoint.converged ? 'converged' : 'not converged' }}
+            </p>
             <p v-if="status === 'error'" class="mt-2 text-xs text-error-700" role="alert">
               {{ runError || 'The run failed.' }}
             </p>
@@ -326,7 +343,7 @@ function downloadCSV() {
       <!-- Results -->
       <div class="min-w-0 space-y-6 lg:col-span-2">
         <VPanel flush>
-          <div class="flex gap-2 overflow-x-auto whitespace-nowrap border-b border-gray-200 px-2 sm:px-3" role="tablist">
+          <div class="flex gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-gray-200 px-2 sm:px-3" role="tablist">
             <button
               v-for="t in ([['polars', 'Polars'], ['op', 'Op. Point']] as const)"
               :key="t[0]"
@@ -347,10 +364,7 @@ function downloadCSV() {
             <VStateBlock v-else-if="!results.length" icon="heroicons:chart-bar" title="No results yet" description="Set the flow conditions, then run the viscous polar." />
             <!-- v-if, not v-show: charts mount when their tab is visible, so canvases never size to zero -->
             <template v-else-if="tab === 'polars'">
-              <p class="mb-3 text-xs text-gray-500">
-                Converged points only
-              </p>
-              <AirfoilPolarPlots v-if="converged.length" :performance-data="polarData" />
+              <AirfoilPolarPlots v-if="converged.length" :performance-data="polarData" :show-explanation="false" />
               <VStateBlock v-else icon="heroicons:chart-bar" title="No converged points yet" />
             </template>
             <div v-else-if="selectedPoint" class="space-y-4">
