@@ -7,14 +7,12 @@ import {
   DisclosurePanel,
 } from '@headlessui/vue'
 import type { NavigationItem } from '~~/types'
-import { useAuthStore } from '~~/stores/auth'
 
 defineProps<{
   navigation: NavigationItem[]
 }>()
 
 const mobileMenu = useMobileMenu()
-const auth = useAuthStore()
 
 const route = useRoute()
 const isActive = (to?: string) => !!to && (route.path === to || (to !== '/' && route.path.startsWith(`${to}/`)))
@@ -77,14 +75,6 @@ function linkClass(to?: string) {
               {{ item.title }}
             </NuxtLink>
           </template>
-          <NuxtLink
-            v-if="auth.loggedIn"
-            to="/admin"
-            :class="linkClass('/admin')"
-            @click="mobileMenu = false"
-          >
-            Admin
-          </NuxtLink>
         </nav>
       </DialogPanel>
     </Dialog>
