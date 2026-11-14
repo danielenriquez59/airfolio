@@ -3,7 +3,9 @@ const appName = 'Airfolio'
 
 useHead({
   titleTemplate: (titleChunk) => {
-    return titleChunk ? `${titleChunk} - ${appName}` : appName
+    if (!titleChunk) return appName
+    // many pages already name the app in their own title; don't add it twice
+    return titleChunk.includes(appName) ? titleChunk : `${titleChunk} - ${appName}`
   },
   meta: [
     {
