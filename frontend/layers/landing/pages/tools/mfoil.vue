@@ -404,7 +404,7 @@ function downloadCSV() {
 
           <VPanel title="Results" flush>
             <template #actions>
-              <VButton type="button" color="light" size="sm" :disabled="!results.length" @click="downloadCSV">
+              <VButton type="button" color="light" size="sm" @click="downloadCSV">
                 <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
                 Download CSV
               </VButton>
