@@ -1,6 +1,7 @@
 /**
  * Composable for Bezier curve fitting operations
  */
+import { removeDuplicates, sortLowerCoordinates, sortUpperCoordinates } from '~/composables/useAirfoilDownload'
 
 export interface BezierControlPoints {
   x: number[]
@@ -101,6 +102,73 @@ export function reparametrizeBezierPoints(
     upper: evaluateBezierCurve(fitResponse.upper_control_points, tValues),
     lower: evaluateBezierCurve(fitResponse.lower_control_points, tValues),
   }
+}
+
+export interface CurvatureData {
+  x: number[]
+  k: number[]
+}
+
+/** Scaled forward differences: control points of a degree-n Bezier's derivative. */
+function derivativeControlPoints(cp: BezierControlPoints): BezierControlPoints {
+  const n = cp.x.length - 1
+  return {
+    x: cp.x.slice(1).map((x, i) => n * (x - cp.x[i])),
+    y: cp.y.slice(1).map((y, i) => n * (y - cp.y[i])),
+  }
+}
+
+/**
+ * Exact curvature of a fitted Bezier surface, sampled with cosine spacing.
+ * Sign: positive where the surface bulges outward (convex), for both surfaces.
+ */
+export function bezierCurvature(
+  cp: BezierControlPoints,
+  surface: 'upper' | 'lower',
+  numPoints: number = CURVE_SAMPLE_COUNT,
+): CurvatureData {
+  const t = generateCosineSpacing(numPoints)
+  const p = evaluateBezierCurve(cp, t)
+  const d1cp = derivativeControlPoints(cp)
+  const d1 = evaluateBezierCurve(d1cp, t)
+  const d2 = evaluateBezierCurve(derivativeControlPoints(d1cp), t)
+  // Signed curvature depends on travel direction; normalise so convex is positive.
+  const dir = Math.sign(cp.x[cp.x.length - 1] - cp.x[0]) || 1
+  const s = (surface === 'upper' ? -1 : 1) * dir
+  const k = t.map((_, i) => {
+    const speed = Math.hypot(d1.x[i], d1.y[i])
+    return s * (d1.x[i] * d2.y[i] - d1.y[i] * d2.x[i]) / speed ** 3
+  })
+  return { x: p.x, k }
+}
+
+/**
+ * Discrete curvature of raw points (circle through each point and its neighbours).
+ * Walks the closed loop upper TE->LE->lower TE (counter-clockwise), so convex is positive
+ * and the leading-edge point gets a value. The two trailing-edge ends have none.
+ */
+export function discreteCurvature(
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[],
+): { upper: CurvatureData; lower: CurvatureData } {
+  const upper = sortUpperCoordinates(upperX, upperY)
+  const loop = removeDuplicates([...upper, ...sortLowerCoordinates(lowerX, lowerY)])
+  const upperEnd = removeDuplicates(upper).length // index after the leading-edge point
+  const result = { upper: { x: [] as number[], k: [] as number[] }, lower: { x: [] as number[], k: [] as number[] } }
+
+  for (let i = 1; i < loop.length - 1; i++) {
+    const [ax, ay] = loop[i - 1]
+    const [bx, by] = loop[i]
+    const [cx, cy] = loop[i + 1]
+    const cross = (bx - ax) * (cy - by) - (by - ay) * (cx - bx)
+    const k = 2 * cross / (Math.hypot(bx - ax, by - ay) * Math.hypot(cx - bx, cy - by) * Math.hypot(cx - ax, cy - ay))
+    const target = i < upperEnd ? result.upper : result.lower
+    target.x.push(bx)
+    target.k.push(k)
+  }
+  return result
 }
 
 export const useBezierFit = () => {

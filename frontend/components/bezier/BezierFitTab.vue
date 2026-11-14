@@ -24,6 +24,7 @@ const reparamCount = ref(80)
 const reparamPoints = ref<ReparametrizedPoints | null>(null)
 const exportFormat = ref<'selig' | 'lednicer' | 'csv'>('selig')
 const controlPointsEdited = ref(false)
+const showCurvature = ref(false)
 
 const geometryKey = computed(
   () => `${props.airfoilName}:${props.upperX.length}:${props.lowerX.length}:${props.upperX[0]}:${props.lowerX[0]}`,
@@ -197,6 +198,15 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         <Icon name="heroicons:arrow-path" class="h-4 w-4" />
         Reparametrize Points
       </VButton>
+
+      <label class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+        <input
+          v-model="showCurvature"
+          type="checkbox"
+          class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        >
+        Show curvature
+      </label>
     </div>
 
     <!-- Error Display -->
@@ -233,6 +243,18 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         :reparam-upper-y="reparamPoints?.upper.y"
         :reparam-lower-x="reparamPoints?.lower.x"
         :reparam-lower-y="reparamPoints?.lower.y"
+      />
+    </div>
+
+    <!-- Curvature plot -->
+    <div v-if="showCurvature" class="border border-gray-200 rounded-lg p-4 bg-white">
+      <BezierCurvaturePlot
+        :upper-x="upperX"
+        :upper-y="upperY"
+        :lower-x="lowerX"
+        :lower-y="lowerY"
+        :upper-control-points="fitResult?.upper_control_points"
+        :lower-control-points="fitResult?.lower_control_points"
       />
     </div>
 
