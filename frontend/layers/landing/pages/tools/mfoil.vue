@@ -23,7 +23,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-const MAX_ANGLES = 40
+const MAX_ANGLES = 100
 
 const route = useRoute()
 const router = useRouter()
@@ -85,7 +85,7 @@ const mach = ref(0)
 const ncrit = ref(9)
 const alphaMin = ref(-4)
 const alphaMax = ref(14)
-const alphaStep = ref(1)
+const alphaStep = ref(0.5)
 const npanel = ref<120 | 199>(120)
 const smooth = ref(false)
 
@@ -202,6 +202,30 @@ function downloadCSV() {
       <div class="min-w-0 space-y-6">
         <VPanel title="Airfoil">
           <SparAirfoilSelector v-model="selected" />
+          <div class="mt-3 flex items-center gap-1.5">
+            <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+              <input v-model="smooth" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+              Smooth airfoil
+            </label>
+            <div class="group relative">
+              <button
+                type="button"
+                class="flex rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                aria-label="About Smooth airfoil"
+                aria-describedby="mf-smooth-tip"
+              >
+                <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <div
+                id="mf-smooth-tip"
+                role="tooltip"
+                class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+              >
+                CST fit airfoil
+                <div class="absolute left-1/2 top-full -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+              </div>
+            </div>
+          </div>
           <div class="mt-4">
             <VStateBlock v-if="loading" variant="loading" title="Loading airfoil" />
             <VStateBlock v-else-if="loadError" variant="error" title="Could not load airfoil" :description="loadError" />
@@ -259,31 +283,6 @@ function downloadCSV() {
               >
                 {{ opt[0] }} <span class="text-gray-500">{{ opt[1] }}</span>
               </button>
-            </div>
-          </div>
-
-          <div class="mt-4 flex items-center gap-1.5">
-            <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
-              <input v-model="smooth" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-              Smooth airfoil
-            </label>
-            <div class="group relative">
-              <button
-                type="button"
-                class="flex rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                aria-label="About Smooth airfoil"
-                aria-describedby="mf-smooth-tip"
-              >
-                <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
-              </button>
-              <div
-                id="mf-smooth-tip"
-                role="tooltip"
-                class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
-              >
-                CST fit airfoil
-                <div class="absolute left-1/2 top-full -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-              </div>
             </div>
           </div>
 

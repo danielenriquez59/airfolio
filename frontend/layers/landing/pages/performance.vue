@@ -1043,12 +1043,12 @@ onMounted(async () => {
           size="lg"
           block
           :disabled="!canRunAnalysis"
-          :aria-label="isLoading ? 'Running Analysis...' : 'Run Performance Analysis'"
+          :aria-label="isLoading ? 'Running Analysis...' : 'Run NN Analysis'"
           :aria-describedby="!canRunAnalysis && !isLoading ? 'perf-run-reason' : undefined"
           @click="paramsFormRef?.submit()"
         >
           <span v-if="isLoading" class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
-          <span>{{ isLoading ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
+          <span>{{ isLoading ? 'Running Analysis...' : 'Run NN Analysis' }}</span>
         </VButton>
         <p
           v-if="!canRunAnalysis && !isLoading"

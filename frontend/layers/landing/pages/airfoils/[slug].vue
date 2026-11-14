@@ -401,15 +401,15 @@ useHead({
         </template>
         <template #actions>
           <VButton v-if="airfoil.id" color="primary" @click="showAnalysisModal = true">
-            <Icon name="heroicons:play" class="h-4 w-4" aria-hidden="true" />
-            Run Performance Analysis
+            <Icon name="tabler:brain" class="h-4 w-4" aria-hidden="true" />
+            Run NN Analysis
           </VButton>
           <VButton
             v-if="airfoil.id"
             :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
             color="light"
           >
-            <Icon name="heroicons:adjustments-horizontal" class="h-4 w-4" aria-hidden="true" />
+            <Icon name="tabler:angle" class="h-4 w-4" aria-hidden="true" />
             Control Surface Analysis
           </VButton>
           <VButton
@@ -417,7 +417,7 @@ useHead({
             :to="`/tools/mfoil?airfoil=${encodeURIComponent(airfoilSlug)}`"
             color="light"
           >
-            <Icon name="heroicons:chart-bar" class="h-4 w-4" aria-hidden="true" />
+            <Icon name="tabler:wind" class="h-4 w-4" aria-hidden="true" />
             Numerical Analysis 2D
           </VButton>
           <VDropdown
@@ -714,7 +714,7 @@ useHead({
     <!-- Analysis Modal -->
     <VModal v-model="showAnalysisModal">
       <VModalHeader dismissable>
-        Run Performance Analysis
+        Run NN Analysis
       </VModalHeader>
       <VModalBody>
         <div class="space-y-4">

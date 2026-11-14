@@ -368,7 +368,7 @@ onMounted(async () => {
                 class="h-4 w-4 animate-spin"
                 aria-hidden="true"
               />
-              <span>{{ isAnalyzing ? 'Running analysis…' : 'Run performance analysis' }}</span>
+              <span>{{ isAnalyzing ? 'Running analysis…' : 'Run NN analysis' }}</span>
             </VButton>
             <p v-if="!isValidConfig" id="cs-run-reason" class="mt-2 text-xs text-error-700">
               Each configuration needs a deflection between −30° and 30° and a hinge point between 0.50 and 0.90.
