@@ -412,6 +412,14 @@ useHead({
             <Icon name="heroicons:adjustments-horizontal" class="h-4 w-4" aria-hidden="true" />
             Control Surface Analysis
           </VButton>
+          <VButton
+            v-if="airfoil.id"
+            :to="`/tools/mfoil?airfoil=${encodeURIComponent(airfoilSlug)}`"
+            color="light"
+          >
+            <Icon name="heroicons:chart-bar" class="h-4 w-4" aria-hidden="true" />
+            Numerical Analysis 2D
+          </VButton>
           <VDropdown
             v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
             right
