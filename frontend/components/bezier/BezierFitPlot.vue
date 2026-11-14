@@ -208,13 +208,16 @@ const axisRanges = computed(() => {
   }
 })
 
+// Below Tailwind `sm` a 2.5 ratio leaves the airfoil ~40px tall under the legend
+const isSmUp = useMediaQuery('(min-width: 640px)')
+
 const chartOptions = computed(() => {
   const ranges = axisRanges.value
 
   return {
     responsive: true,
     maintainAspectRatio: true,
-    aspectRatio: 2.5,
+    aspectRatio: isSmUp.value ? 2.5 : 1.4,
     plugins: {
       legend: {
         display: true,

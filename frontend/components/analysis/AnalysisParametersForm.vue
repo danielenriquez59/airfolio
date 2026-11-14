@@ -210,10 +210,10 @@ const uid = useId()
           <div
             :id="`${uid}-ncrit-tip`"
             role="tooltip"
-            class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-72 max-w-[80vw] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+            class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-72 max-w-[80vw] lg:left-1/2 lg:-translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
           >
             In airfoil analysis using XFOIL, Ncrit (critical amplification factor) is a key parameter that controls the transition from laminar to turbulent flow over the airfoil surface by modeling the growth of Tollmien-Schlichting waves via linear instability. It represents the logarithm of the amplification factor of the most-amplified frequency that triggers transition, and its value is chosen based on the ambient disturbance level in the operating environment. A higher Ncrit value indicates a less sensitive flow, promoting laminar flow over a larger portion of the airfoil, while a lower value indicates a more sensitive flow, leading to earlier transition to turbulence. Typical Ncrit values range from 12–14 for high-performance sailplanes where laminar flow is desired, 9 for average wind tunnel conditions (the default in XFOIL), and 4–8 for dirty or highly turbulent environments.
-            <div class="absolute left-1/2 top-full -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+            <div class="absolute left-2 top-full lg:left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
           </div>
         </div>
       </div>

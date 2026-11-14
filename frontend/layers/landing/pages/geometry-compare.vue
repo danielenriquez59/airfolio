@@ -138,7 +138,7 @@ onMounted(() => {
 
       <!-- Results -->
       <VPanel flush class="min-w-0 lg:col-span-2">
-        <div class="flex gap-2 overflow-x-auto border-b border-gray-200 px-2 sm:px-3" role="tablist">
+        <div class="flex gap-2 overflow-x-auto whitespace-nowrap border-b border-gray-200 px-2 sm:px-3" role="tablist">
           <button
             type="button"
             role="tab"
