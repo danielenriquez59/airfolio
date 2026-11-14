@@ -31,7 +31,7 @@ const {
   generateNormalizedName,
 } = useAirfoilUpload()
 
-const { fitCSTParameters, generateCSTCoordinates } = useCSTParameters()
+const { fitCSTAirfoil } = useCSTParameters()
 const { fetchCategories } = useCategories()
 
 const route = useRoute()
@@ -128,16 +128,15 @@ const cstPointsPerSurface = ref(100)
 const cstFit = computed(() => {
   if (geomTab.value !== 'cst' || upper.value.badLines.length || lower.value.badLines.length)
     return null
-  const order = cstWeights.value - 1
   // Fit needs at least as many points as unknowns (2 * weights + 2)
   if (upper.value.pts.length + lower.value.pts.length < 2 * cstWeights.value + 2)
     return null
-  // fitCSTParameters expects upper TE→LE and lower LE→TE
-  const u = [...upper.value.pts].sort((a, b) => b.x - a.x)
-  const l = [...lower.value.pts].sort((a, b) => a.x - b.x)
-  const p = fitCSTParameters(u.map(q => q.x), u.map(q => q.y), l.map(q => q.x), l.map(q => q.y), order)
+  // fitCSTAirfoil expects upper TE→LE and lower LE→TE (and returns that ordering); flip a surface entered
+  // the other way, but don't sort, which would scramble a cambered nose that dips below the LE x
+  const u = upper.value.pts[0].x < upper.value.pts.at(-1)!.x ? [...upper.value.pts].reverse() : upper.value.pts
+  const l = lower.value.pts[0].x > lower.value.pts.at(-1)!.x ? [...lower.value.pts].reverse() : lower.value.pts
   const n = Math.min(Math.max(Math.round(cstPointsPerSurface.value) || 0, MIN_POINTS_PER_SURFACE), MAX_POINTS_PER_SURFACE)
-  return generateCSTCoordinates(p.upperWeights, p.lowerWeights, p.leWeight, p.teThickness, order, n - 1)
+  return fitCSTAirfoil(u.map(q => q.x), u.map(q => q.y), l.map(q => q.x), l.map(q => q.y), cstWeights.value, n - 1)
 })
 
 function applyCstFit() {
@@ -145,7 +144,7 @@ function applyCstFit() {
   if (!fit)
     return
   const round = (v: number) => Number(v.toFixed(6))
-  const upperPts = fit.upperX.map((x, i) => ({ x: round(x), y: round(fit.upperY[i]) })).reverse()
+  const upperPts = fit.upperX.map((x, i) => ({ x: round(x), y: round(fit.upperY[i]) }))
   const lowerPts = fit.lowerX.map((x, i) => ({ x: round(x), y: round(fit.lowerY[i]) }))
   upperText.value = toText(upperPts)
   lowerText.value = toText(lowerPts)
@@ -252,8 +251,8 @@ function resetForm() {
 }
 
 const surfaces = computed(() => [
-  { key: 'upperSurface', label: 'Upper surface', hint: 'TE → LE', model: upperText, count: upper.value.pts.length },
-  { key: 'lowerSurface', label: 'Lower surface', hint: 'LE → TE', model: lowerText, count: lower.value.pts.length },
+  { key: 'upperSurface', label: 'Upper surface', short: 'Upper', hint: 'TE → LE', model: upperText, count: upper.value.pts.length },
+  { key: 'lowerSurface', label: 'Lower surface', short: 'Lower', hint: 'LE → TE', model: lowerText, count: lower.value.pts.length },
 ])
 </script>
 
@@ -416,7 +415,7 @@ const surfaces = computed(() => [
             />
 
             <dl class="mt-4 grid grid-cols-2 gap-4 border-t border-gray-200 pt-4">
-              <VStat v-for="s in surfaces" :key="s.key" :label="`${s.label} points`">
+              <VStat v-for="s in surfaces" :key="s.key" :label="`${s.short} points`">
                 <span class="inline-flex items-center gap-1.5">
                   {{ s.count }}
                   <Icon

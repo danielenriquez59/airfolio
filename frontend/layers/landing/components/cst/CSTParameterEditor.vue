@@ -19,7 +19,7 @@ const emit = defineEmits<Emits>()
 
 const { searchAirfoilsByPrefix } = useAirfoilAutocomplete()
 const { fetchAirfoilGeometry } = useAirfoils()
-const { fitCSTParameters } = useCSTParameters()
+const { fitCSTNormalised } = useCSTParameters()
 
 // Airfoil fit state
 const airfoilSearchQuery = ref('')
@@ -82,14 +82,15 @@ const handleFitToAirfoil = async () => {
       return
     }
 
-    const fitted = fitCSTParameters(
+    // Weights are fitted (and shown) in the standard CST frame: true LE at the origin, unit chord along x
+    const { params } = fitCSTNormalised(
       geometry.upper_x_coordinates,
       geometry.upper_y_coordinates,
       geometry.lower_x_coordinates,
       geometry.lower_y_coordinates,
-      props.parameters.order
+      props.parameters.order + 1,
     )
-    emit('update:parameters', fitted)
+    emit('update:parameters', params)
   } catch (err) {
     console.error('Error fitting CST parameters:', err)
   } finally {
