@@ -28,12 +28,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update-filter': [key: keyof FilterState, value: any]
-  'set-selected': [names: string[]]
-  'toggle-selection': [name: string]
-  'select-all': []
-  'deselect-all': []
   'reset-filters': []
-  'reset-analysis': []
   'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
@@ -198,65 +193,8 @@ watch(() => filterEnabled.targetDesign, (enabled) => {
   emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
 })
 
-// Search functionality for Analyzed Airfoils
-const searchQuery = ref('')
-const showSelectedOnly = ref(false)
-
-// Filter the airfoils based on search query and selected-only mode
-const visibleAirfoils = computed(() => {
-  let result = props.filteredAirfoils
-
-  // Filter to show only selected airfoils if in that mode
-  if (showSelectedOnly.value) {
-    result = result.filter(name => props.selectedAirfoils.includes(name))
-  }
-
-  // Further filter by search query
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(name =>
-      name.toLowerCase().includes(query)
-    )
-  }
-
-  return result
-})
-
-const handleSelectAll = () => {
-  if (searchQuery.value.trim()) {
-    // Select all visible airfoils
-    const newSelection = new Set([...props.selectedAirfoils, ...visibleAirfoils.value])
-    emit('set-selected', Array.from(newSelection))
-  } else {
-    emit('select-all')
-  }
-}
-
-const handleDeselectAll = () => {
-  if (searchQuery.value.trim()) {
-    // Deselect all visible airfoils
-    const visibleSet = new Set(visibleAirfoils.value)
-    const newSelection = props.selectedAirfoils.filter(name => !visibleSet.has(name))
-    emit('set-selected', newSelection)
-  } else {
-    emit('deselect-all')
-  }
-}
-
-const handleShowSelected = () => {
-  showSelectedOnly.value = !showSelectedOnly.value
-  // Clear search when toggling selected view
-  if (showSelectedOnly.value) {
-    searchQuery.value = ''
-  }
-}
-
 const handleResetFilters = () => {
   emit('reset-filters')
-}
-
-const handleResetAnalysis = () => {
-  emit('reset-analysis')
 }
 </script>
 
@@ -735,86 +673,6 @@ const handleResetAnalysis = () => {
             </select>
           </div>
         </div>
-      </div>
-    </VPanel>
-
-    <!-- Airfoil Selection Section -->
-    <VPanel title="Analyzed Airfoils">
-      <!-- Search Bar -->
-      <div class="mb-3">
-        <VInput
-          v-model="searchQuery"
-          type="text"
-          size="sm"
-          prepend-icon="heroicons:magnifying-glass"
-          icon-size="16"
-          placeholder="Search airfoils..."
-          aria-label="Search analyzed airfoils"
-        />
-      </div>
-
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          @click="handleSelectAll"
-        >
-          Show All
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          @click="handleDeselectAll"
-        >
-          Hide All
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          :color="showSelectedOnly ? 'error' : 'primary'"
-          size="xs"
-          @click="handleShowSelected"
-        >
-          {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
-        </VButton>
-      </div>
-
-      <p v-if="filteredAirfoils.length === 0" class="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-sm text-gray-500">
-        No airfoils match the current filters. Try relaxing your filter criteria.
-      </p>
-
-      <div v-else class="-mx-1 max-h-96 space-y-0.5 overflow-y-auto">
-        <label
-          v-for="name in visibleAirfoils"
-          :key="name"
-          class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-50"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedAirfoils.includes(name)"
-            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            @change="emit('toggle-selection', name)"
-          />
-          <span class="flex-1 truncate text-sm text-gray-700">{{ name.toUpperCase() }}</span>
-        </label>
-      </div>
-
-      <!-- Reset Analysis Button -->
-      <div class="mt-4 border-t border-gray-200 pt-4">
-        <VButton
-          type="button"
-          color="error"
-          block
-          @click="handleResetAnalysis"
-        >
-          Reset Analysis
-        </VButton>
       </div>
     </VPanel>
   </div>

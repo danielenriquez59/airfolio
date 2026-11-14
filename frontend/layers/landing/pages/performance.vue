@@ -6,6 +6,7 @@ import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
 import SummaryScatterPlot from '~/layers/landing/components/compare/SummaryScatterPlot.vue'
 import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab.vue'
 import CompareCalculator from '~/layers/landing/components/compare/CompareCalculator.vue'
+import CompareAirfoilList from '~/layers/landing/components/compare/CompareAirfoilList.vue'
 import { navTabButtonClasses, tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
@@ -1095,7 +1096,8 @@ onMounted(async () => {
   </VPanel>
 
   <!-- Main Content: Plots & Table -->
-  <div v-else-if="state.allAirfoils.size > 0">
+  <!-- xl: widen past the page container (up to 100rem) so the plots keep their size next to two side columns -->
+  <div v-else-if="state.allAirfoils.size > 0" class="xl:mx-[calc((100%_-_min(100vw_-_4rem,100rem))/2)]">
     <!-- Header -->
     <PageHeader title="Performance Compare">
       <template #subtitle>
@@ -1127,10 +1129,12 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-      <!-- Sidebar: Filters & Selection -->
-      <div class="lg:sticky lg:top-[4.5rem] lg:col-span-1 lg:max-h-[calc(100vh-5.5rem)] lg:self-start lg:overflow-y-auto">
+    <!-- lg: sidebar (summary, filters, airfoil list) | results. xl: summary + filters | results | airfoil list -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 xl:grid-cols-[17rem_minmax(0,1fr)_14rem]">
+      <!-- Sidebar; at xl it dissolves (contents) so its two children become the outer columns -->
+      <div class="flex flex-col gap-4 lg:sticky lg:top-[4.5rem] lg:col-span-1 lg:max-h-[calc(100vh-5.5rem)] lg:self-start lg:overflow-y-auto xl:contents">
         <CompareSidebar
+          class="xl:sticky xl:top-[4.5rem] xl:col-start-1 xl:row-start-1 xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto"
           :filters="state.filters"
           :filtered-airfoils="[...state.filteredAirfoils]"
           :selected-airfoils="[...state.selectedAirfoils]"
@@ -1139,20 +1143,25 @@ onMounted(async () => {
           :filter-ranges="getFilterRanges"
           :performance-mode="performanceMode"
           @update-filter="updateFilter"
+          @reset-filters="resetFilters"
+          @update-performance-mode="performanceMode = $event"
+        />
+        <CompareAirfoilList
+          class="xl:sticky xl:top-[4.5rem] xl:col-start-3 xl:row-start-1 xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto"
+          :filtered-airfoils="[...state.filteredAirfoils]"
+          :selected-airfoils="[...state.selectedAirfoils]"
           @set-selected="setSelectedAirfoils"
           @toggle-selection="toggleAirfoilSelection"
           @select-all="selectAllFiltered"
           @deselect-all="deselectAll"
-          @reset-filters="resetFilters"
           @reset-analysis="() => { resetAnalysis(); router.push('/performance') }"
-          @update-performance-mode="performanceMode = $event"
         />
       </div>
 
       <!-- Main Content: Plots & Table -->
-      <section class="min-w-0 rounded-xl border border-gray-200 bg-white lg:col-span-3" aria-label="Comparison results">
-        <!-- Tabs -->
-        <div class="flex gap-2 overflow-x-auto border-b border-gray-200 px-2 sm:px-3" role="tablist">
+      <section class="min-w-0 rounded-xl border border-gray-200 bg-white lg:col-span-3 xl:col-span-1 xl:col-start-2 xl:row-start-1" aria-label="Comparison results">
+        <!-- Tabs; overflow-y-hidden: overflow-x-auto makes y auto too, and the tabs' -mb-px adds 1px of vertical scroll -->
+        <div class="flex gap-2 overflow-x-auto overflow-y-hidden border-b border-gray-200 px-2 sm:px-3" role="tablist">
           <button
             v-for="tab in ([
               { id: 'plots', label: 'Polar Plots' },

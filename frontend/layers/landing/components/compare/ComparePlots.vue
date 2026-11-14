@@ -402,30 +402,30 @@ const toggleXAxisMode = () => {
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens, 1 column when expanded -->
-    <div class="grid gap-4" :class="plotsExpanded ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'">
+    <div class="grid gap-3" :class="plotsExpanded ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'">
       <!-- CL vs α -->
-      <div class="rounded-lg border border-gray-200 p-3">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
         </div>
       </div>
 
       <!-- CD vs α -->
-      <div class="rounded-lg border border-gray-200 p-3">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
         </div>
       </div>
 
       <!-- CM vs α -->
-      <div class="rounded-lg border border-gray-200 p-3">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
         </div>
       </div>
 
       <!-- L/D vs α -->
-      <div class="rounded-lg border border-gray-200 p-3">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
         </div>
