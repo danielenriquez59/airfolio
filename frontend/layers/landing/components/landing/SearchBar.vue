@@ -28,7 +28,8 @@ const categoryEnabled = ref(false)
 const selectedCategoryIds = ref<string[]>([])
 const allCategories = ref<Category[]>([])
 
-const showFilters = ref(true)
+// Mobile only: the rail is always visible on lg+
+const showFilters = ref(false)
 
 // Helper functions to convert between display (percentage) and database (decimal) format
 const percentageToDecimal = (value: number): number => value / 100
@@ -47,19 +48,19 @@ onMounted(async () => {
   // URL stores percentage values (10 for 10%), convert to decimal if needed
   if (route.query.thicknessMin || route.query.thicknessMax) {
     thicknessEnabled.value = true
-    const minVal = route.query.thicknessMin 
-      ? parseFloat(route.query.thicknessMin as string) 
+    const minVal = route.query.thicknessMin
+      ? parseFloat(route.query.thicknessMin as string)
       : undefined
-    const maxVal = route.query.thicknessMax 
-      ? parseFloat(route.query.thicknessMax as string) 
+    const maxVal = route.query.thicknessMax
+      ? parseFloat(route.query.thicknessMax as string)
       : undefined
-    
+
     // Convert from database format (0.1) to display format (10) if needed
     // If value is < 1, it's likely in decimal format, convert to percentage
-    thicknessMin.value = minVal !== undefined 
+    thicknessMin.value = minVal !== undefined
       ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
       : undefined
-    thicknessMax.value = maxVal !== undefined 
+    thicknessMax.value = maxVal !== undefined
       ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
       : undefined
   }
@@ -67,18 +68,18 @@ onMounted(async () => {
   // Check camber filters
   if (route.query.camberMin || route.query.camberMax) {
     camberEnabled.value = true
-    const minVal = route.query.camberMin 
-      ? parseFloat(route.query.camberMin as string) 
+    const minVal = route.query.camberMin
+      ? parseFloat(route.query.camberMin as string)
       : undefined
-    const maxVal = route.query.camberMax 
-      ? parseFloat(route.query.camberMax as string) 
+    const maxVal = route.query.camberMax
+      ? parseFloat(route.query.camberMax as string)
       : undefined
-    
+
     // Convert from database format (0.1) to display format (10) if needed
-    camberMin.value = minVal !== undefined 
+    camberMin.value = minVal !== undefined
       ? (minVal < 1 ? decimalToPercentage(minVal) : minVal)
       : undefined
-    camberMax.value = maxVal !== undefined 
+    camberMax.value = maxVal !== undefined
       ? (maxVal < 1 ? decimalToPercentage(maxVal) : maxVal)
       : undefined
   }
@@ -191,21 +192,21 @@ watch([areaMin, areaMax], () => {
   }
 })
 
-watch(selectedCategoryIds, () => {
-  if (categoryEnabled.value) {
-    updateURL()
-  }
+// Checkbox list: ticking any category enables the category filter
+watch(selectedCategoryIds, (ids) => {
+  categoryEnabled.value = ids.length > 0
+  updateURL()
 })
 
 // Update URL function - stores percentage values (10 for 10%) in URL
 const updateURL = () => {
   const query: Record<string, string> = {}
-  
+
   // Add search query if present
   if (searchQuery.value.trim()) {
     query.q = searchQuery.value.trim()
   }
-  
+
   // Add thickness filters if enabled (store as percentage in URL)
   if (thicknessEnabled.value) {
     if (thicknessMin.value !== undefined && thicknessMin.value !== null) {
@@ -215,7 +216,7 @@ const updateURL = () => {
       query.thicknessMax = thicknessMax.value.toString()
     }
   }
-  
+
   // Add camber filters if enabled (store as percentage in URL)
   if (camberEnabled.value) {
     if (camberMin.value !== undefined && camberMin.value !== null) {
@@ -235,12 +236,12 @@ const updateURL = () => {
       query.areaMax = areaMax.value.toString()
     }
   }
-  
+
   // Add category filters if enabled
   if (categoryEnabled.value && selectedCategoryIds.value.length > 0) {
     query.categoryIds = selectedCategoryIds.value.join(',')
   }
-  
+
   navigateTo({
     path: '/search',
     query,
@@ -284,213 +285,208 @@ const clearFilters = () => {
   selectedCategoryIds.value = []
   updateURL()
 }
+
+const ranges = [
+  { key: 'thickness', label: 'Thickness', enabled: thicknessEnabled, min: thicknessMin, max: thicknessMax },
+  { key: 'camber', label: 'Camber', enabled: camberEnabled, min: camberMin, max: camberMax },
+  { key: 'area', label: 'Area', enabled: areaEnabled, min: areaMin, max: areaMax },
+]
+
+function formatRange(min?: number, max?: number) {
+  if (min !== undefined && max !== undefined)
+    return `${min}–${max}%`
+  return min !== undefined ? `≥ ${min}%` : `≤ ${max}%`
+}
+
+// Chips for the active-filter summary; removing one goes through the same state the controls use
+const activeFilters = computed(() => {
+  const chips: { key: string; label: string; remove: () => void }[] = []
+  if (searchQuery.value.trim()) {
+    chips.push({
+      key: 'q',
+      label: `“${searchQuery.value.trim()}”`,
+      remove: () => {
+        searchQuery.value = ''
+        updateURL()
+      },
+    })
+  }
+  for (const r of ranges) {
+    if (r.enabled.value && (r.min.value !== undefined || r.max.value !== undefined)) {
+      chips.push({
+        key: r.key,
+        label: `${r.label} ${formatRange(r.min.value, r.max.value)}`,
+        remove: () => {
+          r.enabled.value = false
+        },
+      })
+    }
+  }
+  for (const id of selectedCategoryIds.value) {
+    const name = allCategories.value.find(c => c.id === id)?.name
+    chips.push({
+      key: `cat-${id}`,
+      label: name ? formatCategoryName(name) : 'Category',
+      remove: () => {
+        selectedCategoryIds.value = selectedCategoryIds.value.filter(c => c !== id)
+      },
+    })
+  }
+  return chips
+})
+
+const filterCount = computed(() => activeFilters.value.filter(c => c.key !== 'q').length)
 </script>
 
 <template>
-  <div class="bg-white border-b border-gray-200 shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <!-- Search Input Row -->
-      <div class="flex items-center gap-4 mb-4">
-        <div class="flex-1">
-          <VInput
-            v-model="searchQuery"
-            placeholder="Search for an airfoil..."
-            size="lg"
-            prepend-icon="heroicons:magnifying-glass"
-            wrapper-class="w-full"
-            @keydown="handleKeydown"
-          />
+  <div class="lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start lg:gap-6">
+    <!-- Filter rail -->
+    <aside
+      id="search-filters"
+      class="mb-4 lg:sticky lg:top-20 lg:mb-0 lg:block lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
+      :class="showFilters ? 'block' : 'hidden'"
+      aria-label="Filters"
+    >
+      <VPanel title="Filters">
+        <template v-if="hasActiveFilters" #actions>
+          <button
+            type="button"
+            class="rounded text-sm font-medium text-primary-600 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            @click="clearFilters"
+          >
+            Clear all
+          </button>
+        </template>
+
+        <div class="space-y-5">
+          <!-- Geometry ranges (percent of chord) -->
+          <fieldset v-for="r in ranges" :key="r.key">
+            <legend class="w-full">
+              <label class="flex cursor-pointer items-center gap-2">
+                <input
+                  v-model="r.enabled.value"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                >
+                <span class="text-sm font-medium text-gray-900">{{ r.label }}</span>
+                <span class="ml-auto text-xs text-gray-500">%</span>
+              </label>
+            </legend>
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <VInput
+                v-model.number="r.min.value"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="Min"
+                :aria-label="`${r.label} minimum %`"
+                size="md"
+                class="num"
+                :disabled="!r.enabled.value"
+              />
+              <VInput
+                v-model.number="r.max.value"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="Max"
+                :aria-label="`${r.label} maximum %`"
+                size="md"
+                class="num"
+                :disabled="!r.enabled.value"
+              />
+            </div>
+          </fieldset>
+
+          <!-- Categories -->
+          <fieldset>
+            <legend class="text-sm font-medium text-gray-900">
+              Category
+            </legend>
+            <div class="mt-2 max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
+              <label
+                v-for="category in allCategories"
+                :key="category.id"
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <input
+                  v-model="selectedCategoryIds"
+                  type="checkbox"
+                  :value="category.id"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                >
+                {{ formatCategoryName(category.name) }}
+              </label>
+              <p v-if="!allCategories.length" class="px-2 py-1.5 text-sm text-gray-500">
+                No categories
+              </p>
+            </div>
+          </fieldset>
         </div>
+      </VPanel>
+    </aside>
+
+    <div class="min-w-0 lg:col-start-2 lg:row-start-1">
+      <!-- Search Input Row -->
+      <div class="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+        <VInput
+          v-model="searchQuery"
+          placeholder="Search for an airfoil..."
+          aria-label="Search airfoils"
+          type="search"
+          prepend-icon="heroicons:magnifying-glass"
+          wrapper-class="w-full min-w-0 sm:w-auto sm:flex-1"
+          @keydown="handleKeydown"
+        />
+        <VButton
+          type="button"
+          class="flex-1 sm:flex-none lg:hidden"
+          :aria-expanded="showFilters"
+          aria-controls="search-filters"
+          @click="showFilters = !showFilters"
+        >
+          <Icon name="heroicons:adjustments-horizontal" class="mr-1.5 h-4 w-4" />
+          Filters
+          <span v-if="filterCount" class="num ml-1.5 rounded-full bg-primary-600 px-1.5 text-xs text-white">{{ filterCount }}</span>
+        </VButton>
         <VButton
           type="button"
           color="primary"
+          class="flex-1 sm:flex-none"
           @click="handleSearch"
         >
-          <Icon name="heroicons:magnifying-glass" class="h-5 w-5 mr-2" />
           Search
         </VButton>
       </div>
 
-      <!-- Filters Toggle Button -->
-      <div class="mb-4">
+      <slot name="toolbar" />
+
+      <!-- Active filters -->
+      <div v-if="activeFilters.length" class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="data-label">Active</span>
+        <button
+          v-for="chip in activeFilters"
+          :key="chip.key"
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          :aria-label="`Remove filter ${chip.label}`"
+          @click="chip.remove"
+        >
+          {{ chip.label }}
+          <Icon name="heroicons:x-mark" class="h-3.5 w-3.5 text-gray-400" />
+        </button>
         <button
           type="button"
-          @click="showFilters = !showFilters"
-          class="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+          class="rounded text-xs font-medium text-primary-600 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          @click="clearFilters"
         >
-          <Icon
-            :name="showFilters ? 'heroicons:chevron-up' : 'heroicons:chevron-down'"
-            class="h-5 w-5"
-          />
-          Filters
+          Clear all
         </button>
       </div>
 
-      <!-- Filters Container - 2 Column Layout -->
-      <Transition
-        enter-active-class="transition-all duration-150 ease-out"
-        leave-active-class="transition-all duration-350 ease-in"
-        enter-from-class="opacity-0 -translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 -translate-y-2"
-      >
-        <div v-if="showFilters" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- Left Column: Geometry Filters -->
-        <div class="grid grid-cols-3 gap-2 items-center max-w-sm">
-          <!-- Header Row -->
-          <div class="text-xs font-medium text-gray-600 truncate">Filter</div>
-          <div class="text-xs font-medium text-gray-600 truncate">Min %</div>
-          <div class="text-xs font-medium text-gray-600 truncate">Max %</div>
-          
-          <!-- Thickness Filter Row -->
-          <label class="flex items-center gap-1 cursor-pointer min-w-0">
-            <input
-              v-model="thicknessEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0"
-            />
-            <span class="text-sm font-medium text-gray-700 truncate">Thickness</span>
-          </label>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="thicknessMin"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!thicknessEnabled"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="thicknessMax"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!thicknessEnabled"
-            />
-          </div>
-
-          <!-- Camber Filter Row -->
-          <label class="flex items-center gap-1 cursor-pointer min-w-0">
-            <input
-              v-model="camberEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0"
-            />
-            <span class="text-sm font-medium text-gray-700 truncate">Camber</span>
-          </label>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="camberMin"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!camberEnabled"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="camberMax"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!camberEnabled"
-            />
-          </div>
-
-          <!-- Area Coefficient Filter Row -->
-          <label class="flex items-center gap-1 cursor-pointer min-w-0">
-            <input
-              v-model="areaEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0"
-            />
-            <span class="text-sm font-medium text-gray-700 truncate">Area</span>
-          </label>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="areaMin"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!areaEnabled"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <VInput
-              v-model.number="areaMax"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              placeholder="0"
-              size="sm"
-              wrapper-class="w-20"
-              :disabled="!areaEnabled"
-            />
-          </div>
-        </div>
-
-        <!-- Right Column: Category Filter -->
-        <div class="flex flex-col gap-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="categoryEnabled"
-              type="checkbox"
-              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <span class="text-sm font-medium text-gray-700">
-              Category
-              <span class="text-xs text-gray-500 ml-1">(Use Ctrl+Click to select multiple)</span>
-            </span>
-          </label>
-          <select
-            v-model="selectedCategoryIds"
-            multiple
-            :disabled="!categoryEnabled"
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            <option v-for="category in allCategories" :key="category.id" :value="category.id">
-              {{ formatCategoryName(category.name) }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Clear Filters Button -->
-        <div v-if="hasActiveFilters" class="md:col-span-2 flex justify-start mt-2">
-          <button
-            type="button"
-            @click="clearFilters"
-            class="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:scale-105 active:scale-95 transition-all duration-150"
-          >
-            <Icon name="heroicons:x-mark" class="h-4 w-4" />
-            Clear Filters
-          </button>
-        </div>
-      </div>
-        </Transition>
+      <slot :clear-filters="clearFilters" />
     </div>
   </div>
 </template>
-

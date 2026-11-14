@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import type { CSTParameters } from '~/composables/useCSTParameters'
 import type { Database } from '~/types/database.types'
-import NACAExportButtons from '~/layers/landing/components/naca/NACAExportButtons.vue'
 import { useDebounceFn } from '@vueuse/core'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 interface Props {
   parameters: CSTParameters
-  onExportParameters?: () => void
-  onExportSelig?: () => void
-  onExportLednicer?: () => void
 }
 
 interface Emits {
@@ -167,233 +163,180 @@ const handleTEThicknessChange = (value: string | number) => {
 </script>
 
 <template>
-  <div class="space-y-4 w-full">
+  <div class="space-y-6">
     <!-- Fit to Airfoil -->
-    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+    <VPanel title="Fit to airfoil" description="Fit the weights to an existing airfoil from the catalog.">
+      <label for="cst-fit-search" class="sr-only">Airfoil to fit</label>
       <div class="flex items-center gap-2">
-        <Icon name="heroicons:magnifying-glass-20-solid" class="w-4 h-4 text-gray-400" />
-        <label class="text-sm font-medium text-gray-700">Fit Weights to Airfoil</label>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="relative flex-1">
+        <div class="relative min-w-0 flex-1">
           <input
+            id="cst-fit-search"
             v-model="airfoilSearchQuery"
             type="text"
+            autocomplete="off"
             placeholder="Search airfoil name..."
-            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm sm:leading-6"
+            class="block h-9 w-full rounded-lg border border-gray-300 bg-white pl-3 pr-9 text-sm text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             @focus="showDropdown = airfoilSearchResults.length > 0"
-            @blur="window.setTimeout(() => { showDropdown = false }, 200)"
-          />
+            @blur="showDropdown = false"
+          >
           <div class="absolute inset-y-0 right-0 flex items-center pr-2">
-            <Icon v-if="isSearching" name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-gray-400" />
+            <Icon v-if="isSearching" name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-gray-400" aria-hidden="true" />
             <button
               v-else-if="selectedAirfoil || airfoilSearchQuery"
               type="button"
-              class="text-gray-400 hover:text-gray-600"
+              class="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label="Clear airfoil search"
               @click="clearAirfoilSelection"
             >
-              <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" />
+              <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
           <!-- Dropdown Results -->
           <Transition
             enter-active-class="transition ease-out duration-100"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
             leave-active-class="transition ease-in duration-75"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
           >
             <div
               v-if="showDropdown && airfoilSearchResults.length > 0"
-              class="absolute z-10 mt-1 w-full bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 max-h-60 overflow-auto"
+              class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
             >
               <ul class="py-1">
                 <li
                   v-for="airfoil in airfoilSearchResults"
                   :key="airfoil.id"
-                  class="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer"
+                  class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50"
                   @mousedown.prevent="selectAirfoil(airfoil)"
                 >
-                  <div class="font-medium">{{ airfoil.name }}</div>
+                  <div class="font-medium text-gray-900">{{ airfoil.name }}</div>
                   <div v-if="airfoil.thickness_pct" class="text-xs text-gray-500">
-                    Thickness: {{ (airfoil.thickness_pct * 100).toFixed(1) }}%
-                    <span v-if="airfoil.camber_pct" class="ml-2">Camber: {{ (airfoil.camber_pct * 100).toFixed(1) }}%</span>
+                    Thickness: <span class="num">{{ (airfoil.thickness_pct * 100).toFixed(1) }}%</span>
+                    <span v-if="airfoil.camber_pct" class="ml-2">Camber: <span class="num">{{ (airfoil.camber_pct * 100).toFixed(1) }}%</span></span>
                   </div>
                 </li>
               </ul>
             </div>
           </Transition>
         </div>
-        <button
+        <VButton
           type="button"
+          color="light"
           :disabled="!selectedAirfoil || isFitting"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
           @click="handleFitToAirfoil"
         >
-          <div v-if="isFitting" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-          <Icon v-else name="heroicons:sparkles" class="h-4 w-4" />
-          {{ isFitting ? 'Fitting...' : 'Fit to Airfoil' }}
-        </button>
+          <Icon :name="isFitting ? 'heroicons:arrow-path' : 'heroicons:sparkles'"  class="h-4 w-4" :class="{ 'animate-spin': isFitting }" aria-hidden="true" />
+          <span class="whitespace-nowrap">{{ isFitting ? 'Fitting...' : 'Fit' }}</span>
+        </VButton>
       </div>
-    </div>
+    </VPanel>
 
-    <!-- Order Control -->
-    <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
-      <Icon name="heroicons:cog-6-tooth-20-solid" class="w-4 h-4 text-gray-400" />
-      <label class="text-sm font-medium text-gray-700">Weights Count (N+1):</label>
-      <input
-        v-model="inputOrder"
-        type="number"
-        min="3"
-        max="8"
-        class="w-16 px-2 py-1 border border-gray-300 rounded text-center font-mono text-sm focus:outline-none focus:border-blue-500"
-        @blur="handleInputBlur"
-      />
-    </div>
+    <!-- Parameters -->
+    <VPanel title="CST parameters">
+      <div class="flex items-center justify-between gap-3">
+        <label for="cst-order" class="text-sm font-medium text-gray-700">Weights count (N+1)</label>
+        <input
+          id="cst-order"
+          v-model="inputOrder"
+          type="number"
+          min="3"
+          max="8"
+          class="num h-9 w-20 rounded-lg border border-gray-300 px-2 text-right text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          @blur="handleInputBlur"
+        >
+      </div>
 
-    <!-- 2x2 Grid Layout -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Upper Weights -->
-      <div class="border border-purple-200 rounded-lg overflow-hidden">
-        <div class="w-full flex items-center justify-between p-4 bg-purple-50">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
-            <span class="font-semibold text-gray-800">Upper Weights</span>
-            <span class="text-xs text-gray-400">{{ parameters.upperWeights.length }} weights</span>
-          </div>
+      <!-- Upper / Lower weights: label | slider | value -->
+      <div
+        v-for="side in ([
+          { key: 'upper', title: 'Upper weights', weights: parameters.upperWeights, isUpper: true, min: '-0.5', max: '1.0' },
+          { key: 'lower', title: 'Lower weights', weights: parameters.lowerWeights, isUpper: false, min: '-1.0', max: '0.5' },
+        ] as const)"
+        :key="side.key"
+        class="mt-5 border-t border-gray-200 pt-4"
+      >
+        <div class="mb-2 flex items-baseline justify-between">
+          <h3 class="data-label">{{ side.title }}</h3>
+          <span class="text-xs text-gray-500"><span class="num">{{ side.weights.length }}</span> weights</span>
         </div>
-        <div class="p-4 bg-purple-50/50 max-h-[300px] overflow-y-auto space-y-2">
+        <div class="max-h-[300px] space-y-1.5 overflow-y-auto pr-1">
           <div
-            v-for="(weight, index) in parameters.upperWeights"
-            :key="`upper-${index}`"
-            class="flex items-center gap-2"
+            v-for="(weight, index) in side.weights"
+            :key="`${side.key}-${index}`"
+            class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2"
           >
-            <label class="text-[10px] font-bold text-gray-400 w-10 text-right shrink-0">
-              A{{ index }}
-            </label>
+            <label :for="`cst-${side.key}-${index}`" class="num text-xs text-gray-500">A{{ index }}</label>
             <input
               type="range"
-              min="-0.5"
-              max="1.0"
+              :min="side.min"
+              :max="side.max"
               step="0.001"
               :value="weight"
-              class="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-purple-500"
-              @input="handleWeightChange(index, true, ($event.target as HTMLInputElement).value)"
-            />
+              :aria-label="`${side.title} A${index}`"
+              class="w-full cursor-pointer accent-primary-600"
+              @input="handleWeightChange(index, side.isUpper, ($event.target as HTMLInputElement).value)"
+            >
             <input
+              :id="`cst-${side.key}-${index}`"
               type="number"
               :value="weight"
               step="0.001"
-              class="w-16 p-0.5 text-right text-xs border border-gray-300 rounded focus:outline-none focus:border-purple-400"
-              @input="handleWeightChange(index, true, ($event.target as HTMLInputElement).value)"
-            />
+              class="num h-8 w-full rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              @input="handleWeightChange(index, side.isUpper, ($event.target as HTMLInputElement).value)"
+            >
           </div>
         </div>
       </div>
 
-      <!-- Lower Weights -->
-      <div class="border border-red-200 rounded-lg overflow-hidden">
-        <div class="w-full flex items-center justify-between p-4 bg-red-50">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-red-500"></div>
-            <span class="font-semibold text-gray-800">Lower Weights</span>
-            <span class="text-xs text-gray-400">{{ parameters.lowerWeights.length }} weights</span>
-          </div>
-        </div>
-        <div class="p-4 bg-red-50/50 max-h-[300px] overflow-y-auto space-y-2">
-          <div
-            v-for="(weight, index) in parameters.lowerWeights"
-            :key="`lower-${index}`"
-            class="flex items-center gap-2"
+      <!-- LE Mod Weight & TE Thickness -->
+      <div class="mt-5 space-y-1.5 border-t border-gray-200 pt-4">
+        <h3 class="data-label mb-2">Leading / trailing edge</h3>
+        <div class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2">
+          <label for="cst-le" class="text-xs text-gray-500" title="LE modification weight">LE</label>
+          <input
+            type="range"
+            min="-2.0"
+            max="2.0"
+            step="0.001"
+            :value="parameters.leWeight"
+            aria-label="LE mod weight"
+            class="w-full cursor-pointer accent-primary-600"
+            @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
           >
-            <label class="text-[10px] font-bold text-gray-400 w-10 text-right shrink-0">
-              A{{ index }}
-            </label>
-            <input
-              type="range"
-              min="-1.0"
-              max="0.5"
-              step="0.001"
-              :value="weight"
-              class="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-red-500"
-              @input="handleWeightChange(index, false, ($event.target as HTMLInputElement).value)"
-            />
-            <input
-              type="number"
-              :value="weight"
-              step="0.001"
-              class="w-16 p-0.5 text-right text-xs border border-gray-300 rounded focus:outline-none focus:border-red-400"
-              @input="handleWeightChange(index, false, ($event.target as HTMLInputElement).value)"
-            />
-          </div>
+          <input
+            id="cst-le"
+            type="number"
+            step="0.0001"
+            :value="parameters.leWeight"
+            class="num h-8 w-full rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
+          >
         </div>
+        <div class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2">
+          <label for="cst-te" class="text-xs text-gray-500" title="TE thickness (Δζ)">TE</label>
+          <input
+            type="range"
+            min="0"
+            max="0.02"
+            step="0.0001"
+            :value="parameters.teThickness"
+            aria-label="TE thickness (Δζ)"
+            class="w-full cursor-pointer accent-primary-600"
+            @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
+          >
+          <input
+            id="cst-te"
+            type="number"
+            step="0.0001"
+            :value="parameters.teThickness"
+            class="num h-8 w-full rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
+          >
+        </div>
+        <p class="pt-1 text-xs text-gray-500">LE = leading-edge mod weight · TE = trailing-edge thickness (Δζ)</p>
       </div>
-
-      <!-- LE Mod Weight & TE Thickness Combined -->
-      <div class="border border-blue-200 rounded-lg overflow-hidden">
-        <div class="w-full flex items-center justify-between p-4 bg-blue-50">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span class="font-semibold text-gray-800">LE Mod Weight & TE Thickness</span>
-          </div>
-        </div>
-        <div class="p-4 bg-blue-50/50 space-y-4">
-          <!-- LE Mod Weight -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs text-blue-600 font-medium">LE Mod Weight:</span>
-              <input
-                type="number"
-                step="0.0001"
-                :value="parameters.leWeight"
-                class="w-20 px-2 py-1 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
-              />
-            </div>
-            <input
-              type="range"
-              min="-2.0"
-              max="2.0"
-              step="0.001"
-              :value="parameters.leWeight"
-              class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-500"
-              @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <!-- TE Thickness -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs text-blue-600 font-medium">TE Thickness (Δζ):</span>
-              <input
-                type="number"
-                step="0.0001"
-                :value="parameters.teThickness"
-                class="w-20 px-2 py-1 bg-white border border-blue-200 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-400"
-                @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
-              />
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="0.02"
-              step="0.0001"
-              :value="parameters.teThickness"
-              class="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-blue-200 accent-blue-500"
-              @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Export Buttons -->
-      <NACAExportButtons
-        :on-export-parameters="onExportParameters"
-        :on-export-selig="onExportSelig"
-        :on-export-lednicer="onExportLednicer"
-      />
-    </div>
+    </VPanel>
   </div>
 </template>
-

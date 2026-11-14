@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SparInputs } from '~/types/spar.types'
 import SchrenkInputGroup from '~/layers/landing/components/schrenk/SchrenkInputGroup.vue'
+import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 interface Props {
   modelValue: SparInputs
@@ -15,158 +16,138 @@ const updateValue = (key: keyof SparInputs, value: number | string) => {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
 }
 
-// Computed unit labels and steps
+// Unit label
 const lengthUnit = computed(() => props.modelValue.unitSystem)
-const lengthStep = computed(() => {
-  switch (props.modelValue.unitSystem) {
-    case 'mm': return 1
-    case 'in': return 0.1
-    case 'm': return 0.01
-    case 'ft': return 0.1
-    default: return 1
-  }
-})
-const thicknessStep = computed(() => {
-  switch (props.modelValue.unitSystem) {
-    case 'mm': return 0.001
-    case 'in': return 0.0001
-    case 'm': return 0.00001
-    case 'ft': return 0.0001
-    default: return 0.001
-  }
-})
+const unitOptions = [
+  { value: 'mm', title: 'Millimeters' },
+  { value: 'in', title: 'Inches' },
+  { value: 'm', title: 'Meters' },
+  { value: 'ft', title: 'Feet' },
+] as const
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
-      <Icon name="heroicons:calculator" class="h-5 w-5 text-blue-600" />
-      <h2>Parameters</h2>
-    </div>
-
-    <div class="space-y-4">
-      <!-- Airfoil Parameters Section -->
-      <div class="mb-4 pb-4 border-b border-gray-200">
-        <h3 class="text-sm font-medium text-gray-700 mb-3">
-          Airfoil Parameters
-        </h3>
-
-        <!-- Unit System Dropdown -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-            Unit System
-            <span class="text-gray-400 cursor-help" title="Choose length units for all measurements">ⓘ</span>
-          </label>
-          <select
-            :value="modelValue.unitSystem"
-            @input="updateValue('unitSystem', ($event.target as HTMLSelectElement).value)"
-            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+  <VPanel title="Parameters">
+    <div class="space-y-3">
+      <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <span id="spar-unit-label" class="flex items-center gap-1 text-sm text-gray-700">
+          Units
+          <span class="cursor-help text-gray-400" title="Choose length units for all measurements">
+            <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+          </span>
+        </span>
+        <div class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-labelledby="spar-unit-label">
+          <button
+            v-for="u in unitOptions"
+            :key="u.value"
+            type="button"
+            :title="u.title"
+            :class="tabButtonClasses(modelValue.unitSystem === u.value)"
+            :aria-pressed="modelValue.unitSystem === u.value"
+            @click="updateValue('unitSystem', u.value)"
           >
-            <option value="mm">Millimeters (mm)</option>
-            <option value="in">Inches (in)</option>
-            <option value="m">Meters (m)</option>
-            <option value="ft">Feet (ft)</option>
-          </select>
+            {{ u.value }}
+          </button>
         </div>
-
-        <SchrenkInputGroup
-          label="Chord Length"
-          name="chordLength"
-          :model-value="modelValue.chordLength"
-          @update:model-value="updateValue('chordLength', $event)"
-          :unit="lengthUnit"
-          :step="lengthStep"
-          tooltip="Total chord length of the airfoil"
-        />
-        <SchrenkInputGroup
-          label="Skin Thickness"
-          name="skinThickness"
-          :model-value="modelValue.skinThickness"
-          @update:model-value="updateValue('skinThickness', $event)"
-          :unit="lengthUnit"
-          :step="thicknessStep"
-          tooltip="Thickness of the airfoil skin material"
-        />
-        <SchrenkInputGroup
-          label="Skin Offset"
-          name="skinOffset"
-          :model-value="modelValue.skinOffset"
-          @update:model-value="updateValue('skinOffset', $event)"
-          :unit="lengthUnit"
-          :step="thicknessStep"
-          tooltip="Offset added to skin thickness"
-        />
       </div>
 
-      <!-- Spar Geometry Section -->
+      <SchrenkInputGroup
+        label="Chord Length"
+        name="chordLength"
+        :model-value="modelValue.chordLength"
+        :unit="lengthUnit"
+        tooltip="Total chord length of the airfoil"
+        @update:model-value="updateValue('chordLength', $event)"
+      />
+      <SchrenkInputGroup
+        label="Skin Thickness"
+        name="skinThickness"
+        :model-value="modelValue.skinThickness"
+        :unit="lengthUnit"
+        tooltip="Thickness of the airfoil skin material"
+        @update:model-value="updateValue('skinThickness', $event)"
+      />
+      <SchrenkInputGroup
+        label="Skin Offset"
+        name="skinOffset"
+        :model-value="modelValue.skinOffset"
+        :unit="lengthUnit"
+        tooltip="Offset added to skin thickness"
+        @update:model-value="updateValue('skinOffset', $event)"
+      />
+    </div>
+
+    <h3 class="mb-3 mt-5 border-t border-gray-200 pt-4 text-sm font-semibold text-gray-900">
+      Spar geometry
+    </h3>
+    <div class="space-y-3">
+      <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+        <label for="spar-cross-section" class="flex items-center gap-1 text-sm text-gray-700">
+          Cross-section
+          <span class="cursor-help text-gray-400" title="Type of spar cross-section structure">
+            <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+          </span>
+        </label>
+        <select
+          id="spar-cross-section"
+          :value="modelValue.crossSection"
+          class="block h-9 w-full rounded-lg border-gray-300 py-0 pl-3 pr-8 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500"
+          @input="updateValue('crossSection', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="hollow-rectangle">
+            Hollow Rectangle
+          </option>
+          <option value="i-beam">
+            I-Beam
+          </option>
+          <option value="c-channel">
+            C-Channel
+          </option>
+        </select>
+      </div>
+
       <div>
-        <h3 class="text-sm font-medium text-gray-700 mb-3">
-          Spar Geometry
-        </h3>
-
-        <!-- Cross-Section Type Dropdown -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-            Cross-Section Type
-            <span class="text-gray-400 cursor-help" title="Type of spar cross-section structure">ⓘ</span>
+        <div class="mb-1 flex items-center justify-between gap-3">
+          <label for="spar-location" class="flex items-center gap-1 text-sm text-gray-700">
+            Spar location
+            <span class="cursor-help text-gray-400" title="Position along chord where spar is located (0 = leading edge, 1 = trailing edge)">
+              <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+            </span>
           </label>
-          <select
-            :value="modelValue.crossSection"
-            @input="updateValue('crossSection', ($event.target as HTMLSelectElement).value)"
-            class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-          >
-            <option value="hollow-rectangle">Hollow Rectangle</option>
-            <option value="i-beam">I-Beam</option>
-            <option value="c-channel">C-Channel</option>
-          </select>
+          <span class="num text-sm text-gray-900">{{ (modelValue.sparLocation * 100).toFixed(0) }}% c</span>
         </div>
-        
-        <!-- Spar Location (Slider) -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-            Spar Location (% Chord)
-            <span class="text-gray-400 cursor-help" title="Position along chord where spar is located (0 = leading edge, 1 = trailing edge)">ⓘ</span>
-          </label>
-          <div class="px-1">
-            <input
-              type="range"
-              min="0.05"
-              max="0.95"
-              step="0.01"
-              :value="modelValue.sparLocation"
-              @input="updateValue('sparLocation', parseFloat(($event.target as HTMLInputElement).value))"
-              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mb-2"
-            />
-            <div class="flex justify-between text-xs text-gray-500">
-              <span>5%</span>
-              <span class="font-mono bg-gray-200 px-2 rounded">
-                {{ (modelValue.sparLocation * 100).toFixed(0) }}%
-              </span>
-              <span>95%</span>
-            </div>
-          </div>
+        <input
+          id="spar-location"
+          type="range"
+          min="0.05"
+          max="0.95"
+          step="0.01"
+          :value="modelValue.sparLocation"
+          class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          @input="updateValue('sparLocation', parseFloat(($event.target as HTMLInputElement).value))"
+        >
+        <div class="num mt-1 flex justify-between text-xs text-gray-500">
+          <span>5%</span>
+          <span>95%</span>
         </div>
-
-        <SchrenkInputGroup
-          label="Spar Outer Width"
-          name="sparWidth"
-          :model-value="modelValue.sparWidth"
-          @update:model-value="updateValue('sparWidth', $event)"
-          :unit="lengthUnit"
-          :step="lengthStep"
-          tooltip="Outer width of the spar cross-section"
-        />
-        <SchrenkInputGroup
-          :label="modelValue.crossSection === 'hollow-rectangle' ? 'Spar Wall Thickness' : modelValue.crossSection === 'i-beam' ? 'Flange/Web Thickness' : 'Flange/Web Thickness'"
-          name="sparWallThickness"
-          :model-value="modelValue.sparWallThickness"
-          @update:model-value="updateValue('sparWallThickness', $event)"
-          :unit="lengthUnit"
-          :step="thicknessStep"
-          :tooltip="modelValue.crossSection === 'hollow-rectangle' ? 'Wall thickness of the hollow spar tube' : modelValue.crossSection === 'i-beam' ? 'Thickness of I-beam flanges and web' : 'Thickness of C-channel flanges and web'"
-        />
       </div>
-    </div>
-  </div>
-</template>
 
+      <SchrenkInputGroup
+        label="Spar Outer Width"
+        name="sparWidth"
+        :model-value="modelValue.sparWidth"
+        :unit="lengthUnit"
+        tooltip="Outer width of the spar cross-section"
+        @update:model-value="updateValue('sparWidth', $event)"
+      />
+      <SchrenkInputGroup
+        :label="modelValue.crossSection === 'hollow-rectangle' ? 'Spar Wall Thickness' : 'Flange/Web Thickness'"
+        name="sparWallThickness"
+        :model-value="modelValue.sparWallThickness"
+        :unit="lengthUnit"
+        :tooltip="modelValue.crossSection === 'hollow-rectangle' ? 'Wall thickness of the hollow spar tube' : modelValue.crossSection === 'i-beam' ? 'Thickness of I-beam flanges and web' : 'Thickness of C-channel flanges and web'"
+        @update:model-value="updateValue('sparWallThickness', $event)"
+      />
+    </div>
+  </VPanel>
+</template>

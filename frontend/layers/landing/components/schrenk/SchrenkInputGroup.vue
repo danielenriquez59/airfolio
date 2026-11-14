@@ -55,27 +55,32 @@ const handleKeydown = (event: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="flex flex-col mb-3">
-    <label class="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+  <div class="grid grid-cols-[minmax(0,1fr)_9rem] items-center gap-3">
+    <label :for="`input-${name}`" class="flex min-w-0 items-center gap-1 text-sm text-gray-700">
       {{ label }}
-      <span v-if="tooltip" class="text-gray-400 cursor-help" :title="tooltip">ⓘ</span>
+      <span v-if="tooltip" class="shrink-0 cursor-help text-gray-400" :title="tooltip">
+        <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+      </span>
     </label>
-    <div class="relative rounded-md shadow-sm">
+    <div class="relative">
       <input
+        :id="`input-${name}`"
         ref="inputRef"
+        v-model="localValue"
         type="text"
         inputmode="decimal"
         :name="name"
-        v-model="localValue"
+        :aria-describedby="tooltip ? `input-${name}-hint` : undefined"
+        class="num block h-9 w-full rounded-lg border border-gray-300 pl-3 pr-14 text-right text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
         @focus="handleFocus"
         @input="handleInput"
         @blur="handleBlur"
         @keydown="handleKeydown"
-        class="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-      />
-      <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-        <span class="text-gray-500 sm:text-sm">{{ unit }}</span>
-      </div>
+      >
+      <span class="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center text-xs text-gray-500">{{ unit }}</span>
     </div>
+    <p v-if="tooltip" :id="`input-${name}-hint`" class="sr-only">
+      {{ tooltip }}
+    </p>
   </div>
 </template>

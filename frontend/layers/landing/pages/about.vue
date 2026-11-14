@@ -18,154 +18,146 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-4">About Airfolio</h1>
-        <p class="text-xl text-gray-600">
-          A comprehensive airfoil analysis and comparison tool
-        </p>
-      </div>
+  <div class="page-container py-8">
+    <div class="max-w-3xl">
+      <PageHeader
+        title="About Airfolio"
+        subtitle="A comprehensive airfoil analysis and comparison tool"
+      />
 
-      <!-- Overview -->
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">What is Airfolio?</h2>
-        <p class="text-gray-700 leading-relaxed mb-4">
-          Airfolio is a web-based platform for discovering, analyzing, and comparing airfoil performance data. 
-          Whether you're designing aircraft, wind turbines, or studying aerodynamics, Airfolio provides the tools 
+      <section class="mb-10">
+        <h2 class="mb-2 text-base font-semibold text-gray-900">What is Airfolio?</h2>
+        <p class="text-sm leading-relaxed text-gray-700">
+          Airfolio is a web-based platform for discovering, analyzing, and comparing airfoil performance data.
+          Whether you're designing aircraft, wind turbines, or studying aerodynamics, Airfolio provides the tools
           you need to make informed design decisions.
         </p>
       </section>
 
-      <!-- Capabilities -->
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-6">Capabilities</h2>
-        
-        <div class="space-y-6">
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Search & Filter</h3>
-            <p class="text-gray-700">
-              Browse a comprehensive database of airfoils with advanced filtering by name, thickness, and camber. 
+      <section class="mb-10">
+        <h2 class="mb-3 text-base font-semibold text-gray-900">Capabilities</h2>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">Search &amp; Filter</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Browse a comprehensive database of airfoils with advanced filtering by name, thickness, and camber.
               Quickly find airfoils that match your design requirements.
             </p>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">AI-Powered Performance Analysis</h3>
-            <p class="text-gray-700">
-              Run aerodynamic analysis powered by <a 
-                href="https://github.com/peterdsharpe/NeuralFoil" 
-                target="_blank" 
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">AI-Powered Performance Analysis</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Run aerodynamic analysis powered by <a
+                href="https://github.com/peterdsharpe/NeuralFoil"
+                target="_blank"
                 rel="noopener noreferrer"
-                class="text-indigo-600 hover:text-indigo-800 underline"
-              >NeuralFoil</a>, a neural network-based airfoil analysis tool. 
+                class="font-medium text-primary-600 underline hover:text-primary-700"
+              >NeuralFoil</a>, a neural network-based airfoil analysis tool.
               Configure Reynolds number, Mach number, and angle of attack ranges to get detailed performance insights.
             </p>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Multi-Airfoil Comparison</h3>
-            <p class="text-gray-700">
-              Compare multiple airfoils side-by-side with interactive polar plots (CL, CD, CM, L/D vs α) and 
-              comprehensive performance summary tables. Filter by performance metrics to find the best airfoils 
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">Multi-Airfoil Comparison</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Compare multiple airfoils side-by-side with interactive polar plots (CL, CD, CM, L/D vs α) and
+              comprehensive performance summary tables. Filter by performance metrics to find the best airfoils
               for your application.
             </p>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Custom Airfoil Upload</h3>
-            <p class="text-gray-700">
-              Upload your own airfoil coordinates via manual entry or CSV upload. Share your designs with the 
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">Custom Airfoil Upload</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Upload your own airfoil coordinates via manual entry or CSV upload. Share your designs with the
               community and analyze them using the same powerful tools.
             </p>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Control Surface Analysis</h3>
-            <p class="text-gray-700">
-              Analyze airfoil performance with control surface deflections. Compare multiple flap configurations 
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">Control Surface Analysis</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Analyze airfoil performance with control surface deflections. Compare multiple flap configurations
               and visualize how geometry changes affect aerodynamic performance.
             </p>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">Performance Caching</h3>
-            <p class="text-gray-700">
-              Results are cached for instant access. Re-run analyses with different parameters without waiting 
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 class="text-sm font-semibold text-gray-900">Performance Caching</h3>
+            <p class="mt-1 text-sm text-gray-600">
+              Results are cached for instant access. Re-run analyses with different parameters without waiting
               for full recomputation.
             </p>
           </div>
         </div>
       </section>
 
-      <!-- Credits -->
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-6">Credits & Acknowledgments</h2>
-        
-        <div class="space-y-4">
+      <section class="mb-10">
+        <h2 class="mb-3 text-base font-semibold text-gray-900">Credits &amp; Acknowledgments</h2>
+
+        <div class="space-y-4 text-sm leading-relaxed text-gray-700">
           <div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">NeuralFoil and AeroSandbox</h3>
-            <p class="text-gray-700 mb-2">
-              Airfolio uses <a 
-                href="https://github.com/peterdsharpe/NeuralFoil" 
-                target="_blank" 
+            <h3 class="mb-1 font-semibold text-gray-900">NeuralFoil and AeroSandbox</h3>
+            <p class="mb-2">
+              Airfolio uses <a
+                href="https://github.com/peterdsharpe/NeuralFoil"
+                target="_blank"
                 rel="noopener noreferrer"
-                class="text-indigo-600 hover:text-indigo-800 underline"
-              >NeuralFoil</a> and AeroSandbox by Peter Sharpe for AI-powered airfoil performance analysis. 
-              NeuralFoil provides fast, accurate aerodynamic predictions using neural networks trained on 
+                class="font-medium text-primary-600 underline hover:text-primary-700"
+              >NeuralFoil</a> and AeroSandbox by Peter Sharpe for AI-powered airfoil performance analysis.
+              NeuralFoil provides fast, accurate aerodynamic predictions using neural networks trained on
               high-fidelity CFD data.
             </p>
-            <p class="text-sm text-gray-600">
-              <a 
-                href="https://github.com/peterdsharpe/NeuralFoil/tree/master/studies" 
-                target="_blank" 
+            <p>
+              <a
+                href="https://github.com/peterdsharpe/NeuralFoil/tree/master/studies"
+                target="_blank"
                 rel="noopener noreferrer"
-                class="text-indigo-600 hover:text-indigo-800 underline"
+                class="font-medium text-primary-600 underline hover:text-primary-700"
               >View NeuralFoil studies and documentation</a>
             </p>
           </div>
 
           <div class="border-t border-gray-200 pt-4">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Inspiration</h3>
-            <p class="text-gray-700">
-              Airfolio draws inspiration from excellent airfoil resources including 
-              <a 
-                href="https://airfoiltools.com" 
-                target="_blank" 
+            <h3 class="mb-1 font-semibold text-gray-900">Inspiration</h3>
+            <p>
+              Airfolio draws inspiration from excellent airfoil resources including
+              <a
+                href="https://airfoiltools.com"
+                target="_blank"
                 rel="noopener noreferrer"
-                class="text-indigo-600 hover:text-indigo-800 underline"
-              >airfoiltools.com</a> and 
-              <a 
-                href="https://bigfoil.com" 
-                target="_blank" 
+                class="font-medium text-primary-600 underline hover:text-primary-700"
+              >airfoiltools.com</a> and
+              <a
+                href="https://bigfoil.com"
+                target="_blank"
                 rel="noopener noreferrer"
-                class="text-indigo-600 hover:text-indigo-800 underline"
-              >bigfoil.com</a>, 
+                class="font-medium text-primary-600 underline hover:text-primary-700"
+              >bigfoil.com</a>,
               which have served as valuable references for the airfoil analysis community. Thank you.
             </p>
-            <div class="flex justify-end mt-4">
-              <span class="mr-24">- Daniel E.</span>
-            </div>
+            <p class="mt-3 text-right text-gray-600">
+              - Daniel E.
+            </p>
           </div>
         </div>
       </section>
 
-      <!-- Contact -->
-      <section class="text-center">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Questions or Feedback?</h2>
-        <p class="text-gray-700 mb-4">
-          We'd love to hear from you. Reach out with questions, suggestions, or bug reports.
-        </p>
-        <VButton
-          color="primary"
-          size="lg"
-          :href="`mailto:${supportEmail}`"
-        >
-          Contact Support
-        </VButton>
-      </section>
+      <VPanel title="Questions or Feedback?">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-gray-600">
+            We'd love to hear from you. Reach out with questions, suggestions, or bug reports.
+          </p>
+          <VButton
+            color="primary"
+            class="flex-shrink-0"
+            :href="`mailto:${supportEmail}`"
+          >
+            Contact Support
+          </VButton>
+        </div>
+      </VPanel>
     </div>
   </div>
 </template>
-

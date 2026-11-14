@@ -83,7 +83,7 @@ const clearSelection = () => {
 <template>
   <div class="space-y-4">
     <div>
-      <label class="block text-sm font-medium text-gray-700 mb-2">
+      <label class="mb-1.5 block text-sm font-medium text-gray-700">
         Select Airfoil
       </label>
       <Autocomplete
@@ -94,7 +94,7 @@ const clearSelection = () => {
       />
     </div>
 
-    <div v-if="selectedAirfoil" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+    <div v-if="selectedAirfoil" class="rounded-lg border border-gray-200 bg-white p-4">
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <h3 class="font-semibold text-gray-900">{{ selectedAirfoil.name }}</h3>
@@ -103,26 +103,26 @@ const clearSelection = () => {
           </div>
           <div class="mt-2 flex flex-wrap gap-4 text-xs text-gray-500">
             <span v-if="selectedAirfoil.thickness_pct">
-              Thickness: {{ (selectedAirfoil.thickness_pct * 100).toFixed(1) }}%
+              Thickness: <span class="num">{{ (selectedAirfoil.thickness_pct * 100).toFixed(1) }}%</span>
             </span>
             <span v-if="selectedAirfoil.camber_pct">
-              Camber: {{ (selectedAirfoil.camber_pct * 100).toFixed(1) }}%
+              Camber: <span class="num">{{ (selectedAirfoil.camber_pct * 100).toFixed(1) }}%</span>
             </span>
           </div>
         </div>
         <button
           type="button"
-          class="ml-4 text-gray-400 hover:text-gray-600"
+          class="ml-4 rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          aria-label="Clear selected airfoil"
           @click="clearSelection"
         >
-          <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" />
+          <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
     </div>
 
-    <div v-else class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-500 text-center">
+    <div v-else class="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
       No airfoil selected. Search and select an airfoil to begin CST parameterization.
     </div>
   </div>
 </template>
-

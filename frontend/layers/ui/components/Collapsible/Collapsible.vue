@@ -45,7 +45,7 @@ watch(isOpen, (val) => {
     emit('close')
 })
 
-const toggle = () => {
+function toggle() {
   emit('toggle')
   isOpen.value = !isOpen.value
 }
@@ -64,9 +64,9 @@ const toggle = () => {
         font-semibold
         rounded-lg
         focus:outline-none
-        focus-visible:ring
-        focus-visible:ring-blue-50
-        focus-visible:ring-opacity-75
+        text-gray-900
+        focus-visible:ring-2
+        focus-visible:ring-primary-500
       "
       :class="classes?.button"
       type="button"
@@ -78,7 +78,8 @@ const toggle = () => {
       <Icon
         name="heroicons:chevron-down"
         :class="open ? 'transform rotate-180' : ''"
-        class="w-5 h-5"
+        class="w-5 h-5 text-gray-400 transition-transform"
+        aria-hidden="true"
       />
     </DisclosureButton>
     <CollapseTransition>

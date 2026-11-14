@@ -34,14 +34,14 @@ const hrefProps = computed(() => {
 
 <template>
   <MenuItem v-slot="{ active }">
-    <div v-if="divider" class="border-b my-1 -mx-1" />
+    <div v-if="divider" class="border-b border-gray-200 my-1 -mx-1" />
     <component
       :is="computedComponent"
       v-else
       :target="href && newTab ? '_blank' : undefined"
       :rel="href && newTab ? 'noopener' : null"
       class="group flex gap-2 rounded-md items-center w-full px-2 py-2 text-sm" :class="[
-        active ? 'bg-gray-100' : 'text-gray-900',
+        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
       ]"
       v-bind="{ ...hrefProps, ...toProps, ...$attrs }"
     >

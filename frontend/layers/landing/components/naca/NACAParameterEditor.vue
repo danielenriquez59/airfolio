@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import type { NACA4Params, NACA5Params } from '~/composables/useNACAGenerator'
-import NACAExportButtons from './NACAExportButtons.vue'
+import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 interface Props {
   seriesType: '4-digit' | '5-digit'
   naca4Params: NACA4Params
   naca5Params: NACA5Params
   nacaName: string
-  onExportParameters?: () => void
-  onExportSelig?: () => void
-  onExportLednicer?: () => void
 }
 
 interface Emits {
@@ -39,160 +36,96 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
   const newParams = { ...props.naca5Params, [key]: numValue }
   emit('update:naca5Params', newParams)
 }
+
+const seriesOptions = [
+  { value: '4-digit', label: '4-digit' },
+  { value: '5-digit', label: '5-digit' },
+] as const
+
+const rows = computed(() => props.seriesType === '4-digit'
+  ? [
+      { key: 'm', label: 'Max camber', hint: '0% to 9.5%', min: 0, max: 0.095, step: 0.001, value: props.naca4Params.m },
+      { key: 'p', label: 'Camber position', hint: '10% chord steps', min: 0.1, max: 0.9, step: 0.1, value: props.naca4Params.p },
+      { key: 't', label: 'Thickness', hint: '1% to 40%', min: 0.01, max: 0.4, step: 0.01, value: props.naca4Params.t },
+    ]
+  : [
+      { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: 0, max: 1.5, step: 0.15, value: props.naca5Params.cl },
+      { key: 'p', label: 'Camber position', hint: '5% to 25%', min: 0.05, max: 0.25, step: 0.05, value: props.naca5Params.p },
+      { key: 't', label: 'Thickness', hint: '1% to 40%', min: 0.01, max: 0.4, step: 0.01, value: props.naca5Params.t },
+    ])
+
+function handleChange(key: string, value: string | number) {
+  if (props.seriesType === '4-digit')
+    handleNACA4Change(key as keyof NACA4Params, value)
+  else
+    handleNACA5Change(key as keyof NACA5Params, value)
+}
 </script>
 
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,640px)_minmax(280px,auto)] gap-6 items-start justify-between">
-      <!-- Parameter rows -->
-      <div class="space-y-4 min-w-0">
-        <template v-if="seriesType === '4-digit'">
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Max Camber</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 0% to 9.5%</span>
-            <input
-              type="range"
-              min="0"
-              max="0.095"
-              step="0.001"
-              :value="naca4Params.m"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA4Change('m', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca4Params.m"
-              min="0"
-              max="0.095"
-              step="0.001"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA4Change('m', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Camber Position</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Increments of 10% chord</span>
-            <input
-              type="range"
-              min="0.1"
-              max="0.9"
-              step="0.1"
-              :value="naca4Params.p"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA4Change('p', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca4Params.p"
-              min="0.1"
-              max="0.9"
-              step="0.1"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA4Change('p', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Thickness</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 1% to 40%</span>
-            <input
-              type="range"
-              min="0.01"
-              max="0.40"
-              step="0.01"
-              :value="naca4Params.t"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA4Change('t', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca4Params.t"
-              min="0.01"
-              max="0.40"
-              step="0.01"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA4Change('t', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-        </template>
-
-        <template v-else>
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Design Cl</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Ideal design lift coefficient</span>
-            <input
-              type="range"
-              min="0"
-              max="1.5"
-              step="0.15"
-              :value="naca5Params.cl"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA5Change('cl', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca5Params.cl"
-              min="0"
-              max="1.5"
-              step="0.15"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA5Change('cl', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Camber Position</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">5%, 10%, 15%, 20%, 25%</span>
-            <input
-              type="range"
-              min="0.05"
-              max="0.25"
-              step="0.05"
-              :value="naca5Params.p"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA5Change('p', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca5Params.p"
-              min="0.05"
-              max="0.25"
-              step="0.05"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA5Change('p', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-28 shrink-0">Thickness</span>
-            <span class="text-xs text-gray-400 w-36 shrink-0 hidden sm:block">Range: 1% to 40%</span>
-            <input
-              type="range"
-              min="0.01"
-              max="0.40"
-              step="0.01"
-              :value="naca5Params.t"
-              class="w-full max-w-80 min-w-32 h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-blue-600"
-              @input="handleNACA5Change('t', parseFloat(($event.target as HTMLInputElement).value))"
-            />
-            <input
-              type="number"
-              :value="naca5Params.t"
-              min="0.01"
-              max="0.40"
-              step="0.01"
-              class="w-20 shrink-0 px-2 py-1 border border-gray-300 rounded text-right font-mono text-sm focus:outline-none focus:border-blue-500"
-              @change="handleNACA5Change('t', ($event.target as HTMLInputElement).value)"
-            />
-          </div>
-        </template>
+  <div class="space-y-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="NACA series">
+        <button
+          v-for="opt in seriesOptions"
+          :key="opt.value"
+          type="button"
+          :class="tabButtonClasses(seriesType === opt.value)"
+          :aria-pressed="seriesType === opt.value"
+          @click="emit('update:seriesType', opt.value)"
+        >
+          {{ opt.label }}
+        </button>
       </div>
+      <p class="num text-2xl font-semibold tracking-tight text-gray-900" aria-live="polite">
+        {{ nacaName }}
+      </p>
+    </div>
 
-      <!-- Export buttons -->
-      <NACAExportButtons
-        :on-export-parameters="onExportParameters"
-        :on-export-selig="onExportSelig"
-        :on-export-lednicer="onExportLednicer"
-      />
+    <div class="space-y-4">
+      <div
+        v-for="row in rows"
+        :key="`${seriesType}-${row.key}`"
+        class="grid grid-cols-[7rem_minmax(0,1fr)_5rem] items-center gap-3"
+      >
+        <label :for="`naca-${row.key}`" class="min-w-0">
+          <span class="block text-sm font-medium text-gray-700">{{ row.label }}</span>
+          <span class="block text-xs text-gray-500">{{ row.hint }}</span>
+        </label>
+        <input
+          type="range"
+          :min="row.min"
+          :max="row.max"
+          :step="row.step"
+          :value="row.value"
+          :aria-label="row.label"
+          class="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          @input="handleChange(row.key, parseFloat(($event.target as HTMLInputElement).value))"
+        >
+        <input
+          :id="`naca-${row.key}`"
+          type="number"
+          :value="row.value"
+          :min="row.min"
+          :max="row.max"
+          :step="row.step"
+          class="num h-9 w-full rounded-lg border border-gray-300 px-2 text-right text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          @change="handleChange(row.key, ($event.target as HTMLInputElement).value)"
+        >
+      </div>
+    </div>
+
+    <div class="flex items-start gap-2 rounded-lg border border-primary-100 bg-primary-50 p-3 text-sm text-gray-700">
+      <Icon name="heroicons:information-circle-20-solid" class="mt-0.5 h-4 w-4 shrink-0 text-primary-600" aria-hidden="true" />
+      <p>
+        <span class="font-medium text-gray-900">Technical note.</span>
+        <template v-if="seriesType === '4-digit'">
+          The NACA 4-digit airfoil sections are generated using a thickness distribution equation and a mean camber line composed of two parabolic arcs merging smoothly at the position of maximum camber.
+        </template>
+        <template v-else>
+          The NACA 5-digit series uses the same thickness form as the 4-digit series but employs a specific camber line designed to move the maximum camber forward for higher maximum lift coefficients. The calculations here approximate the standard camber lines.
+        </template>
+      </p>
+    </div>
   </div>
 </template>

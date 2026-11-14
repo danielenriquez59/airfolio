@@ -161,402 +161,118 @@ const exportToCSV = () => {
   link.click()
   document.body.removeChild(link)
 }
+
+/** Numeric columns in display order (label, row key, decimals) */
+const columns = computed(() => [
+  ...((props.designAlpha !== null && props.designAlpha !== undefined)
+    ? [{ key: 'ldAtDesignAlpha', label: 'L/D @ design α', decimals: 3 }]
+    : []),
+  { key: 'maxLD', label: 'Max L/D', decimals: 3 },
+  { key: 'maxLDAlpha', label: 'α @ Max L/D', decimals: 2 },
+  { key: 'ldWidth', label: 'L/D Width (°)', decimals: 2 },
+  { key: 'clMax', label: 'CL Max', decimals: 3 },
+  { key: 'clMaxAlpha', label: 'α @ CL Max', decimals: 2 },
+  { key: 'clAtZero', label: 'CL @ α=0°', decimals: 3 },
+  { key: 'minCD', label: 'Min CD', decimals: 4 },
+  { key: 'cmAtZero', label: 'CM @ α=0°', decimals: 3 },
+  { key: 'ldAtZero', label: 'L/D @ α=0°', decimals: 3 },
+  { key: 'smoothness_CM', label: 'Smoothness CM', decimals: 3 },
+  { key: 'avg_confidence', label: 'NN Confidence', decimals: 3 },
+  { key: 'thickness', label: 't/c (%)', decimals: 2 },
+  { key: 'thickness_location', label: 't/c Loc (%)', decimals: 2 },
+  { key: 'camber', label: 'Camber (%)', decimals: 2 },
+  { key: 'camber_location', label: 'Camber Loc (%)', decimals: 2 },
+] as Array<{ key: keyof SummaryRow; label: string; decimals: number }>)
+
+function ariaSort(column: string) {
+  if (sortColumn.value !== column)
+    return 'none'
+  return sortDirection.value === 'asc' ? 'ascending' : 'descending'
+}
 </script>
 
 <template>
   <div class="space-y-4">
     <!-- Export Button -->
-    <div class="flex justify-between items-center gap-2">
-      <div class="text-sm text-gray-500">
-        <Icon name="heroicons:information-circle" class="h-4 w-4" />
-        Click headers to sort. <br>
-        Add a Design α to calculate L/D at that angle. 
-      </div>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <p class="flex items-start gap-1.5 text-sm text-gray-500">
+        <Icon name="heroicons:information-circle" class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>Click headers to sort. Add a Design α in the sidebar to calculate L/D at that angle.</span>
+      </p>
       <VButton
         type="button"
-        color="primary"
+        color="light"
         @click="exportToCSV"
       >
-        <Icon name="heroicons:arrow-down-tray" class="h-5 w-5" />
+        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         Export CSV
       </VButton>
     </div>
 
-    <!-- Table -->
-    <div class="overflow-x-auto bg-white rounded-lg border border-gray-200" style="transform: scaleY(-1);">
-      <table class="min-w-full divide-y divide-gray-200" style="transform: scaleY(-1);">
-        <thead class="bg-gray-50">
+    <!-- Table: scrolls inside its own box both ways so the header row can stay sticky -->
+    <div class="max-h-[70vh] overflow-auto rounded-lg border border-gray-200">
+      <table class="min-w-full text-sm">
+        <thead>
           <tr>
             <th
               scope="col"
-              @click="handleSort('name')"
-              :class="{
-                'bg-gray-100': sortColumn === 'name',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 z-10"
+              :aria-sort="ariaSort('name')"
+              class="sticky left-0 top-0 z-20 border-b border-gray-200 bg-gray-50 p-0 text-left"
             >
-              <div class="flex items-center justify-between">
-                <span>Airfoil Name</span>
+              <button
+                type="button"
+                class="flex w-full items-center gap-1 px-3 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                :class="{ 'text-gray-900': sortColumn === 'name' }"
+                @click="handleSort('name')"
+              >
+                Airfoil Name
                 <Icon
-                  v-if="sortColumn === 'name'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
+                  :name="sortColumn === 'name' ? (sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down') : 'heroicons:chevron-up-down'"
+                  class="h-3.5 w-3.5 shrink-0"
+                  :class="sortColumn === 'name' ? 'text-primary-600' : 'text-gray-400'"
+                  aria-hidden="true"
                 />
-              </div>
+              </button>
             </th>
             <th
-              v-if="designAlpha !== null && designAlpha !== undefined"
+              v-for="col in columns"
+              :key="col.key"
               scope="col"
-              @click="handleSort('ldAtDesignAlpha')"
-              :class="{
-                'bg-gray-100': sortColumn === 'ldAtDesignAlpha',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              :aria-sort="ariaSort(col.key)"
+              class="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 p-0 text-right"
             >
-              <div class="flex items-center justify-between">
-                <span>L/D @ design α</span>
+              <button
+                type="button"
+                class="flex w-full items-center justify-end gap-1 whitespace-nowrap px-3 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                :class="{ 'text-gray-900': sortColumn === col.key }"
+                @click="handleSort(col.key)"
+              >
+                {{ col.label }}
                 <Icon
-                  v-if="sortColumn === 'ldAtDesignAlpha'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
+                  :name="sortColumn === col.key ? (sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down') : 'heroicons:chevron-up-down'"
+                  class="h-3.5 w-3.5 shrink-0"
+                  :class="sortColumn === col.key ? 'text-primary-600' : 'text-gray-400'"
+                  aria-hidden="true"
                 />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('maxLD')"
-              :class="{
-                'bg-gray-100': sortColumn === 'maxLD',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>Max L/D</span>
-                <Icon
-                  v-if="sortColumn === 'maxLD'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('maxLDAlpha')"
-              :class="{
-                'bg-gray-100': sortColumn === 'maxLDAlpha',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>α @ Max L/D</span>
-                <Icon
-                  v-if="sortColumn === 'maxLDAlpha'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('ldWidth')"
-              :class="{
-                'bg-gray-100': sortColumn === 'ldWidth',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>L/D Width (°)</span>
-                <Icon
-                  v-if="sortColumn === 'ldWidth'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('clMax')"
-              :class="{
-                'bg-gray-100': sortColumn === 'clMax',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>CL Max</span>
-                <Icon
-                  v-if="sortColumn === 'clMax'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('clMaxAlpha')"
-              :class="{
-                'bg-gray-100': sortColumn === 'clMaxAlpha',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>α @ CL Max</span>
-                <Icon
-                  v-if="sortColumn === 'clMaxAlpha'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('clAtZero')"
-              :class="{
-                'bg-gray-100': sortColumn === 'clAtZero',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>CL @ α=0°</span>
-                <Icon
-                  v-if="sortColumn === 'clAtZero'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('minCD')"
-              :class="{
-                'bg-gray-100': sortColumn === 'minCD',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>Min CD</span>
-                <Icon
-                  v-if="sortColumn === 'minCD'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('cmAtZero')"
-              :class="{
-                'bg-gray-100': sortColumn === 'cmAtZero',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>CM @ α=0°</span>
-                <Icon
-                  v-if="sortColumn === 'cmAtZero'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('ldAtZero')"
-              :class="{
-                'bg-gray-100': sortColumn === 'ldAtZero',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>L/D @ α=0°</span>
-                <Icon
-                  v-if="sortColumn === 'ldAtZero'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('smoothness_CM')"
-              :class="{
-                'bg-gray-100': sortColumn === 'smoothness_CM',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>Smoothness CM</span>
-                <Icon
-                  v-if="sortColumn === 'smoothness_CM'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('avg_confidence')"
-              :class="{
-                'bg-gray-100': sortColumn === 'avg_confidence',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>NN Confidence</span>
-                <Icon
-                  v-if="sortColumn === 'avg_confidence'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('thickness')"
-              :class="{
-                'bg-gray-100': sortColumn === 'thickness',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>t/c (%)</span>
-                <Icon
-                  v-if="sortColumn === 'thickness'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('thickness_location')"
-              :class="{
-                'bg-gray-100': sortColumn === 'thickness_location',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>t/c Loc (%)</span>
-                <Icon
-                  v-if="sortColumn === 'thickness_location'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('camber')"
-              :class="{
-                'bg-gray-100': sortColumn === 'camber',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>Camber (%)</span>
-                <Icon
-                  v-if="sortColumn === 'camber'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
-            </th>
-            <th
-              scope="col"
-              @click="handleSort('camber_location')"
-              :class="{
-                'bg-gray-100': sortColumn === 'camber_location',
-                'cursor-pointer hover:bg-gray-100 transition-colors': true,
-              }"
-              class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-              <div class="flex items-center justify-between">
-                <span>Camber Loc (%)</span>
-                <Icon
-                  v-if="sortColumn === 'camber_location'"
-                  :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
-                />
-              </div>
+              </button>
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="divide-y divide-gray-100">
           <tr
             v-for="row in sortedData"
             :key="row.name"
-            class="hover:bg-gray-50 transition-colors"
+            class="group"
           >
-            <td
-              class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10"
-            >
+            <td class="sticky left-0 z-[5] whitespace-nowrap bg-white px-3 py-2 font-medium text-gray-900 group-hover:bg-gray-50">
               {{ row.name }}
             </td>
             <td
-              v-if="designAlpha !== null && designAlpha !== undefined"
-              class="px-4 py-3 whitespace-nowrap text-sm text-gray-700"
+              v-for="col in columns"
+              :key="col.key"
+              class="num whitespace-nowrap px-3 py-2 text-right text-gray-700 group-hover:bg-gray-50"
             >
-              {{ formatNumber(row.ldAtDesignAlpha, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.maxLD, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.maxLDAlpha, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.ldWidth, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.clMax, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.clMaxAlpha, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.clAtZero, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.minCD, 4) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.cmAtZero, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.ldAtZero, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.smoothness_CM, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.avg_confidence, 3) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.thickness, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.thickness_location, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.camber, 2) }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-              {{ formatNumber(row.camber_location, 2) }}
+              {{ formatNumber(row[col.key] as number | undefined, col.decimals) }}
             </td>
           </tr>
         </tbody>
@@ -564,4 +280,3 @@ const exportToCSV = () => {
     </div>
   </div>
 </template>
-

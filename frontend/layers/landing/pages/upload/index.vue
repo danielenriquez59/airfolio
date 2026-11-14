@@ -47,7 +47,8 @@ const initializeEmptyRows = (count: number): CoordinatePair[] => {
 }
 
 // Form state
-const activeTab = ref<'manual' | 'csv'>('manual')
+// CSV is the common path; manual tables are for small edits (CSV load and draft restore switch to manual)
+const activeTab = ref<'manual' | 'csv'>('csv')
 const airfoilName = ref('')
 const description = ref('')
 const sourceUrl = ref('')
@@ -75,6 +76,25 @@ const countFilledPoints = (surface: CoordinatePair[]): number => {
     return Number.isFinite(x) && Number.isFinite(y)
   }).length
 }
+
+/** Filled points as numeric arrays for the live shape preview. */
+function toPreview(surface: CoordinatePair[]) {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const c of surface) {
+    if (c.x === '' || c.y === '')
+      continue
+    const x = Number.parseFloat(String(c.x))
+    const y = Number.parseFloat(String(c.y))
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      xs.push(x)
+      ys.push(y)
+    }
+  }
+  return { xs, ys }
+}
+const upperPreview = computed(() => toPreview(upperSurface.value))
+const lowerPreview = computed(() => toPreview(lowerSurface.value))
 
 // Computed
 const canSubmit = computed(() => {
@@ -255,191 +275,208 @@ const resetForm = () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white py-12">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <!-- Header with Help Button -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between mb-2">
-          <h1 class="text-3xl font-bold text-gray-900">Upload Airfoil</h1>
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
-            @click="showHelp = true"
-          >
-            <Icon name="heroicons:question-mark-circle" class="h-5 w-5" />
-            How to Upload
-          </button>
-        </div>
-        <p class="text-lg text-gray-600">
-          Share your airfoil design with the community
-        </p>
-      </div>
+  <div>
+    <PageHeader title="Upload Airfoil" subtitle="Share your airfoil design with the community.">
+      <template #actions>
+        <VButton type="button" color="light" @click="showHelp = true">
+          <Icon name="heroicons:question-mark-circle" class="h-5 w-5" aria-hidden="true" />
+          How to Upload
+        </VButton>
+      </template>
+    </PageHeader>
 
-      <!-- Form -->
-      <form class="space-y-6">
-        <!-- Name -->
-        <div>
-          <label for="name" class="block text-sm font-medium text-gray-900 mb-1">
-            Airfoil Name <span class="text-red-600">*</span>
-          </label>
-          <VInput
-            v-model="airfoilName"
-            id="name"
-            type="text"
-            placeholder="e.g., NACA-2412"
-            wrapper-class="w-full"
-            size="lg"
-          />
-          <p v-if="errors.name" class="mt-1 text-sm text-red-600">
-            {{ errors.name }}
-          </p>
-        </div>
+    <UploadSteps :current="1" />
 
-        <!-- Description -->
-        <div>
-          <label for="description" class="block text-sm font-medium text-gray-900 mb-1">
-            Description (optional)
-          </label>
-          <textarea
-            v-model="description"
-            id="description"
-            placeholder="Brief description of your airfoil..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-            rows="3"
-          />
-        </div>
-
-        <!-- Source URL -->
-        <div>
-          <label for="sourceUrl" class="block text-sm font-medium text-gray-900 mb-1">
-            Source URL (optional)
-          </label>
-          <VInput
-            v-model="sourceUrl"
-            id="sourceUrl"
-            type="url"
-            placeholder="https://example.com/airfoil"
-            wrapper-class="w-full"
-            size="lg"
-          />
-        </div>
-
-        <!-- Category -->
-        <div>
-          <label for="category" class="block text-sm font-medium text-gray-900 mb-1">
-            Category (optional)
-          </label>
-          <select
-            v-model="selectedCategory"
-            id="category"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">No category</option>
-            <option v-for="category in allCategories" :key="category.id" :value="category.id">
-              {{ formatCategoryName(category.name) }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Coordinates Section -->
-        <div class="border-t pt-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Airfoil Coordinates</h2>
-            <p class="text-xs text-gray-500">
-              Minimum 10 points per surface required
-            </p>
-          </div>
-
-          <!-- Tabs -->
-          <div class="flex gap-4 mb-6 border-b border-gray-200">
-            <button
-              type="button"
-              :class="compactNavTabButtonClasses(activeTab === 'manual')"
-              @click="activeTab = 'manual'"
-            >
-              Manual Entry
-            </button>
-            <button
-              type="button"
-              :class="compactNavTabButtonClasses(activeTab === 'csv')"
-              @click="activeTab = 'csv'"
-            >
-              CSV Upload
-            </button>
-          </div>
-
-          <!-- Manual Tab -->
-          <div v-if="activeTab === 'manual'" class="space-y-6">
-            <!-- Upper Surface -->
+    <form novalidate>
+      <div class="grid gap-6 lg:grid-cols-3">
+        <!-- Details -->
+        <VPanel title="Details" class="lg:col-span-2">
+          <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <h3 class="text-base font-medium text-gray-900 mb-3">Upper Surface</h3>
-              <UploadCoordinateTable
-                v-model="upperSurface"
-                surface="upper"
+              <label for="name" class="mb-1.5 block text-sm font-medium text-gray-700">
+                Airfoil name <span class="text-error-600" aria-hidden="true">*</span>
+              </label>
+              <VInput
+                id="name"
+                v-model="airfoilName"
+                type="text"
+                placeholder="e.g., NACA-2412"
+                wrapper-class="w-full"
+                required
+                :error="!!errors.name"
+                :aria-invalid="errors.name ? 'true' : undefined"
+                :aria-describedby="errors.name ? 'name-error' : undefined"
               />
-              <p v-if="errors.upperSurface" class="mt-2 text-sm text-red-600">
-                {{ errors.upperSurface }}
+              <p v-if="errors.name" id="name-error" class="mt-1 text-sm text-error-600">
+                {{ errors.name }}
               </p>
             </div>
 
-            <!-- Lower Surface -->
             <div>
-              <h3 class="text-base font-medium text-gray-900 mb-3">Lower Surface</h3>
-              <UploadCoordinateTable
-                v-model="lowerSurface"
-                surface="lower"
+              <label for="category" class="mb-1.5 block text-sm font-medium text-gray-700">
+                Category <span class="font-normal text-gray-500">(optional)</span>
+              </label>
+              <select
+                id="category"
+                v-model="selectedCategory"
+                class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                <option value="">
+                  No category
+                </option>
+                <option v-for="category in allCategories" :key="category.id" :value="category.id">
+                  {{ formatCategoryName(category.name) }}
+                </option>
+              </select>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="sourceUrl" class="mb-1.5 block text-sm font-medium text-gray-700">
+                Source URL <span class="font-normal text-gray-500">(optional)</span>
+              </label>
+              <VInput
+                id="sourceUrl"
+                v-model="sourceUrl"
+                type="url"
+                placeholder="https://example.com/airfoil"
+                wrapper-class="w-full"
               />
-              <p v-if="errors.lowerSurface" class="mt-2 text-sm text-red-600">
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="description" class="mb-1.5 block text-sm font-medium text-gray-700">
+                Description <span class="font-normal text-gray-500">(optional)</span>
+              </label>
+              <textarea
+                id="description"
+                v-model="description"
+                placeholder="Brief description of your airfoil..."
+                class="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                rows="3"
+              />
+            </div>
+          </div>
+        </VPanel>
+
+        <!-- Live preview: right column on lg+, between details and coordinates below lg -->
+        <aside class="lg:col-start-3 lg:row-span-2 lg:row-start-1">
+          <VPanel title="Shape preview" description="Updates as you enter coordinates" class="lg:sticky lg:top-20">
+            <AirfoilGeometry
+              v-if="upperPreview.xs.length >= 2 || lowerPreview.xs.length >= 2"
+              :upper-x="upperPreview.xs"
+              :upper-y="upperPreview.ys"
+              :lower-x="lowerPreview.xs"
+              :lower-y="lowerPreview.ys"
+              :name="airfoilName || 'Preview'"
+              :aspect-ratio="3"
+              :show-grid="true"
+            />
+            <VStateBlock
+              v-else
+              icon="heroicons:pencil-square"
+              title="No shape yet"
+              description="Upload a file or enter coordinates to see the airfoil."
+            />
+
+            <dl class="mt-4 grid grid-cols-2 gap-4 border-t border-gray-200 pt-4">
+              <VStat
+                v-for="s in [{ label: 'Upper points', n: upperPreview.xs.length }, { label: 'Lower points', n: lowerPreview.xs.length }]"
+                :key="s.label"
+                :label="s.label"
+              >
+                <span class="inline-flex items-center gap-1.5">
+                  {{ s.n }}
+                  <Icon
+                    :name="s.n >= MIN_POINTS_PER_SURFACE ? 'heroicons:check-circle-20-solid' : 'heroicons:x-circle-20-solid'"
+                    class="h-4 w-4"
+                    :class="s.n >= MIN_POINTS_PER_SURFACE ? 'text-success-600' : 'text-gray-400'"
+                    aria-hidden="true"
+                  />
+                  <span class="sr-only">{{ s.n >= MIN_POINTS_PER_SURFACE ? '(meets minimum)' : '(below minimum)' }}</span>
+                </span>
+              </VStat>
+            </dl>
+            <p class="mt-2 text-xs text-gray-500">
+              Minimum <span class="num">{{ MIN_POINTS_PER_SURFACE }}</span> points per surface.
+            </p>
+          </VPanel>
+        </aside>
+
+        <!-- Coordinates -->
+        <VPanel title="Coordinates" class="lg:col-span-2">
+          <div class="mb-4 flex gap-2 border-b border-gray-200" role="tablist" aria-label="Coordinate input method">
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeTab === 'csv'"
+              :class="compactNavTabButtonClasses(activeTab === 'csv')"
+              @click="activeTab = 'csv'"
+            >
+              File upload
+            </button>
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeTab === 'manual'"
+              :class="compactNavTabButtonClasses(activeTab === 'manual')"
+              @click="activeTab = 'manual'"
+            >
+              Manual entry
+            </button>
+          </div>
+
+          <div v-if="activeTab === 'manual'" class="grid gap-6 md:grid-cols-2">
+            <div>
+              <h3 class="mb-2 text-sm font-semibold text-gray-900">
+                Upper surface
+              </h3>
+              <UploadCoordinateTable v-model="upperSurface" surface="upper" />
+              <p v-if="errors.upperSurface" class="mt-2 text-sm text-error-600" role="alert">
+                {{ errors.upperSurface }}
+              </p>
+            </div>
+            <div>
+              <h3 class="mb-2 text-sm font-semibold text-gray-900">
+                Lower surface
+              </h3>
+              <UploadCoordinateTable v-model="lowerSurface" surface="lower" />
+              <p v-if="errors.lowerSurface" class="mt-2 text-sm text-error-600" role="alert">
                 {{ errors.lowerSurface }}
               </p>
             </div>
           </div>
 
-          <!-- CSV Tab -->
-          <div v-if="activeTab === 'csv'" class="space-y-4">
-            <UploadCsvUpload
-              @load="handleCsvLoad"
-              @error="handleCsvError"
-            />
-            <p v-if="errors.csv" class="text-sm text-red-600">
+          <div v-if="activeTab === 'csv'" class="space-y-3">
+            <UploadCsvUpload @load="handleCsvLoad" @error="handleCsvError" />
+            <p v-if="errors.csv" class="text-sm text-error-600" role="alert">
               {{ errors.csv }}
             </p>
           </div>
-        </div>
+        </VPanel>
+      </div>
 
-        <!-- Error Summary -->
-        <div v-if="errors.submit" class="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+      <!-- Sticky action bar -->
+      <div class="sticky bottom-0 z-20 mt-6 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
+        <div v-if="errors.submit" class="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-800" role="alert">
           {{ errors.submit }}
         </div>
-
-        <!-- Actions -->
-        <div class="flex gap-3 pt-6 border-t">
+        <div class="flex items-center justify-between gap-3">
+          <VButton type="button" color="light" @click="resetForm">
+            Reset
+          </VButton>
           <VButton
             type="button"
             color="primary"
-            class="flex-1"
             :disabled="!canSubmit || isSubmitting"
             @click="handleSubmit"
           >
-            <span v-if="!isSubmitting">Continue to Confirmation</span>
-            <span v-else>Processing...</span>
-          </VButton>
-          <VButton
-            type="button"
-            color="neutral"
-            @click="resetForm"
-          >
-            Reset
+            {{ isSubmitting ? 'Processing...' : 'Continue to review' }}
+            <Icon v-if="!isSubmitting" name="heroicons:arrow-right-20-solid" class="h-4 w-4" aria-hidden="true" />
           </VButton>
         </div>
-      </form>
-    </div>
+      </div>
+    </form>
 
-    <!-- Help Modal -->
-    <UploadHelpModal
-      :is-open="showHelp"
-      @close="showHelp = false"
-    />
+    <UploadHelpModal :is-open="showHelp" @close="showHelp = false" />
   </div>
 </template>
-

@@ -23,8 +23,8 @@ const onSubmit = handleSubmit((values) => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center h-full">
-    <form class="rounded-lg p-8 w-full max-w-md mx-auto" @submit="onSubmit">
+  <div>
+    <form class="p-6 sm:p-8" @submit="onSubmit">
       <AuthHeader title="Forgot Password" subtitle="Please enter your email" />
 
       <VInput wrapper-class="mb-4" name="email" label="Email" placeholder="Email" />

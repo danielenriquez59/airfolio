@@ -123,7 +123,7 @@ const menus = ref([
           py-5
           w-full
           font-bold
-          text-lg text-indigo-500
+          text-lg text-gray-900
           flex
           gap-2
           items-center
@@ -136,9 +136,13 @@ const menus = ref([
         </div>
       </nuxt-link>
       <button
-        class="i-ri-close-line w-6 h-6 text inline sm:hidden"
+        type="button"
+        class="inline rounded-lg p-1 text-gray-500 hover:bg-gray-100 sm:hidden"
+        aria-label="Close menu"
         @click="isOpen = false"
-      />
+      >
+        <Icon name="ri:close-line" class="h-6 w-6" />
+      </button>
     </div>
 
     <!-- menu -->

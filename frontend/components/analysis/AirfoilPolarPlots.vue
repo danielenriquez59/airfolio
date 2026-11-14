@@ -22,6 +22,7 @@ ChartJS.register(
   Legend,
   Filler
 )
+applyChartDefaults(ChartJS)
 
 // Register zoom plugin only on client side
 if (process.client) {
@@ -46,18 +47,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   showControls: true
 })
-
-// Color palette for multiple conditions
-const colors = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#F97316', // Orange
-]
 
 /**
  * Calculate L/D ratio from CL and CD arrays
@@ -90,8 +79,8 @@ const generateChartData = (
         x: data.alpha[i],
         y: value,
       })),
-      borderColor: colors[idx % colors.length],
-      backgroundColor: colors[idx % colors.length] + '20',
+      borderColor: seriesColor(idx),
+      backgroundColor: seriesColor(idx),
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -121,17 +110,11 @@ const getChartOptions = (
   normalized: true,
   plugins: {
     legend: {
+      ...themedLegend,
       display: showLegend,
-      position: 'top' as const,
-      labels: {
-        usePointStyle: true,
-        padding: 15,
-        font: {
-          size: 12,
-        },
-      },
     },
     tooltip: {
+      ...themedTooltip,
       enabled: enableTooltips,
       mode: 'index' as const,
       intersect: false,
@@ -144,12 +127,6 @@ const getChartOptions = (
           return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
         },
       },
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: 'white',
-      bodyColor: 'white',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderWidth: 1,
-      padding: 12,
     },
     zoom: {
       zoom: {
@@ -169,35 +146,13 @@ const getChartOptions = (
   },
   scales: {
     x: {
+      ...themedAxis('Angle of Attack α (degrees)'),
       type: 'linear' as const,
       position: 'bottom' as const,
-      title: {
-        display: true,
-        text: 'Angle of Attack α (degrees)',
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
     y: {
+      ...themedAxis(yLabel),
       type: 'linear' as const,
-      title: {
-        display: true,
-        text: yLabel,
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
   },
   elements: {
@@ -226,60 +181,6 @@ const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', f
 const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
 const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
 const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
-
-// Generate datasets for legend-only chart (using CL data as base)
-const legendChartData = computed(() => {
-  const datasets = props.performanceData.map((data, idx) => ({
-    label: data.name,
-    data: [], // Empty data array - we only want the legend
-    borderColor: colors[idx % colors.length],
-    backgroundColor: colors[idx % colors.length] + '20',
-    borderWidth: 2,
-  }))
-
-  return { datasets }
-})
-
-// Options for legend-only chart
-const legendChartOptions = computed((): any => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: false,
-  plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const,
-      maxHeight: 200,
-      labels: {
-        usePointStyle: true,
-        padding: props.performanceData.length > 100 ? 8 : 15,
-        font: {
-          size: props.performanceData.length > 100 ? 10 : 13,
-        },
-        boxWidth: props.performanceData.length > 100 ? 8 : 12,
-      },
-    },
-    tooltip: {
-      enabled: false, // Disable tooltip for legend chart
-    },
-  },
-  scales: {
-    x: {
-      display: false, // Hide x-axis
-    },
-    y: {
-      display: false, // Hide y-axis
-    },
-  },
-  elements: {
-    point: {
-      radius: 0, // Hide points
-    },
-    line: {
-      borderWidth: 0, // Hide lines
-    },
-  },
-}))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -321,96 +222,89 @@ defineExpose({
 </script>
 
 <template>
-  <div v-if="performanceData.length === 0" class="text-center py-8 text-gray-500">
-    <p>No performance data selected. Select conditions from the Performance Data section above to view plots.</p>
-  </div>
-  
-  <div v-else class="space-y-6">
-    <!-- Legend Panel (spans 2 columns) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="lg:col-span-2">
-        <div :class="props.performanceData.length > 100 ? 'h-32' : 'h-16'">
-          <Line :data="legendChartData" :options="legendChartOptions" />
-        </div>
-      </div>
-    </div>
+  <VStateBlock
+    v-if="performanceData.length === 0"
+    title="No runs selected"
+    description="Select conditions from the Performance Data section above to view plots."
+    icon="heroicons:chart-bar"
+  />
 
-    <!-- Control Buttons (below legend, above plots) -->
+  <div v-else class="space-y-5">
+    <!-- Legend: one swatch per run, colours match the series in every plot -->
+    <ul class="flex max-h-32 flex-wrap gap-x-5 gap-y-1.5 overflow-y-auto text-xs text-gray-700" aria-label="Legend">
+      <li v-for="(data, idx) in performanceData" :key="`${idx}-${data.name}`" class="flex items-center gap-1.5">
+        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: seriesColor(idx) }" aria-hidden="true" />
+        {{ data.name }}
+      </li>
+    </ul>
+
+    <!-- Control Buttons -->
     <div v-if="props.showControls" class="flex justify-end gap-2">
       <button
         type="button"
         :class="toggleButtonClasses(tooltipsEnabled)"
+        :aria-pressed="tooltipsEnabled"
         @click="toggleTooltips"
       >
-        <Icon name="heroicons:information-circle" class="h-4 w-4" />
-        {{ tooltipsEnabled ? 'Disable Data Hover' : 'Enable Data Hover' }}
+        <Icon name="heroicons:cursor-arrow-rays" class="h-4 w-4" aria-hidden="true" />
+        Data hover
       </button>
       <VButton
         type="button"
         color="light"
         @click="resetZoom"
       >
-        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
-        Reset Zoom
+        <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
+        Reset zoom
       </VButton>
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- CL vs α -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div class="h-64">
         <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
       </div>
-
-      <!-- CD vs α -->
       <div class="h-64">
         <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
       </div>
-
-      <!-- CM vs α -->
       <div class="h-64">
         <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
       </div>
-
-      <!-- L/D vs α -->
       <div class="h-64">
         <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
       </div>
     </div>
 
     <!-- Plot Explanation (Collapsible) -->
-    <div class="bg-gray-50 rounded-lg">
-      <details class="group">
-        <summary
-          class="cursor-pointer p-4 flex items-center justify-between hover:bg-gray-100 transition-colors"
-        >
-          <span class="font-medium text-gray-900">Plot Explanation</span>
-          <Icon
-            name="heroicons:chevron-down"
-            class="h-5 w-5 text-gray-500 group-open:rotate-180 transition-transform"
-          />
-        </summary>
-        <div class="px-4 pb-4 space-y-3 text-sm text-gray-700">
-          <div>
-            <strong class="text-gray-900">CL (Lift Coefficient):</strong> Measures the lift
-            generated by the airfoil. Higher CL values indicate more lift at a given angle of
-            attack.
-          </div>
-          <div>
-            <strong class="text-gray-900">CD (Drag Coefficient):</strong> Measures the drag
-            resistance. Lower CD values indicate less drag and better efficiency.
-          </div>
-          <div>
-            <strong class="text-gray-900">CM (Moment Coefficient):</strong> Measures the pitching
-            moment about the quarter-chord. Important for stability analysis.
-          </div>
-          <div>
-            <strong class="text-gray-900">L/D (Lift-to-Drag Ratio):</strong> The ratio of lift to
-            drag. Higher L/D values indicate better aerodynamic efficiency.
-          </div>
+    <details class="group rounded-lg border border-gray-200">
+      <summary
+        class="flex cursor-pointer items-center justify-between rounded-lg px-4 py-3 text-sm font-medium text-gray-900 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+      >
+        Plot explanation
+        <Icon
+          name="heroicons:chevron-down"
+          class="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div class="space-y-2 border-t border-gray-200 px-4 py-3 text-sm text-gray-600">
+        <div>
+          <strong class="font-medium text-gray-900">CL (Lift Coefficient):</strong>
+          Measures the lift generated by the airfoil. Higher CL values indicate more lift at a given angle of attack.
         </div>
-      </details>
-    </div>
+        <div>
+          <strong class="font-medium text-gray-900">CD (Drag Coefficient):</strong>
+          Measures the drag resistance. Lower CD values indicate less drag and better efficiency.
+        </div>
+        <div>
+          <strong class="font-medium text-gray-900">CM (Moment Coefficient):</strong>
+          Measures the pitching moment about the quarter-chord. Important for stability analysis.
+        </div>
+        <div>
+          <strong class="font-medium text-gray-900">L/D (Lift-to-Drag Ratio):</strong>
+          The ratio of lift to drag. Higher L/D values indicate better aerodynamic efficiency.
+        </div>
+      </div>
+    </details>
   </div>
 </template>
-

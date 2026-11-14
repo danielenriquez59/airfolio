@@ -32,24 +32,6 @@ const stressUnit = computed(() => {
     default: return 'MPa'
   }
 })
-const momentStep = computed(() => {
-  switch (props.unitSystem) {
-    case 'mm': return 1000
-    case 'in': return 100
-    case 'm': return 100
-    case 'ft': return 10
-    default: return 1000
-  }
-})
-const stressStep = computed(() => {
-  switch (props.unitSystem) {
-    case 'mm': return 10
-    case 'in': return 1
-    case 'm': return 10
-    case 'ft': return 1
-    default: return 10
-  }
-})
 
 // Calculate bending stress: σ = M*c/I
 // where c = sparHeight/2 (distance from neutral axis to outer fiber)
@@ -92,10 +74,20 @@ const factorOfSafety = computed(() => {
 const fosColor = computed(() => {
   const fos = factorOfSafety.value
   if (fos === 0) return 'text-gray-500'
-  if (fos < 1) return 'text-red-600'
-  if (fos < 1.5) return 'text-orange-600'
-  if (fos < 2) return 'text-yellow-600'
-  return 'text-green-600'
+  if (fos < 1) return 'text-error-600'
+  if (fos < 2) return 'text-warning-700'
+  return 'text-success-700'
+})
+
+const fosTone = computed(() => {
+  const fos = factorOfSafety.value
+  if (fos === 0)
+    return 'neutral'
+  if (fos < 1)
+    return 'error'
+  if (fos < 2)
+    return 'warning'
+  return 'success'
 })
 
 const fosStatus = computed(() => {
@@ -109,76 +101,61 @@ const fosStatus = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
-      <Icon name="heroicons:beaker" class="h-5 w-5 text-blue-600" />
-      <h2>Stress & Safety Factor</h2>
-    </div>
-
-    <div class="space-y-4">
+  <VPanel title="Stress & safety factor">
+    <div class="space-y-3">
       <SchrenkInputGroup
         label="Applied Moment"
         name="appliedMoment"
         :model-value="appliedMoment"
-        @update:model-value="appliedMoment = $event"
         :unit="momentUnit"
-        :step="momentStep"
         tooltip="Bending moment applied to the spar. Hint: Use the Schrenk lift calculator to determine the applied moment."
+        @update:model-value="appliedMoment = $event"
       />
-      
       <SchrenkInputGroup
         label="Material Yield Stress"
         name="yieldStress"
         :model-value="yieldStress"
-        @update:model-value="yieldStress = $event"
         :unit="stressUnit"
-        :step="stressStep"
         tooltip="Yield strength of the spar material (e.g., 250 MPa for aluminum)"
+        @update:model-value="yieldStress = $event"
       />
-
-      <!-- Results -->
-      <div v-if="result.valid && appliedMoment > 0" class="mt-4 pt-4 border-t border-gray-200">
-        <!-- Bending Stress -->
-        <div class="mb-3 p-3 bg-gray-50 rounded-lg">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Bending Stress (σ)
-          </p>
-          <p class="text-lg font-bold text-gray-800">
-            {{ bendingStress.toFixed(2) }}
-            <span class="text-sm font-normal text-gray-400 ml-1">{{ stressUnit }}</span>
-          </p>
-        </div>
-
-        <!-- Factor of Safety -->
-        <div class="p-3 bg-blue-50 rounded-lg">
-          <p class="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">
-            Factor of Safety
-          </p>
-          <div class="flex items-baseline gap-3">
-            <p class="text-2xl font-bold" :class="fosColor">
-              {{ factorOfSafety > 0 ? factorOfSafety.toFixed(2) : 'N/A' }}
-            </p>
-            <span class="text-sm font-medium" :class="fosColor">
-              {{ fosStatus }}
-            </span>
-          </div>
-          <p class="text-xs text-gray-500 mt-2">
-            σ<sub>yield</sub> / σ<sub>actual</sub> = {{ yieldStress }} / {{ bendingStress.toFixed(2) }}
-          </p>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="!result.valid" class="mt-4 pt-4 border-t border-gray-200 text-center py-4 text-gray-400">
-        <Icon name="heroicons:exclamation-triangle" class="h-8 w-8 mx-auto mb-1 opacity-50" />
-        <p class="text-xs">Valid spar geometry required</p>
-      </div>
-
-      <div v-else class="mt-4 pt-4 border-t border-gray-200 text-center py-4 text-gray-400">
-        <Icon name="heroicons:calculator" class="h-8 w-8 mx-auto mb-1 opacity-50" />
-        <p class="text-xs">Enter applied moment to calculate</p>
-      </div>
     </div>
-  </div>
-</template>
 
+    <div class="mt-5 border-t border-gray-200 pt-4">
+      <template v-if="result.valid && appliedMoment > 0">
+        <dl class="grid grid-cols-2 gap-4">
+          <VStat label="Bending stress (σ)" :value="bendingStress.toFixed(2)" :unit="stressUnit" />
+          <div class="min-w-0">
+            <dt class="data-label truncate">
+              Factor of safety
+            </dt>
+            <dd class="mt-1 flex flex-wrap items-baseline gap-2">
+              <span class="font-mono text-lg font-medium tabular-nums" :class="fosColor">
+                {{ factorOfSafety > 0 ? factorOfSafety.toFixed(2) : 'N/A' }}
+              </span>
+              <VBadge :tone="fosTone">
+                {{ fosStatus }}
+              </VBadge>
+            </dd>
+          </div>
+        </dl>
+        <p class="num mt-3 text-xs text-gray-500">
+          σ<sub>yield</sub> / σ<sub>actual</sub> = {{ yieldStress }} / {{ bendingStress.toFixed(2) }}
+        </p>
+      </template>
+
+      <VStateBlock
+        v-else-if="!result.valid"
+        variant="error"
+        title="Valid spar geometry required"
+        class="!py-4"
+      />
+      <VStateBlock
+        v-else
+        icon="heroicons:calculator"
+        title="Enter applied moment to calculate"
+        class="!py-4"
+      />
+    </div>
+  </VPanel>
+</template>

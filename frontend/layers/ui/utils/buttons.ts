@@ -4,47 +4,50 @@ export const variants = ['primary', 'tertiary', 'ghost'] as const
 export const colors = ['primary', 'secondary', 'success', 'error', 'warning', 'light', 'dark', 'neutral'] as const
 export const sizes = ['xs', 'sm', 'md', 'lg'] as const
 
-const filledDisabled = 'disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-300'
+const filledDisabled = 'disabled:bg-gray-200 disabled:text-gray-500 disabled:border-gray-200'
+const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2'
 
 export const buttonVariants = tv({
-  base: `inline-flex items-center gap-2 justify-center border border-transparent text-center font-medium
-    focus:outline-none focus:ring-2 focus:ring-offset-2
-    transition duration-200 ease-in-out
+  base: `inline-flex items-center gap-2 justify-center border border-transparent text-center font-medium whitespace-nowrap
+    ${focusRing}
+    transition-colors duration-150 ease-in-out
     disabled:cursor-not-allowed
     `,
   variants: {
     color: {
-      light: `bg-white text-gray-800 border-gray-300 hover:bg-gray-50 focus:ring-indigo-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200`,
-      dark: `text-white bg-neutral-800 border-neutral-800 focus:ring-neutral-800 ${filledDisabled}`,
-      primary: `bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-600 ${filledDisabled}`,
-      secondary: `bg-gray-600 border-gray-600 text-white hover:bg-gray-700 focus:ring-gray-600 ${filledDisabled}`,
-      warning: `bg-amber-500 border-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500 ${filledDisabled}`,
-      error: `bg-rose-600 border-rose-600 text-white hover:bg-rose-700 focus:ring-rose-600 ${filledDisabled}`,
-      success: `bg-green-600 border-green-600 text-white hover:bg-green-700 focus:ring-green-600 ${filledDisabled}`,
-      neutral: `bg-gray-100 text-gray-900 border-gray-200 hover:bg-gray-200 focus:ring-gray-500 ${filledDisabled}`,
+      light: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:text-gray-900 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200',
+      dark: `bg-gray-800 border-gray-800 text-white hover:bg-gray-900 ${filledDisabled}`,
+      primary: `bg-primary-600 border-primary-600 text-white hover:bg-primary-700 hover:border-primary-700 ${filledDisabled}`,
+      secondary: `bg-gray-600 border-gray-600 text-white hover:bg-gray-700 ${filledDisabled}`,
+      warning: `bg-warning-500 border-warning-500 text-white hover:bg-warning-600 ${filledDisabled}`,
+      error: `bg-error-600 border-error-600 text-white hover:bg-error-700 ${filledDisabled}`,
+      success: `bg-success-600 border-success-600 text-white hover:bg-success-700 ${filledDisabled}`,
+      neutral: `bg-gray-100 text-gray-900 border-gray-200 hover:bg-gray-200 ${filledDisabled}`,
     },
+    // Heights match VInput / VSelect: sm 32px, md 36px, lg 44px
     size: {
       xs: 'px-0 py-0 text-xs h-auto min-h-0 font-normal',
-      sm: 'px-2 py-1 text-sm h-[28px]',
-      md: 'px-3.5 py-1.5 text-sm',
-      lg: 'py-3 px-8 text-lg h-[48px]',
+      sm: 'h-8 px-3 text-sm',
+      md: 'h-9 px-4 text-sm',
+      lg: 'h-11 px-6 text-base',
     },
     rounded: {
       true: 'rounded-full',
-      false: 'rounded-md',
+      false: 'rounded-lg',
     },
     variant: {
       primary: '',
       tertiary: 'bg-transparent',
-      ghost: 'bg-transparent border-none',
+      ghost: 'bg-transparent border-transparent',
     },
+    // Flat surfaces: every shadow option renders at most shadow-sm
     shadow: {
-      true: 'shadow',
+      true: 'shadow-sm',
       false: '',
       sm: 'shadow-sm',
-      md: 'shadow-md',
-      lg: 'shadow-lg',
-      xl: 'shadow-xl',
+      md: 'shadow-sm',
+      lg: 'shadow-sm',
+      xl: 'shadow-sm',
     },
     block: {
       true: 'w-full',
@@ -60,18 +63,18 @@ export const buttonVariants = tv({
     {
       variant: 'tertiary',
       color: 'primary',
-      class: 'text-indigo-600 hover:text-white',
+      class: 'text-primary-600 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'primary',
-      class: 'text-indigo-600 hover:bg-indigo-100',
+      class: 'text-primary-600 hover:bg-primary-100',
     },
     {
       variant: 'ghost',
       color: 'primary',
       size: 'xs',
-      class: 'hover:bg-transparent hover:text-indigo-800',
+      class: 'hover:bg-transparent hover:text-primary-800',
     },
     {
       variant: 'ghost',
@@ -92,52 +95,52 @@ export const buttonVariants = tv({
     {
       variant: 'tertiary',
       color: 'warning',
-      class: 'text-amber-600 hover:text-white',
+      class: 'text-warning-600 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'warning',
-      class: 'text-amber-600 hover:bg-amber-100',
+      class: 'text-warning-600 hover:bg-warning-100',
     },
     {
       variant: 'tertiary',
       color: 'error',
-      class: 'text-rose-600 hover:text-white',
+      class: 'text-error-600 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'error',
-      class: 'text-rose-600 hover:bg-rose-100',
+      class: 'text-error-600 hover:bg-error-100',
     },
     {
       variant: 'tertiary',
       color: 'success',
-      class: 'text-green-600 hover:text-white',
+      class: 'text-success-600 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'success',
-      class: 'text-green-600 hover:bg-green-100',
+      class: 'text-success-600 hover:bg-success-100',
     },
     {
       variant: 'tertiary',
       color: 'light',
-      class: 'text-gray-800 hover:bg-gray-800 hover:text-white',
+      class: 'text-gray-700 hover:bg-gray-800 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'light',
-      class: 'text-gray-800 hover:bg-gray-100',
+      class: 'text-gray-700 hover:bg-gray-100',
     },
     {
       variant: 'tertiary',
       color: 'dark',
-      class: 'text-neutral-800 hover:bg-neutral-800 hover:text-white',
+      class: 'text-gray-700 hover:bg-gray-800 hover:text-white',
     },
     {
       variant: 'ghost',
       color: 'dark',
-      class: 'text-neutral-800 hover:bg-neutral-100',
+      class: 'text-gray-700 hover:bg-gray-100',
     },
     {
       variant: 'ghost',
@@ -149,48 +152,53 @@ export const buttonVariants = tv({
 
 /** Underline nav tab buttons (compact variant for nested forms) */
 export function compactNavTabButtonClasses(active: boolean): string {
+  const base = 'px-3 py-2 -mb-px font-medium text-sm border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t'
   return active
-    ? 'px-4 py-2 font-medium text-sm border-b-2 transition-colors border-indigo-600 text-indigo-600'
-    : 'px-4 py-2 font-medium text-sm border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700'
+    ? `${base} border-primary-600 text-primary-700`
+    : `${base} border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300`
 }
 
-/** Segmented tab / pill switcher buttons */
+/** Segmented control buttons; put them inside `inline-flex gap-1 rounded-lg bg-gray-100 p-1` */
 export function tabButtonClasses(active: boolean): string {
+  const base = 'rounded-md px-3 h-7 inline-flex items-center gap-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
   return active
-    ? 'rounded-md px-4 py-2 text-sm font-medium transition-colors bg-white text-indigo-600 shadow-sm'
-    : 'rounded-md px-4 py-2 text-sm font-medium transition-colors text-gray-600 hover:text-gray-900'
+    ? `${base} bg-white text-gray-900 shadow-sm ring-1 ring-gray-200`
+    : `${base} text-gray-600 hover:text-gray-900`
 }
 
-/** Underline nav tab buttons */
+/** Underline nav tab buttons; put them inside `flex gap-2 border-b border-gray-200` */
 export function navTabButtonClasses(active: boolean): string {
+  const base = 'px-4 py-2.5 -mb-px text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t'
   return active
-    ? 'px-6 py-3 text-sm font-medium border-b-2 transition-colors border-indigo-500 text-indigo-600'
-    : 'px-6 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+    ? `${base} border-primary-600 text-primary-700`
+    : `${base} border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300`
 }
 
 /** Inline chart tab buttons (Schrenk-style) */
 export function inlineTabButtonClasses(active: boolean): string {
+  const base = 'rounded-md px-3 h-8 inline-flex items-center text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
   return active
-    ? 'rounded-md px-3 py-2 text-sm font-medium transition-colors bg-indigo-100 text-indigo-700'
-    : 'rounded-md px-3 py-2 text-sm font-medium transition-colors text-gray-500 hover:text-gray-700'
+    ? `${base} bg-primary-50 text-primary-700`
+    : `${base} text-gray-500 hover:text-gray-900 hover:bg-gray-100`
 }
 
 /** Stateful toggle / toolbar buttons with active/inactive border styles */
 export function toggleButtonClasses(active: boolean): string {
+  const base = 'inline-flex items-center gap-2 h-9 px-4 text-sm font-medium rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500'
   return active
-    ? 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-indigo-700 bg-indigo-50 border border-indigo-300 hover:bg-indigo-100'
-    : 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+    ? `${base} text-primary-700 bg-primary-50 border-primary-300 hover:bg-primary-100`
+    : `${base} text-gray-700 bg-white border-gray-300 hover:bg-gray-50`
 }
 
 /** Momentary success state (e.g. copy-to-clipboard feedback) */
 export function copiedButtonClasses(isCopied: boolean): string {
-  const base = 'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+  const base = 'inline-flex items-center gap-1.5 rounded-lg h-8 px-3 text-sm font-medium transition-colors border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500'
   return isCopied
-    ? `${base} bg-green-50 text-green-700 border-green-300`
-    : `${base} bg-white text-gray-700 hover:bg-gray-100 border-gray-300`
+    ? `${base} bg-success-50 text-success-700 border-success-300`
+    : `${base} bg-white text-gray-700 hover:bg-gray-50 border-gray-300`
 }
 
 /** Micro filter chip buttons inside dropdowns */
 export function microButtonClasses(): string {
-  return 'flex-1 text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded transition-colors'
+  return 'flex-1 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200 px-2 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500'
 }

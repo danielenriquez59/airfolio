@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRefs, watch } from 'vue'
+import { computed, ref, toRefs, useAttrs, watch } from 'vue'
 import type { PropType } from 'vue'
 import {
   Listbox,
@@ -47,6 +47,18 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'clear'])
 
+defineOptions({ inheritAttrs: false })
+
+// Name the listbox button from the caller's aria-label / aria-labelledby; other attrs stay on the wrapper
+const attrs = useAttrs()
+const rootAttrs = computed(() => {
+  const { 'aria-label': _label, 'aria-labelledby': _labelledby, ...rest } = attrs
+  return rest
+})
+const buttonAria = computed(() => Object.fromEntries(
+  ['aria-label', 'aria-labelledby'].filter(k => attrs[k] != null).map(k => [k, attrs[k]]),
+))
+
 const { modelValue } = toRefs(props)
 
 const selected = ref<ModelValue>(modelValue!.value)
@@ -66,27 +78,11 @@ function clear() {
 </script>
 
 <template>
-  <Listbox v-model="selected" class="w-full" :multiple="multiple">
+  <Listbox v-model="selected" class="w-full" :multiple="multiple" v-bind="rootAttrs">
     <div class="relative mt-1">
-      <ListboxButton class="
-          relative
-          w-full
-          py-2
-          pl-3
-          pr-10
-          text-left
-          rounded-md
-          shadow-sm
-          border border-gray-300
-          cursor-default
-          focus:outline-none
-          focus-visible:ring-2
-          focus-visible:ring-opacity-75
-          focus-visible:ring-primary-300
-          focus-visible:border-primary-500
-          transition
-          duration-300
-        " :class="[
+      <ListboxButton
+        v-bind="buttonAria"
+        class="relative w-full min-h-9 py-1.5 pl-3 pr-10 text-left text-gray-900 rounded-lg border border-gray-300 cursor-default transition-colors duration-150 focus:outline-none focus-visible:border-primary-500 focus-visible:ring-1 focus-visible:ring-primary-500" :class="[
           outlined
             ? 'bg-transparent border-icon-inverse text-inverse-subdued'
             : 'bg-white',
@@ -94,69 +90,69 @@ function clear() {
             'text-xs': small,
             'text-sm': !small && !large,
             'text-lg': large,
-          }
-        ]">
+          },
+        ]"
+      >
         <span class="block truncate">
-          {{ multiple && selected ? `${(selected as SelectItem[])?.length} selected` : (selected as SelectItem)?.text ||
-  placeholder
+          {{ multiple && selected ? `${(selected as SelectItem[])?.length} selected` : (selected as SelectItem)?.text
+            || placeholder
           }}
         </span>
 
         <div class="absolute inset-y-0 right-3 flex gap-2 items-center">
-          <button v-if="multiple ? (selected as SelectItem[])?.length > 0 : selected" type="button" aria-label="Clear"
-            @click="clear" class="text-gray-500 hover:text-gray-700">
+          <button
+            v-if="multiple ? (selected as SelectItem[])?.length > 0 : selected" type="button" aria-label="Clear"
+            class="text-gray-400 hover:text-gray-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" @click="clear"
+          >
             <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" aria-hidden="true" />
           </button>
-          <span class="
+          <span
+            class="
             flex
             items-center
             pointer-events-none
-          ">
-            <Icon name="heroicons:chevron-up-down" class="w-5 h-5" aria-hidden="true" />
+          "
+          >
+            <Icon name="heroicons:chevron-up-down" class="w-5 h-5 text-gray-400" aria-hidden="true" />
           </span>
         </div>
       </ListboxButton>
 
-      <transition leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100"
-        leave-to-class="opacity-0">
-        <ListboxOptions class="
-            absolute
-            z-10
-            w-full
-            py-1
-            mt-1
-            overflow-auto
-            text-base
-            bg-white
-            rounded-md
-            shadow-lg
-            max-h-60
-            ring-1 ring-black ring-opacity-5
-            focus:outline-none
-            sm:text-sm
-          ">
-          <ListboxOption v-for="item in items" v-slot="{ active, selected: selectedOption }" :key="item.text"
-            :value="item" as="template">
-            <div class="px-1">
-              <li v-if="item.divider" class="border-b -mx-1 my-1" />
-              <li v-else class="cursor-default select-none relative py-2 pr-4 rounded" :class="[
-                active ? 'bg-gray-100' : 'text-gray-900',
-                !hideCheckIcon ? 'pl-10' : 'pl-4',
-              ]">
-                <span class="block truncate" :class="[
-                  selectedOption ? 'font-medium text-primary-500' : 'font-normal',
-                ]">
+      <transition
+        leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <ListboxOptions class="absolute z-10 w-full p-1 mt-1 overflow-auto text-base bg-white rounded-lg border border-gray-200 shadow-lg max-h-60 focus:outline-none sm:text-sm">
+          <ListboxOption
+            v-for="item in items" v-slot="{ active, selected: selectedOption }" :key="item.text"
+            :value="item" as="template"
+          >
+            <div>
+              <li v-if="item.divider" class="border-b border-gray-200 -mx-1 my-1" />
+              <li
+                v-else class="cursor-default select-none relative py-2 pr-4 rounded-md" :class="[
+                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-900',
+                  !hideCheckIcon ? 'pl-10' : 'pl-4',
+                ]"
+              >
+                <span
+                  class="block truncate" :class="[
+                    selectedOption ? 'font-medium text-primary-700' : 'font-normal',
+                  ]"
+                >
                   {{ item.text }}
                 </span>
-                <span v-if="selectedOption && !hideCheckIcon" class="
+                <span
+                  v-if="selectedOption && !hideCheckIcon" class="
                     absolute
                     inset-y-0
                     left-0
                     flex
                     items-center
                     pl-3
-                    text-primary-500
-                  ">
+                    text-primary-600
+                  "
+                >
                   <Icon name="heroicons:check" class="w-5 h-5" aria-hidden="true" />
                 </span>
               </li>

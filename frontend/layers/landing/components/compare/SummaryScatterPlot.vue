@@ -11,6 +11,7 @@ import {
 } from 'chart.js'
 
 ChartJS.register(LinearScale, PointElement, Title, Tooltip, Legend)
+applyChartDefaults(ChartJS)
 
 interface SummaryRow {
   name: string
@@ -53,18 +54,6 @@ const emit = defineEmits<{
   (e: 'update:xAxis', value: keyof SummaryRow): void
   (e: 'update:yAxis', value: keyof SummaryRow): void
 }>()
-
-// Color palette for points
-const colors = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#F97316', // Orange
-]
 
 /**
  * Axis options - dynamically include ldAtDesignAlpha if designAlpha is set
@@ -140,8 +129,8 @@ const scatterChartData = computed(() => {
       {
         label: 'Airfoils',
         data: points,
-        backgroundColor: colors[0],
-        borderColor: colors[0],
+        backgroundColor: chartColors.primary,
+        borderColor: chartColors.primary,
         borderWidth: 1,
         pointRadius: 6,
         pointHoverRadius: 8,
@@ -176,6 +165,7 @@ const chartOptions = computed(() => ({
       display: false,
     },
     tooltip: {
+      ...themedTooltip,
       enabled: true,
       callbacks: {
         title: (context: any[]) => {
@@ -192,52 +182,17 @@ const chartOptions = computed(() => ({
           return ''
         },
       },
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: 'white',
-      bodyColor: 'white',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderWidth: 1,
-      padding: 12,
-      titleFont: {
-        size: 14,
-        weight: 'bold' as const,
-      },
-      bodyFont: {
-        size: 12,
-      },
     },
   },
   scales: {
     x: {
+      ...themedAxis(xAxisLabel.value),
       type: 'linear' as const,
       position: 'bottom' as const,
-      title: {
-        display: true,
-        text: xAxisLabel.value,
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
     y: {
+      ...themedAxis(yAxisLabel.value),
       type: 'linear' as const,
-      title: {
-        display: true,
-        text: yAxisLabel.value,
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
   },
   interaction: {
@@ -262,17 +217,15 @@ const validDataCount = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg border border-gray-200 p-4">
-    <!-- Title -->
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">Scatter Plot View</h3>
-    
+  <div>
     <!-- Axis Selection Controls -->
-    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end mb-4">
-      <div class="flex-1">
-        <label class="block text-sm font-medium text-gray-700 mb-2">X-Axis</label>
+    <div class="mb-4 flex flex-col items-start gap-4 sm:flex-row sm:items-end">
+      <div class="w-full flex-1">
+        <label for="scatter-x-axis" class="mb-1 block text-sm font-medium text-gray-700">X-Axis</label>
         <select
+          id="scatter-x-axis"
           v-model="xAxisKey"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           <option v-for="option in axisOptions" :key="option.key" :value="option.key">
             {{ option.label }}
@@ -280,11 +233,12 @@ const validDataCount = computed(() => {
         </select>
       </div>
 
-      <div class="flex-1">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Y-Axis</label>
+      <div class="w-full flex-1">
+        <label for="scatter-y-axis" class="mb-1 block text-sm font-medium text-gray-700">Y-Axis</label>
         <select
+          id="scatter-y-axis"
           v-model="yAxisKey"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           <option v-for="option in axisOptions" :key="option.key" :value="option.key">
             {{ option.label }}
@@ -292,18 +246,15 @@ const validDataCount = computed(() => {
         </select>
       </div>
 
-      <div class="text-xs text-gray-500 sm:ml-auto">
-        <Icon name="heroicons:information-circle" class="h-4 w-4 inline mr-1" />
-        {{ validDataCount }} of {{ summaryData.length }} points plotted
+      <div class="flex h-9 items-center gap-1 text-xs text-gray-500 sm:ml-auto">
+        <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
+        <span><span class="num">{{ validDataCount }}</span> of <span class="num">{{ summaryData.length }}</span> points plotted</span>
       </div>
     </div>
 
     <!-- Scatter Plot -->
-    <div class="h-80">
+    <div class="h-80 rounded-lg border border-gray-200 p-3">
       <Scatter :data="scatterChartData" :options="chartOptions" />
     </div>
   </div>
 </template>
-
-
-

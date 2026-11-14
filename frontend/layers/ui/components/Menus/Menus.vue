@@ -26,7 +26,9 @@ const placementClass: Record<MenuPlacement, string> = {
 }
 
 const route = useRoute()
-const isActive = props.to ? route.path === props.to : false
+const isActive = computed(() => (props.to ? route.path === props.to : false))
+// Highlight a parent menu when the current route is one of its items
+const childActive = computed(() => props.items?.some(i => typeof i.to === 'string' && i.to === route.path) ?? false)
 const menuPlacement = props.isChild ? 'right-child' : props.placement
 </script>
 
@@ -34,14 +36,16 @@ const menuPlacement = props.isChild ? 'right-child' : props.placement
   <Popover class="relative inline">
     <slot name="activator">
       <PopoverButton
-        class="text-sm font-semibold leading-6 text-gray-900"
-        :class="{
-          'text-primary-600': isActive,
-          'flex justify-between items-center px-3 text-sm rounded py-2 leading-normal hover:bg-gray-100 font-normal w-full text-left text-gray-600': isChild,
-        }"
+        class="inline-flex items-center gap-1 rounded-md text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        :class="[
+          isChild
+            ? 'justify-between px-3 py-2 w-full text-left text-gray-700 hover:bg-gray-100'
+            : 'px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+          { '!text-primary-700 bg-primary-50': isActive || childActive },
+        ]"
       >
         {{ title }}
-        <Icon v-if="items?.length || $slots.default" :name="isChild ? 'heroicons:chevron-right-20-solid' : 'heroicons:chevron-down-20-solid'" />
+        <Icon v-if="items?.length || $slots.default" :name="isChild ? 'heroicons:chevron-right-20-solid' : 'heroicons:chevron-down-20-solid'" class="h-4 w-4" aria-hidden="true" />
       </PopoverButton>
     </slot>
     <transition
@@ -53,16 +57,16 @@ const menuPlacement = props.isChild ? 'right-child' : props.placement
       leave-to-class="translate-y-1 opacity-0"
     >
       <PopoverPanel
-          v-if="items?.length || $slots.default"
+        v-if="items?.length || $slots.default"
         v-slot="{ close }"
-        class="absolute mt-2 z-20 bg-white shadow-md p-1 w-56 rounded-md"
+        class="absolute mt-2 z-40 bg-white border border-gray-200 shadow-lg p-1 w-60 rounded-lg"
         :class="placementClass[menuPlacement]"
       >
         <div class="flex flex-col">
           <slot>
-            <template v-for="item in items" :key="item.title">
-              <div v-if="item.divider" class="border-t my-1 -mx-1" />
-              <div v-else-if="item.header" class="text-gray-700 select-none font-semibold text-sm px-3 py-2">
+            <template v-for="(item, idx) in items" :key="item.title || item.header || idx">
+              <div v-if="item.divider" class="border-t border-gray-200 my-1 -mx-1" />
+              <div v-else-if="item.header" class="data-label select-none px-3 pt-2 pb-1">
                 {{ item.header }}
               </div>
               <Menus

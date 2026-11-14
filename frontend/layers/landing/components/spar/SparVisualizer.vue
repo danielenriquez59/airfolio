@@ -25,6 +25,9 @@ ChartJS.register(
   Legend,
   Filler
 )
+applyChartDefaults(ChartJS)
+
+const SPAR = chartColors.primary
 
 interface Props {
   data: AirfoilDataPoint[]
@@ -164,8 +167,8 @@ const chartData = computed(() => {
   datasets.push({
     label: 'Outer Surface',
     data: outerSurfaceData,
-    borderColor: '#0f172a',
-    backgroundColor: '#e0f2fe40',
+    borderColor: chartColors.title,
+    backgroundColor: `${chartColors.grid}80`,
     borderWidth: 2,
     pointRadius: 0,
     pointHoverRadius: 3,
@@ -206,7 +209,7 @@ const chartData = computed(() => {
   datasets.push({
     label: 'Inner Skin',
     data: innerSkinData,
-    borderColor: '#64748b',
+    borderColor: chartColors.tick,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderDash: [5, 5],
@@ -220,7 +223,7 @@ const chartData = computed(() => {
   datasets.push({
     label: 'Camber Line',
     data: props.data.map(d => ({ x: d.x, y: d.camber })),
-    borderColor: '#f59e0b',
+    borderColor: seriesPalette[1],
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderDash: [3, 3],
@@ -243,7 +246,7 @@ const chartData = computed(() => {
         { x: sparGeometry.value.centerX, y: minY - padding },
         { x: sparGeometry.value.centerX, y: maxY + padding },
       ],
-      borderColor: '#ef4444',
+      borderColor: seriesPalette[3],
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderDash: [3, 3],
@@ -270,8 +273,8 @@ const chartData = computed(() => {
             { x: geom.outer.x1, y: geom.outer.y2 },
             { x: geom.outer.x1, y: geom.outer.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -292,8 +295,8 @@ const chartData = computed(() => {
             { x: geom.topFlange.x1, y: geom.topFlange.y2 },
             { x: geom.topFlange.x1, y: geom.topFlange.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -311,8 +314,8 @@ const chartData = computed(() => {
             { x: geom.web.x1, y: geom.web.y2 },
             { x: geom.web.x1, y: geom.web.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -330,8 +333,8 @@ const chartData = computed(() => {
             { x: geom.bottomFlange.x1, y: geom.bottomFlange.y2 },
             { x: geom.bottomFlange.x1, y: geom.bottomFlange.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -352,8 +355,8 @@ const chartData = computed(() => {
             { x: geom.topFlange.x1, y: geom.topFlange.y2 },
             { x: geom.topFlange.x1, y: geom.topFlange.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -371,8 +374,8 @@ const chartData = computed(() => {
             { x: geom.web.x1, y: geom.web.y2 },
             { x: geom.web.x1, y: geom.web.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -390,8 +393,8 @@ const chartData = computed(() => {
             { x: geom.bottomFlange.x1, y: geom.bottomFlange.y2 },
             { x: geom.bottomFlange.x1, y: geom.bottomFlange.y1 },
           ],
-          borderColor: '#1d4ed8',
-          backgroundColor: '#3b82f680',
+          borderColor: SPAR,
+          backgroundColor: `${SPAR}66`,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -443,6 +446,7 @@ const chartOptions = computed(() => {
     },
     plugins: {
       legend: {
+        ...themedLegend,
         display: true,
         position: 'top' as const,
         filter: (legendItem: any) => {
@@ -462,6 +466,7 @@ const chartOptions = computed(() => {
         },
       },
       tooltip: {
+        ...themedTooltip,
         mode: 'index' as const,
         intersect: false,
         callbacks: {
@@ -475,56 +480,28 @@ const chartOptions = computed(() => {
           },
         },
       },
-      title: {
-        display: true,
-        text: 'Cross Section Visualization',
-        font: {
-          size: 14,
-          weight: 'bold' as const,
-        },
-      },
     },
     scales: {
       x: {
+        ...themedAxis(`Chord Position (${lengthUnit})`),
         type: 'linear' as const,
         position: 'bottom' as const,
-        title: {
-          display: true,
-          text: `Chord Position (${lengthUnit})`,
-          font: {
-            size: 12,
-            weight: 'bold' as const,
-          },
-        },
         min: 0,
         max: props.inputs.chordLength,
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-        },
         ticks: {
+          ...themedAxis().ticks,
           callback: (value: any) => {
             return value.toFixed(decimals)
           },
         },
       },
       y: {
+        ...themedAxis(`Thickness (${lengthUnit})`),
         type: 'linear' as const,
-        title: {
-          display: true,
-          text: `Thickness (${lengthUnit})`,
-          font: {
-            size: 12,
-            weight: 'bold' as const,
-          },
-        },
         min: minY - padding,
         max: maxY + padding,
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-        },
         ticks: {
+          ...themedAxis().ticks,
           callback: (value: any) => {
             return value.toFixed(decimals)
           },
@@ -549,9 +526,7 @@ const chartOptions = computed(() => {
       :data="chartData"
       :options="chartOptions"
     />
-    <div v-else class="flex items-center justify-center h-full text-gray-500">
-      No airfoil data available
-    </div>
+    <VStateBlock v-else title="No airfoil data available" class="h-full" />
   </div>
 </template>
 

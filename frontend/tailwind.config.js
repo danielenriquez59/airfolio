@@ -1,8 +1,8 @@
 const defaultTheme = require('tailwindcss/defaultTheme')
 const colors = require('tailwindcss/colors')
 
-const primary = colors.indigo
-const secondary = colors.pink
+const primary = colors.blue
+const secondary = colors.slate
 const info = colors.sky
 const warning = colors.amber
 const success = colors.emerald
@@ -28,10 +28,10 @@ module.exports = {
         center: true,
         padding: '1rem',
         screens: {
-          sm: '640px',
-          md: '768px',
-          lg: '1024px',
-          xl: '1280px',
+          'sm': '640px',
+          'md': '768px',
+          'lg': '1024px',
+          'xl': '1280px',
           '2xl': '1152px', // max-w-6xl equivalent
         },
       },
@@ -39,6 +39,8 @@ module.exports = {
         '[auto,auto,1fr]': 'auto auto 1fr',
       },
       colors: {
+        // Cool slate neutrals: every existing gray-* class now renders as slate
+        gray: colors.slate,
         primary,
         secondary,
         info,
@@ -65,6 +67,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['Inter', ...defaultTheme.fontFamily.sans],
+        mono: ['JetBrains Mono', ...defaultTheme.fontFamily.mono],
       },
     },
   },

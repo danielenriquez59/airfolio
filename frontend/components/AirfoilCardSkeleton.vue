@@ -9,69 +9,26 @@ withDefaults(defineProps<Props>(), {
 })
 
 // Match the aspect ratio from AirfoilCard
-const aspectRatio = 3.5
+const aspectRatio = 5
 </script>
 
 <template>
-  <VCard header-class="!py-2 !px-2 md:!px-4" body-class="!py-2 !px-2 md:!px-4">
-    <template #header>
-      <div>
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex-1">
-            <!-- Title skeleton -->
-            <div class="h-5 bg-gray-200 rounded animate-pulse w-3/4"></div>
-            <!-- Description skeleton (optional) -->
-            <div class="h-3.5 bg-gray-200 rounded animate-pulse w-full mt-1.5"></div>
-            <div class="h-3.5 bg-gray-200 rounded animate-pulse w-2/3 mt-1"></div>
-          </div>
-          <!-- Badge skeleton -->
-          <div class="ml-2">
-            <div class="h-6 w-16 bg-gray-300 rounded-full animate-pulse"></div>
-          </div>
+  <div class="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white" aria-hidden="true">
+    <div class="border-b border-gray-100 px-3 py-2">
+      <div class="w-full animate-pulse rounded bg-gray-200" :style="{ aspectRatio: `${aspectRatio} / 1` }" />
+    </div>
+    <div class="flex flex-1 flex-col gap-2 p-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="h-5 w-1/2 animate-pulse rounded bg-gray-200" />
+        <div class="h-5 w-14 animate-pulse rounded-full bg-gray-200" />
+      </div>
+      <div class="h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+      <div class="mt-auto grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-gray-100 pt-2">
+        <div v-for="i in 4" :key="i">
+          <div class="h-4 w-14 animate-pulse rounded bg-gray-100" />
+          <div class="mt-0.5 h-5 w-12 animate-pulse rounded bg-gray-200" />
         </div>
       </div>
-    </template>
-
-    <VCardBody>
-      <div class="space-y-2">
-        <!-- Metadata Grid -->
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-          <!-- Thickness -->
-          <div>
-            <div class="h-4 bg-gray-200 rounded animate-pulse mb-1 w-16"></div>
-            <div class="h-5 bg-gray-300 rounded animate-pulse w-20"></div>
-          </div>
-
-          <!-- Camber -->
-          <div>
-            <div class="h-4 bg-gray-200 rounded animate-pulse mb-1 w-16"></div>
-            <div class="h-5 bg-gray-300 rounded animate-pulse w-20"></div>
-          </div>
-
-          <!-- LE Radius -->
-          <div>
-            <div class="h-4 bg-gray-200 rounded animate-pulse mb-1 w-20"></div>
-            <div class="h-5 bg-gray-300 rounded animate-pulse w-12"></div>
-          </div>
-
-          <!-- TE Thickness -->
-          <div>
-            <div class="h-4 bg-gray-200 rounded animate-pulse mb-1 w-24"></div>
-            <div class="h-5 bg-gray-300 rounded animate-pulse w-12"></div>
-          </div>
-        </div>
-
-        <!-- Geometry Visualization -->
-        <div class="-mx-2 md:mx-0">
-          <div
-            class="bg-gray-200 rounded animate-pulse"
-            :style="{ aspectRatio: `${aspectRatio} / 1`, width: '100%' }"
-          ></div>
-        </div>
-      </div>
-    </VCardBody>
-  </VCard>
+    </div>
+  </div>
 </template>
-
-
-

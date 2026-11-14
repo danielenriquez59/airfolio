@@ -17,13 +17,12 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const toggle = () => {
-  if (!props.disabled) {
+function toggle() {
+  if (!props.disabled)
     emit('update:modelValue', !props.modelValue)
-  }
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
+function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     toggle()
@@ -59,47 +58,43 @@ const currentSize = sizeClasses[props.size]
     >
       {{ label }}
     </label>
-    
+
     <div class="flex items-center gap-2">
       <span
         v-if="leftLabel"
-        :class="[
-          'text-sm font-medium transition-colors',
-          !modelValue ? 'text-gray-900' : 'text-gray-500'
+        class="text-sm font-medium transition-colors" :class="[
+          !modelValue ? 'text-gray-900' : 'text-gray-500',
         ]"
       >
         {{ leftLabel }}
       </span>
-      
+
       <button
         type="button"
         role="switch"
         :aria-checked="modelValue"
         :aria-label="label || 'Toggle switch'"
         :disabled="disabled"
-        :class="[
-          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
+        class="relative inline-flex items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500" :class="[
           currentSize.track,
-          modelValue ? 'bg-indigo-600' : 'bg-gray-200',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+          modelValue ? 'bg-primary-600' : 'bg-gray-300',
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         ]"
         @click="toggle"
         @keydown="handleKeydown"
       >
         <span
-          :class="[
-            'inline-block rounded-full bg-white shadow transform transition-transform',
+          class="inline-block rounded-full bg-white shadow-sm transform transition-transform" :class="[
             currentSize.thumb,
-            modelValue ? currentSize.translate : 'translate-x-0.5'
+            modelValue ? currentSize.translate : 'translate-x-0.5',
           ]"
         />
       </button>
-      
+
       <span
         v-if="rightLabel"
-        :class="[
-          'text-sm font-medium transition-colors',
-          modelValue ? 'text-gray-900' : 'text-gray-500'
+        class="text-sm font-medium transition-colors" :class="[
+          modelValue ? 'text-gray-900' : 'text-gray-500',
         ]"
       >
         {{ rightLabel }}
@@ -107,9 +102,3 @@ const currentSize = sizeClasses[props.size]
     </div>
   </div>
 </template>
-
-
-
-
-
-

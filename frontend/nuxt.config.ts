@@ -58,7 +58,8 @@ export default defineNuxtConfig({
     prefetch: true,
     preconnect: true,
     families: {
-      Inter: [100, 200, 300, 400, 500, 600, 700, 800, 900],
+      'Inter': [400, 500, 600, 700],
+      'JetBrains Mono': [400, 500, 600],
     },
   },
   content: {

@@ -17,28 +17,23 @@ useHead({
 
 <template>
   <div>
-    
     <LandingFeaturedAirfoils />
-    
-    <section id="support" class="py-16 bg-white">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 class="text-3xl font-bold text-gray-900 mb-6">"I love this, how can I support?"</h2>
-        
-        <!-- <p class="text-gray-700 leading-relaxed mb-6">
-          Engagement is the best way to support the site. If you are
-          interested in helping with development please contact
-          <a :href="`mailto:${supportEmail}`" class="font-semibold text-indigo-600 hover:text-indigo-800">
-            {{ supportEmail }}
-          </a>.
-        </p> -->
-        
-        <p class="text-gray-700 leading-relaxed mb-6">
-          To help keep servers running, please consider donating to the project.
-          Thanks for being a part of the Airfolio community!
-        </p>
-        
-        <div class="flex justify-center">
-          <LandingKofiWidget />
+
+    <section id="support" class="border-t border-gray-200 bg-white py-12 sm:py-16" aria-labelledby="support-title">
+      <div class="page-container">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="max-w-2xl">
+            <h2 id="support-title" class="text-xl font-semibold tracking-tight text-gray-900">
+              "I love this, how can I support?"
+            </h2>
+            <p class="mt-1 text-sm text-gray-600">
+              To help keep servers running, please consider donating to the project.
+              Thanks for being a part of the Airfolio community!
+            </p>
+          </div>
+          <div class="flex-shrink-0">
+            <LandingKofiWidget />
+          </div>
         </div>
       </div>
     </section>

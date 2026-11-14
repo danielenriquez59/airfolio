@@ -172,7 +172,7 @@ const exportToCSV = () => {
 }
 
 // Column definitions for cleaner template
-const columns = [
+const columns: Array<{ key: string, label: string, sticky?: boolean }> = [
   { key: 'name', label: 'Airfoil Name', sticky: true },
   { key: 'thickness', label: 'Thickness (%)' },
   { key: 'thicknessLoc', label: 'Thickness Loc (%)' },
@@ -185,90 +185,103 @@ const columns = [
   { key: 'upperNodes', label: 'Upper Nodes' },
   { key: 'lowerNodes', label: 'Lower Nodes' },
 ]
+
+/** Swatch colour matches the overlay plot, which colours airfoils by selection order */
+const rowColor = (airfoil: Airfoil) => seriesColor(props.airfoils.indexOf(airfoil))
+
+const cellClass = 'px-4 py-2.5 whitespace-nowrap text-right num text-sm text-gray-700'
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Export Button -->
-    <div class="flex justify-between items-center gap-2">
-      <div class="text-sm text-gray-500 flex items-center gap-1">
-        <Icon name="heroicons:information-circle" class="h-4 w-4" />
+  <div class="space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <p class="flex items-center gap-1 text-sm text-gray-500">
+        <Icon name="heroicons:information-circle" class="h-4 w-4" aria-hidden="true" />
         <span>Click headers to sort.</span>
-      </div>
+      </p>
       <VButton
         type="button"
-        color="primary"
+        color="light"
+        size="sm"
         @click="exportToCSV"
       >
-        <Icon name="heroicons:arrow-down-tray" class="h-5 w-5" />
+        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
         Export CSV
       </VButton>
     </div>
 
-    <!-- Table -->
-    <div class="overflow-x-auto bg-white rounded-lg border border-gray-200">
+    <div class="max-h-[32rem] overflow-auto rounded-lg border border-gray-200">
       <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+        <thead class="sticky top-0 z-20 bg-gray-50">
           <tr>
             <th
               v-for="col in columns"
               :key="col.key"
               scope="col"
-              @click="handleSort(col.key)"
-              :class="[
-                'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors',
-                sortColumn === col.key ? 'bg-gray-100' : '',
-                col.sticky ? 'sticky left-0 z-10 bg-gray-50' : '',
-              ]"
+              :aria-sort="sortColumn === col.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
+              class="bg-gray-50 p-0"
+              :class="{ 'sticky left-0 z-10': col.sticky }"
             >
-              <div class="flex items-center justify-between">
+              <button
+                type="button"
+                class="data-label flex w-full items-center gap-1 whitespace-nowrap px-4 py-2.5 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                :class="[
+                  col.sticky ? 'justify-start text-left' : 'justify-end text-right',
+                  sortColumn === col.key ? 'text-gray-900' : '',
+                ]"
+                @click="handleSort(col.key)"
+              >
                 <span>{{ col.label }}</span>
                 <Icon
                   v-if="sortColumn === col.key"
                   :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                  class="h-4 w-4 ml-2"
+                  class="h-3.5 w-3.5"
+                  aria-hidden="true"
                 />
-              </div>
+              </button>
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="divide-y divide-gray-200 bg-white">
           <tr
             v-for="airfoil in sortedData"
             :key="airfoil.id"
-            class="hover:bg-gray-50 transition-colors"
+            class="group hover:bg-gray-50"
           >
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
-              {{ airfoil.name }}
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <th scope="row" class="sticky left-0 z-10 bg-white px-4 py-2.5 text-left text-sm font-medium text-gray-900 whitespace-nowrap group-hover:bg-gray-50">
+              <span class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: rowColor(airfoil) }" aria-hidden="true" />
+                {{ airfoil.name }}
+              </span>
+            </th>
+            <td :class="cellClass">
               {{ formatPercent(airfoil.thickness_pct) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatPercent(airfoil.thickness_loc_pct) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatPercent(airfoil.camber_pct) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatPercent(airfoil.camber_loc_pct) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatPercent(airfoil.area_coefficient) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatNumber(airfoil.le_radius, 4) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatNumber(airfoil.te_angle, 2) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ formatNumber(airfoil.te_thickness, 4) }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ airfoil.upper_surface_nodes ?? 'N/A' }}
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+            <td :class="cellClass">
               {{ airfoil.lower_surface_nodes ?? 'N/A' }}
             </td>
           </tr>
@@ -277,6 +290,3 @@ const columns = [
     </div>
   </div>
 </template>
-
-
-

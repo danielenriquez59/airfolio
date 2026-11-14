@@ -25,8 +25,8 @@ const onSubmit = handleSubmit((values) => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center h-full">
-    <form class="rounded-lg p-8 w-full max-w-md mx-auto" @submit="onSubmit">
+  <div>
+    <form class="p-6 sm:p-8" @submit="onSubmit">
       <AuthHeader title="Register" subtitle="Please enter your credentials" />
 
       <VInput wrapper-class="mb-4" name="name" label="Name" placeholder="Name" />
@@ -43,13 +43,13 @@ const onSubmit = handleSubmit((values) => {
         <label class="flex flex-wrap gap-2 items-center text-sm">
           <input
             type="checkbox"
-            class="w-4 h-4 rounded text-primary-500 focus:ring-primary-500 transition duration-300"
+            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           >
 
           <span> I agree with </span>
           <nuxt-link
             to="/toc"
-            class="text-primary-500 hover:underline font-semibold text-sm inline"
+            class="text-primary-600 hover:text-primary-700 hover:underline font-medium text-sm inline"
           >
             Terms and Condition
           </nuxt-link>
@@ -60,11 +60,11 @@ const onSubmit = handleSubmit((values) => {
         Register
       </VButton>
 
-      <div class="text-gray-600 text-sm">
+      <div class="text-center text-sm text-gray-600">
         Already have an account?
         <nuxt-link
           to="/auth/login"
-          class="text-primary-500 hover:underline font-semibold text-sm"
+          class="text-primary-600 hover:text-primary-700 hover:underline font-medium text-sm"
         >
           Login
         </nuxt-link>

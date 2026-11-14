@@ -173,7 +173,7 @@ const geometries = computed(() => {
       upperY: nacaCoordinates.value.upperY,
       lowerX: nacaCoordinates.value.lowerX,
       lowerY: nacaCoordinates.value.lowerY,
-      color: '#3b82f6', // Blue for all series
+      color: chartColors.primary,
     })
   }
 
@@ -207,118 +207,77 @@ const performanceData = computed(() => {
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-0">
+  <div>
     <PageHeader
       title="NACA Generator"
       subtitle="Generate and analyze NACA 4-digit and 5-digit series airfoils"
-    />
+      eyebrow="Tools"
+    >
+      <template #actions>
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportParameters">
+          <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          Parameters (CSV)
+        </VButton>
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportSelig">
+          <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          Selig (.dat)
+        </VButton>
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportLednicer">
+          <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          Lednicer (.dat)
+        </VButton>
+      </template>
+    </PageHeader>
 
-    <!-- Geometry Visualization -->
-    <div v-if="nacaCoordinates" class="mb-6">
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <!-- Series Type Selector -->
-        <div class="mb-4">
-          <label class="block text-sm font-semibold text-gray-700 mb-3">Airfoil Series</label>
-          <div class="flex gap-4">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                :value="'4-digit'"
-                :checked="seriesType === '4-digit'"
-                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-                @change="seriesType = '4-digit'"
-              />
-              <span class="text-sm font-medium text-gray-700">NACA 4-Digit Series</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                :value="'5-digit'"
-                :checked="seriesType === '5-digit'"
-                class="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-                @change="seriesType = '5-digit'"
-              />
-              <span class="text-sm font-medium text-gray-700">NACA 5-Digit Series</span>
-            </label>
-          </div>
-          <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <div class="flex items-start gap-2">
-              <Icon name="heroicons:information-circle-20-solid" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div class="flex-1">
-                <h4 class="text-blue-900 font-bold mb-2">Technical Note</h4>
-                <p class="text-sm text-blue-800">
-                  <span v-if="seriesType === '4-digit'">
-                    The NACA 4-digit airfoil sections are generated using a thickness distribution equation and a mean camber line composed of two parabolic arcs merging smoothly at the position of maximum camber.
-                  </span>
-                  <span v-else>
-                    The NACA 5-digit series uses the same thickness form as the 4-digit series but employs a specific camber line designed to move the maximum camber forward for higher maximum lift coefficients. The calculations here approximate the standard camber lines.
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="mt-3 p-3 bg-gray-50 rounded-lg">
-            <div class="text-2xl font-mono font-bold text-blue-700">{{ currentNacaName }}</div>
-          </div>
-        </div>
-        
-        <!-- Geometry Plot -->
-        <div class="w-full overflow-hidden">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <!-- Inputs -->
+      <div class="min-w-0 space-y-6">
+        <VPanel title="Parameters">
+          <NACAParameterEditor
+            :series-type="seriesType"
+            :naca4-params="naca4Params"
+            :naca5-params="naca5Params"
+            :naca-name="currentNacaName"
+            @update:series-type="seriesType = $event"
+            @update:naca4-params="naca4Params = $event"
+            @update:naca5-params="naca5Params = $event"
+          />
+        </VPanel>
+
+        <NACAAnalysisPanel :is-loading="isLoadingAnalysis" @analyze="handleAnalyze" />
+      </div>
+
+      <!-- Results -->
+      <div class="min-w-0 space-y-6 lg:col-span-2">
+        <VPanel title="Geometry">
           <AirfoilGeometry
-            v-if="geometries.length > 0"
+            v-if="nacaCoordinates && geometries.length > 0"
             :geometries="geometries"
             :show-legend="false"
-            :aspect-ratio="7"
+            :aspect-ratio="4"
             :zoomable="true"
           />
-          <div v-else class="flex items-center justify-center h-full text-gray-500">
-            <p class="text-sm">No geometry to display</p>
-          </div>
-        </div>
+          <VStateBlock v-else variant="loading" title="Generating airfoil geometry" />
+        </VPanel>
 
-        <!-- Parameters & Export -->
-        <NACAParameterEditor
-          class="mt-6 pt-6 border-t border-gray-200"
-          :series-type="seriesType"
-          :naca4-params="naca4Params"
-          :naca5-params="naca5Params"
-          :naca-name="currentNacaName"
-          :on-export-parameters="handleExportParameters"
-          :on-export-selig="handleExportSelig"
-          :on-export-lednicer="handleExportLednicer"
-          @update:series-type="seriesType = $event"
-          @update:naca4-params="naca4Params = $event"
-          @update:naca5-params="naca5Params = $event"
-        />
+        <VPanel title="Analysis results">
+          <VStateBlock v-if="isLoadingAnalysis" variant="loading" title="Running analysis" description="Analysis may take a few moments." />
+          <VStateBlock v-else-if="error" variant="error" title="Analysis failed" :description="error" />
+          <AirfoilPolarPlots
+            v-else-if="analysisResults && performanceData.length > 0"
+            ref="plotsRef"
+            :performance-data="performanceData"
+            :show-controls="true"
+            @tooltips-toggled="handleTooltipsToggled"
+          />
+          <VStateBlock
+            v-else
+            icon="heroicons:chart-bar"
+            title="No analysis yet"
+            description="Set the flow conditions and run an analysis to see lift, drag and moment polars."
+          />
+        </VPanel>
       </div>
     </div>
-
-    <!-- Empty State -->
-    <div v-else class="mb-6 p-8 bg-gray-50 rounded-lg border border-gray-200 text-center">
-      <p class="text-gray-600">Generating airfoil geometry...</p>
-    </div>
-
-    <!-- Analysis Panel -->
-    <div class="mb-6">
-      <NACAAnalysisPanel :is-loading="isLoadingAnalysis" @analyze="handleAnalyze" />
-    </div>
-
-    <!-- Error Display -->
-    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-sm text-red-800">{{ error }}</p>
-    </div>
-
-    <!-- Analysis Results -->
-    <div v-if="analysisResults && performanceData.length > 0" class="mt-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Analysis Results</h3>
-      <AirfoilPolarPlots
-        ref="plotsRef"
-        :performance-data="performanceData"
-        :show-controls="true"
-        @tooltips-toggled="handleTooltipsToggled"
-      />
-    </div>
-
   </div>
 </template>
-

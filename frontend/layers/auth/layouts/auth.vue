@@ -3,10 +3,12 @@
 </script>
 
 <template>
-  <div class="h-screen flex items-center justify-center w-full">
-    <div class="lg:w-[400px]">
-      <Logo class="flex justify-center mb-5" />
-      <div class="bg-white rounded-xl shadow-md">
+  <div class="flex min-h-screen w-full items-center justify-center bg-gray-50 px-4 py-12">
+    <div class="w-full max-w-sm">
+      <NuxtLink to="/" class="mb-6 flex justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label="Airfolio home">
+        <Logo />
+      </NuxtLink>
+      <div class="rounded-xl border border-gray-200 bg-white">
         <slot />
       </div>
     </div>

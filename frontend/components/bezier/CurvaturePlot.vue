@@ -12,6 +12,11 @@ import type { BezierControlPoints, CurvatureData } from '~/composables/useBezier
 import { bezierCurvature, discreteCurvature } from '~/composables/useBezierFit'
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend)
+applyChartDefaults(ChartJS)
+
+// Same meaning as BezierFitPlot: originals in greys, fitted upper/lower in two palette colours
+const FIT_UPPER = seriesPalette[1]
+const FIT_LOWER = seriesPalette[0]
 
 if (process.client) {
   import('chartjs-plugin-zoom').then((zoomPlugin) => {
@@ -53,8 +58,8 @@ const chartData = computed(() => {
     {
       label: 'Original Upper',
       data: toPoints(original.value.upper),
-      borderColor: 'rgb(55, 65, 81)',
-      backgroundColor: 'rgb(55, 65, 81)',
+      borderColor: chartColors.title,
+      backgroundColor: chartColors.title,
       showLine: true,
       borderWidth: 1,
       pointRadius: 0,
@@ -62,8 +67,8 @@ const chartData = computed(() => {
     {
       label: 'Original Lower',
       data: toPoints(original.value.lower),
-      borderColor: 'rgb(156, 163, 175)',
-      backgroundColor: 'rgb(156, 163, 175)',
+      borderColor: chartColors.tick,
+      backgroundColor: chartColors.tick,
       showLine: true,
       borderWidth: 1,
       pointRadius: 0,
@@ -75,7 +80,7 @@ const chartData = computed(() => {
       {
         label: 'Fitted Upper',
         data: toPoints(fitted.value.upper),
-        borderColor: 'rgb(239, 68, 68)',
+        borderColor: FIT_UPPER,
         backgroundColor: 'transparent',
         showLine: true,
         borderWidth: 2,
@@ -84,7 +89,7 @@ const chartData = computed(() => {
       {
         label: 'Fitted Lower',
         data: toPoints(fitted.value.lower),
-        borderColor: 'rgb(59, 130, 246)',
+        borderColor: FIT_LOWER,
         backgroundColor: 'transparent',
         showLine: true,
         borderWidth: 2,
@@ -117,9 +122,10 @@ const chartOptions = computed(() => {
       legend: {
         display: true,
         position: 'top' as const,
-        labels: { usePointStyle: true, boxWidth: 8, padding: 15, font: { size: 11 } },
+        labels: { ...themedLegend.labels, usePointStyle: true, boxWidth: 8, padding: 15 },
       },
       tooltip: {
+        ...themedTooltip,
         callbacks: {
           label: (context: any) => `x: ${context.raw.x.toFixed(4)}, κ: ${context.raw.y.toFixed(3)}`,
         },
@@ -132,18 +138,16 @@ const chartOptions = computed(() => {
     },
     scales: {
       x: {
+        ...themedAxis('x/c'),
         type: 'linear' as const,
         min: -0.05,
         max: 1.05,
-        title: { display: true, text: 'x/c', font: { size: 12 } },
-        grid: { color: 'rgba(0, 0, 0, 0.1)' },
       },
       y: {
+        ...themedAxis('Curvature κ (1/c), convex +'),
         type: 'linear' as const,
         min: view.min,
         max: view.max,
-        title: { display: true, text: 'Curvature κ (1/c), convex +', font: { size: 12 } },
-        grid: { color: 'rgba(0, 0, 0, 0.1)' },
       },
     },
   }
@@ -156,7 +160,7 @@ const resetZoom = () => {
 
 <template>
   <div class="w-full h-full">
-    <div class="flex items-center justify-between mb-2 gap-2">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <p class="text-xs text-gray-500">
         Leading edge clipped by default. Scroll to zoom, drag to pan.
       </p>
@@ -164,11 +168,10 @@ const resetZoom = () => {
         type="button"
         color="light"
         size="sm"
-        shadow="sm"
         title="Reset Zoom"
         @click="resetZoom"
       >
-        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" aria-hidden="true" />
         Reset Zoom
       </VButton>
     </div>

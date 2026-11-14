@@ -58,14 +58,14 @@ const onSubmit = handleSubmit(async (values) => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center h-full">
+  <div>
     <form
-      class="rounded-lg px-10 py-8 w-full max-w-md mx-auto"
+      class="p-6 sm:p-8"
       @submit="onSubmit"
     >
       <AuthHeader title="Login" subtitle="Please enter your credentials" />
 
-      <div v-if="error" class="bg-error-600 text-white text-sm px-4 py-3 rounded-lg mb-4">
+      <div v-if="error" class="mb-4 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-800" role="alert">
         {{ error }}
       </div>
 
@@ -91,11 +91,11 @@ const onSubmit = handleSubmit(async (values) => {
         <label class="flex gap-2 items-center text-sm">
           <input
             type="checkbox"
-            class="w-4 h-4 rounded text-primary-500 focus:ring-primary-500 transition duration-300"
+            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           >
           Remember me
         </label>
-        <nuxt-link to="/auth/forgot-password" class="text-primary-500 hover:underline font-semibold text-sm">
+        <nuxt-link to="/auth/forgot-password" class="text-primary-600 hover:text-primary-700 hover:underline font-medium text-sm">
           Forgot Password?
         </nuxt-link>
       </div>
@@ -110,9 +110,9 @@ const onSubmit = handleSubmit(async (values) => {
         Login
       </button> -->
 
-      <div class="text-gray-600 text-sm">
+      <div class="text-center text-sm text-gray-600">
         Don't have account?
-        <nuxt-link to="/auth/register" class="text-primary-500 hover:underline font-semibold text-sm">
+        <nuxt-link to="/auth/register" class="text-primary-600 hover:text-primary-700 hover:underline font-medium text-sm">
           Register
         </nuxt-link>
       </div>

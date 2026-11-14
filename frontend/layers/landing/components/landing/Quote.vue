@@ -9,7 +9,7 @@ defineProps<{
   <section class="bg-white py-6 px-4 sm:px-0 sm:py-20">
     <div class="max-w-6xl mx-auto lg:text-center">
       <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-blue-600">
+        <h2 class="text-3xl font-bold text-primary-600">
           {{ title }}
         </h2>
         <p class="mt-4 text-gray-600 leading-6">

@@ -148,20 +148,19 @@ const exportReparamPoints = () => {
 
 // Available order options
 const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
+const surfaces = ['upper', 'lower'] as const
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-6">
     <!-- Controls -->
-    <div class="flex flex-wrap items-center gap-4">
-      <div class="flex items-center gap-2">
-        <label for="bezier-order" class="text-sm font-medium text-gray-700">
-          Bezier Order:
-        </label>
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label for="bezier-order" class="data-label mb-1 block">Order</label>
         <select
           id="bezier-order"
           v-model="bezierOrder"
-          class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          class="num block h-9 w-20 rounded-lg border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500"
           :disabled="isLoading"
         >
           <option v-for="n in orderOptions" :key="n" :value="n">
@@ -176,78 +175,86 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         :disabled="isLoading"
         @click="runBezierFit"
       >
-        <div v-if="isLoading" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
-        <Icon v-else name="heroicons:play" class="h-4 w-4 shrink-0" />
+        <Icon v-if="isLoading" name="heroicons:arrow-path-20-solid" class="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+        <Icon v-else name="heroicons:play" class="h-4 w-4 shrink-0" aria-hidden="true" />
         Run Bezier Fit
       </VButton>
 
-      <input
-        v-model.number="reparamCount"
-        type="number"
-        min="5"
-        max="500"
-        :disabled="!fitResult || isLoading"
-        class="block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-      />
-      <VButton
-        type="button"
-        color="primary"
-        :disabled="!fitResult || isLoading"
-        @click="runReparametrize"
-      >
-        <Icon name="heroicons:arrow-path" class="h-4 w-4" />
-        Reparametrize Points
-      </VButton>
+      <div class="flex items-end gap-2">
+        <div>
+          <label for="bezier-reparam-count" class="data-label mb-1 block">Points</label>
+          <input
+            id="bezier-reparam-count"
+            v-model.number="reparamCount"
+            type="number"
+            min="5"
+            max="500"
+            :disabled="!fitResult || isLoading"
+            class="num block h-9 w-20 rounded-lg border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+          >
+        </div>
+        <VButton
+          type="button"
+          color="light"
+          :disabled="!fitResult || isLoading"
+          @click="runReparametrize"
+        >
+          <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
+          Reparametrize
+        </VButton>
+      </div>
 
-      <label class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+      <label class="flex h-9 cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
         <input
           v-model="showCurvature"
           type="checkbox"
-          class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         >
         Show curvature
       </label>
     </div>
 
-    <!-- Error Display -->
-    <div v-if="error" class="p-4 bg-red-50 border border-red-200 rounded-md">
-      <div class="flex">
-        <Icon name="heroicons:exclamation-triangle" class="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
-        <p class="text-sm text-red-800">{{ error }}</p>
-      </div>
-    </div>
+    <VStateBlock v-if="error" variant="error" title="Bezier fit failed" :description="error" />
 
     <!-- Geometry plot (always visible) -->
-    <div class="border border-gray-200 rounded-lg p-4 bg-white relative">
-      <div
-        v-if="isLoading"
-        class="absolute inset-0 z-10 bg-white/60 flex items-center justify-center rounded-lg"
-      >
-        <div class="text-center text-gray-500">
-          <div class="animate-spin rounded-full h-10 w-10 border-4 border-gray-300 border-t-indigo-600 mx-auto mb-3" />
-          <p class="text-sm font-medium">Fitting Bezier curves...</p>
+    <section aria-labelledby="bezier-geometry-title">
+      <h3 id="bezier-geometry-title" class="mb-2 text-sm font-semibold text-gray-900">
+        Geometry
+      </h3>
+      <div class="relative">
+        <div
+          v-if="isLoading"
+          class="absolute inset-0 z-10 flex items-center justify-center bg-white/70"
+        >
+          <VStateBlock variant="loading" title="Fitting Bezier curves" />
         </div>
+        <BezierFitPlot
+          :original-upper-x="upperX"
+          :original-upper-y="upperY"
+          :original-lower-x="lowerX"
+          :original-lower-y="lowerY"
+          :fitted-upper-x="fitResult?.upper_curve.x"
+          :fitted-upper-y="fitResult?.upper_curve.y"
+          :fitted-lower-x="fitResult?.lower_curve.x"
+          :fitted-lower-y="fitResult?.lower_curve.y"
+          :upper-control-points="fitResult?.upper_control_points"
+          :lower-control-points="fitResult?.lower_control_points"
+          :reparam-upper-x="reparamPoints?.upper.x"
+          :reparam-upper-y="reparamPoints?.upper.y"
+          :reparam-lower-x="reparamPoints?.lower.x"
+          :reparam-lower-y="reparamPoints?.lower.y"
+        />
       </div>
-      <BezierFitPlot
-        :original-upper-x="upperX"
-        :original-upper-y="upperY"
-        :original-lower-x="lowerX"
-        :original-lower-y="lowerY"
-        :fitted-upper-x="fitResult?.upper_curve.x"
-        :fitted-upper-y="fitResult?.upper_curve.y"
-        :fitted-lower-x="fitResult?.lower_curve.x"
-        :fitted-lower-y="fitResult?.lower_curve.y"
-        :upper-control-points="fitResult?.upper_control_points"
-        :lower-control-points="fitResult?.lower_control_points"
-        :reparam-upper-x="reparamPoints?.upper.x"
-        :reparam-upper-y="reparamPoints?.upper.y"
-        :reparam-lower-x="reparamPoints?.lower.x"
-        :reparam-lower-y="reparamPoints?.lower.y"
-      />
-    </div>
+      <p v-if="!fitResult && !isLoading" class="mt-2 text-sm text-gray-500">
+        Select a Bezier order and click "Run Bezier Fit" to overlay fitted curves on the loaded points.
+      </p>
+    </section>
 
     <!-- Curvature plot -->
-    <div v-if="showCurvature" class="border border-gray-200 rounded-lg p-4 bg-white">
+    <section v-if="showCurvature" aria-labelledby="bezier-curvature-title" class="border-t border-gray-200 pt-5">
+      <h3 id="bezier-curvature-title" class="mb-2 text-sm font-semibold text-gray-900">
+        Curvature
+      </h3>
       <BezierCurvaturePlot
         :upper-x="upperX"
         :upper-y="upperY"
@@ -256,114 +263,86 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
         :upper-control-points="fitResult?.upper_control_points"
         :lower-control-points="fitResult?.lower_control_points"
       />
-    </div>
-
-    <div v-if="fitResult" class="flex flex-wrap items-center justify-between gap-4">
-      <VButton
-        type="button"
-        color="neutral"
-        @click="exportControlPoints"
-      >
-        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-        Export Control Points
-      </VButton>
-
-      <div v-if="reparamPoints" class="flex items-center gap-2">
-        <select
-          v-model="exportFormat"
-          class="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        >
-          <option value="selig">Selig (.dat)</option>
-          <option value="lednicer">Lednicer (.dat)</option>
-          <option value="csv">CSV (.csv)</option>
-        </select>
-        <VButton
-          type="button"
-          color="neutral"
-          @click="exportReparamPoints"
-        >
-          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-          Export Points
-        </VButton>
-      </div>
-    </div>
-
-    <p v-if="!fitResult && !isLoading" class="text-sm text-gray-500 text-center">
-      Select a Bezier order and click "Run Bezier Fit" to overlay fitted curves on the loaded points.
-    </p>
+    </section>
 
     <!-- Fit results -->
-    <div v-if="fitResult" class="space-y-4">
-      <!-- Fit Quality Info -->
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Upper Surface Max Error:</span>
-          <span class="ml-2 font-mono font-medium">{{ fitResult.upper_max_error_pct.toFixed(4) }}% chord</span>
-        </div>
-        <div class="bg-gray-50 p-3 rounded-md">
-          <span class="text-gray-500">Lower Surface Max Error:</span>
-          <span class="ml-2 font-mono font-medium">{{ fitResult.lower_max_error_pct.toFixed(4) }}% chord</span>
+    <section v-if="fitResult" aria-labelledby="bezier-results-title" class="space-y-4 border-t border-gray-200 pt-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="bezier-results-title" class="text-sm font-semibold text-gray-900">
+          Fit results
+        </h3>
+        <div class="flex flex-wrap items-center gap-2">
+          <VButton type="button" color="light" size="sm" @click="exportControlPoints">
+            <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
+            Control points
+          </VButton>
+          <template v-if="reparamPoints">
+            <label for="bezier-export-format" class="sr-only">Reparametrized points format</label>
+            <select
+              id="bezier-export-format"
+              v-model="exportFormat"
+              class="block h-8 rounded-lg border-gray-300 py-0 text-sm focus:border-primary-500 focus:ring-primary-500"
+            >
+              <option value="selig">Selig (.dat)</option>
+              <option value="lednicer">Lednicer (.dat)</option>
+              <option value="csv">CSV (.csv)</option>
+            </select>
+            <VButton type="button" color="light" size="sm" @click="exportReparamPoints">
+              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
+              Reparametrized points
+            </VButton>
+          </template>
         </div>
       </div>
-      <p v-if="controlPointsEdited" class="text-xs text-amber-700">
+
+      <dl class="grid grid-cols-2 gap-4">
+        <VStat label="Upper max error" :value="fitResult.upper_max_error_pct.toFixed(4)" unit="% chord" />
+        <VStat label="Lower max error" :value="fitResult.lower_max_error_pct.toFixed(4)" unit="% chord" />
+      </dl>
+      <p v-if="controlPointsEdited" class="text-xs text-warning-700">
         Control points edited — curve updated live. Max error values are from the last fit. Reparametrize to refresh exported points.
       </p>
 
       <!-- Control Points Tables -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 class="text-sm font-medium text-gray-700 mb-2">Upper Surface Control Points</h4>
-          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
-          <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div v-for="surface in surfaces" :key="surface" class="min-w-0">
+          <h4 class="text-sm font-medium text-gray-700">
+            {{ surface === 'upper' ? 'Upper' : 'Lower' }} surface control points
+          </h4>
+          <p class="mb-2 text-xs text-gray-500">
+            X is fixed by the fit. Edit Y to reshape the curve.
+          </p>
+          <div class="max-h-60 overflow-auto rounded-lg border border-gray-200">
             <table class="min-w-full text-xs">
-              <thead class="bg-gray-50 sticky top-0">
+              <thead class="sticky top-0 bg-gray-50">
                 <tr>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">Index</th>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">X</th>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">Y</th>
+                  <th scope="col" class="data-label px-3 py-2 text-left">
+                    Index
+                  </th>
+                  <th scope="col" class="data-label px-3 py-2 text-right">
+                    X
+                  </th>
+                  <th scope="col" class="data-label px-3 py-2 text-right">
+                    Y
+                  </th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-100">
-                <tr v-for="(x, i) in fitResult.upper_control_points.x" :key="i">
-                  <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
-                  <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
-                  <td class="px-3 py-1">
-                    <input
-                      type="number"
-                      step="any"
-                      :value="fitResult.upper_control_points.y[i]"
-                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      @change="updateControlPointY('upper', i, ($event.target as HTMLInputElement).value)"
-                    >
+              <tbody class="divide-y divide-gray-100 bg-white">
+                <tr v-for="(x, i) in (surface === 'upper' ? fitResult.upper_control_points : fitResult.lower_control_points).x" :key="i">
+                  <td class="num px-3 py-1.5 text-gray-500">
+                    P{{ i }}
                   </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div>
-          <h4 class="text-sm font-medium text-gray-700 mb-2">Lower Surface Control Points</h4>
-          <p class="text-xs text-gray-500 mb-2">X is fixed by the fit. Edit Y to reshape the curve.</p>
-          <div class="max-h-48 overflow-auto border border-gray-200 rounded-md">
-            <table class="min-w-full text-xs">
-              <thead class="bg-gray-50 sticky top-0">
-                <tr>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">Index</th>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">X</th>
-                  <th class="px-3 py-2 text-left font-medium text-gray-500">Y</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-100">
-                <tr v-for="(x, i) in fitResult.lower_control_points.x" :key="i">
-                  <td class="px-3 py-2 text-gray-600">P{{ i }}</td>
-                  <td class="px-3 py-2 font-mono text-gray-900">{{ x.toFixed(6) }}</td>
+                  <td class="num px-3 py-1.5 text-right text-gray-900">
+                    {{ x.toFixed(6) }}
+                  </td>
                   <td class="px-3 py-1">
                     <input
                       type="number"
                       step="any"
-                      :value="fitResult.lower_control_points.y[i]"
-                      class="w-full min-w-[5.5rem] px-2 py-1 border border-gray-300 rounded font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      @change="updateControlPointY('lower', i, ($event.target as HTMLInputElement).value)"
+                      :aria-label="`${surface} control point P${i} y`"
+                      :value="(surface === 'upper' ? fitResult.upper_control_points : fitResult.lower_control_points).y[i]"
+                      class="num h-8 w-full min-w-[6rem] rounded-md border border-gray-300 px-2 text-right text-xs text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      @change="updateControlPointY(surface, i, ($event.target as HTMLInputElement).value)"
                     >
                   </td>
                 </tr>
@@ -372,9 +351,9 @@ const orderOptions = [3, 4, 5, 6, 7, 8, 9, 10]
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <p class="text-[10px] text-gray-400 italic pt-1">
+    <p class="text-xs italic text-gray-500">
       *Now using faster linear least squares algorithm — Thanks Hunter
     </p>
   </div>

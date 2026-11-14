@@ -62,12 +62,12 @@ const filteredItems = computed(() =>
     ),
 )
 
-const removeSelected = (idx: number) => {
+function removeSelected(idx: number) {
   if (props.multiple)
     (selected.value as ModelValue[])?.splice(idx, 1)
 }
 
-const clear = () => {
+function clear() {
   if (props.multiple)
     selected.value = []
   else
@@ -83,10 +83,10 @@ watch(selected, (val) => {
   <Combobox v-model="selected" :multiple="multiple">
     <div class="relative mt-1">
       <div
-        class="relative w-full border cursor-default overflow-hidden rounded-lg bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-teal-300 sm:text-sm"
+        class="relative w-full border border-gray-300 cursor-default overflow-hidden rounded-lg bg-white text-left transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 sm:text-sm"
       >
         <ul v-if="multiple && (selected as ModelValue[])?.length > 0" class="flex flex-wrap gap-2 items-center mx-1.5 mt-1.5">
-          <li v-for="(item, idx) in selected" :key="idx" class="rounded-lg flex items-center gap-2 shrink-0 bg-gray-100 pl-3 pr-2">
+          <li v-for="(item, idx) in selected" :key="idx" class="rounded-md flex items-center gap-1 shrink-0 bg-gray-100 text-gray-700 pl-2 pr-1">
             <span class="text-sm">{{ item[itemText] }}</span>
             <button title="Remove item" class="text-lg rounded-full text-gray-500 hover:text-gray-700" type="button" @click="removeSelected(idx)">
               <Icon name="heroicons:x-mark-20-solid" class="h-4 w-4" />
@@ -94,7 +94,7 @@ watch(selected, (val) => {
           </li>
         </ul>
         <ComboboxInput
-          class="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+          class="w-full h-[34px] border-none py-0 pl-3 pr-14 text-sm text-gray-900 placeholder-gray-500 focus:ring-0"
           :display-value="(item) => (item as Item)?.[itemText]"
           :placeholder="placeholder"
           @change="query = $event.target.value"
@@ -109,7 +109,7 @@ watch(selected, (val) => {
               aria-hidden="true"
             />
           </button>
-          <ComboboxButton>
+          <ComboboxButton aria-label="Show options">
             <Icon
               name="heroicons:chevron-down-20-solid"
               class="h-5 w-5 text-gray-400"
@@ -125,11 +125,11 @@ watch(selected, (val) => {
         @after-leave="query = ''"
       >
         <ComboboxOptions
-          class="absolute mt-1 z-10 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
+          class="absolute mt-1 z-10 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white p-1 text-base shadow-lg focus:outline-none sm:text-sm"
         >
           <div
             v-if="filteredItems.length === 0 && query !== ''"
-            class="relative cursor-default select-none py-2 px-4 text-gray-700"
+            class="relative cursor-default select-none py-2 px-3 text-gray-500"
           >
             Nothing found.
           </div>
@@ -142,7 +142,7 @@ watch(selected, (val) => {
             :value="item"
           >
             <li
-              class="relative cursor-default select-none py-2 pl-10 pr-4"
+              class="relative cursor-default select-none rounded-md py-2 pl-10 pr-4"
               :class="{
                 'bg-gray-100 text-gray-900': active,
                 'text-gray-900': !active,
@@ -156,7 +156,7 @@ watch(selected, (val) => {
               </span>
               <span
                 v-if="selected"
-                class="absolute inset-y-0 left-0 flex items-center pl-3 text-primary-500"
+                class="absolute inset-y-0 left-0 flex items-center pl-3 text-primary-600"
               >
                 <Icon name="heroicons:check-20-solid" class="h-5 w-5" aria-hidden="true" />
               </span>

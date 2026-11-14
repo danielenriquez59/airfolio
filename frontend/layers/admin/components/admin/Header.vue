@@ -16,7 +16,9 @@ const logout = () => {
   <header class="bg-white border-b border-gray-200">
     <div class="pr-6 pl-3 py-3 flex gap-2 items-center justify-between">
       <button
-        class="flex-shrink-0 px-4 py-2 rounded inline sm:hidden"
+        type="button"
+        class="inline flex-shrink-0 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-100 sm:hidden"
+        aria-label="Open menu"
         @click="$emit('menu:click')"
       >
         <Icon name="ri:menu-line" class="w-5 h-5" />
@@ -24,12 +26,13 @@ const logout = () => {
 
       <div class="relative sm:w-3/12">
         <Icon
-          name="ri-search-line"
+          name="ri:search-line"
           class="text-gray-400 absolute left-3 w-5 h-5 top-2.5"
         />
         <input
           type="search"
           placeholder="Search"
+          aria-label="Search"
           class="
             pl-10
             py-2
@@ -52,22 +55,22 @@ const logout = () => {
             type="button"
             class="
               text-gray-600
-              hover:bg-gray-200
-              hover:text-indigo-500
+              hover:bg-gray-100
+              hover:text-gray-900
               px-2
               py-2
-              rounded
+              rounded-lg
             "
           >
             <span
-              :class="[open ? 'text-indigo-500' : '']"
+              :class="[open ? 'text-primary-600' : '']"
               class="flex items-center gap-2"
             >
               <Icon name="ri:user-line" class="w-5 h-5" />
               <span class="hidden sm:inline"> {{ auth.user?.name }} </span>
               <Icon
                 name="ri:arrow-down-s-line"
-                class="i-ri-arrow-down-s-line w-5 h-5"
+                class="w-5 h-5"
               />
             </span>
           </VDropdownButton>

@@ -25,20 +25,21 @@ const onSubmit = handleSubmit((values) => {
 </script>
 
 <template>
-  <div class="flex items-center justify-center h-full">
-    <form class="rounded-lg p-8 w-full max-w-md mx-auto" @submit="onSubmit">
+  <div>
+    <form class="p-6 sm:p-8" @submit="onSubmit">
       <AuthHeader
         title="Reset Password"
         subtitle="Please enter your new password"
       />
 
       <VInput wrapper-class="mb-4" name="email" label="Email" placeholder="Email" />
-      <VInput wrapper-class="mb-4" name="password" label="Password" placeholder="Password" />
+      <VInput wrapper-class="mb-4" name="password" label="Password" placeholder="Password" type="password" />
       <VInput
         wrapper-class="mb-4"
         name="passwordConfirmation"
         label="Password Confirmation"
         placeholder="Password Confirmation"
+        type="password"
       />
 
       <VButton type="submit" color="primary" block>

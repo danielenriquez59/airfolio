@@ -165,151 +165,139 @@ const clearUpload = () => {
 </script>
 
 <template>
-  <div class="w-full max-w-6xl mx-auto px-4 py-0">
+  <div>
     <PageHeader
       title="Bezier Fit"
       subtitle="Fit Bezier splines to airfoil geometry and export reparametrized coordinates"
+      eyebrow="Tools"
     />
 
-    <div class="space-y-1 w-full">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <!-- Source selection -->
-      <section class="w-full" aria-label="Airfoil source">
-        <div
-          class="grid grid-cols-2 w-full max-w-md rounded-lg border border-gray-200 p-1 bg-gray-50 mb-6"
-          role="tablist"
-          aria-label="Source type"
-        >
-          <button
-            type="button"
-            role="tab"
-            :aria-selected="sourceMode === 'catalog'"
-            :class="tabButtonClasses(sourceMode === 'catalog')"
-            @click="sourceMode = 'catalog'"
-          >
-            Existing Airfoil
-          </button>
-          <button
-            type="button"
-            role="tab"
-            :aria-selected="sourceMode === 'upload'"
-            :class="tabButtonClasses(sourceMode === 'upload')"
-            @click="sourceMode = 'upload'"
-          >
-            Upload File
-          </button>
-        </div>
-
-        <div class="w-full py-1">
-          <div v-show="sourceMode === 'catalog'" role="tabpanel" class="w-full">
-            <SparAirfoilSelector v-model="selectedAirfoil" :show-selection-summary="false" />
-          </div>
-
-          <div v-show="sourceMode === 'upload'" role="tabpanel" class="w-full space-y-4">
+      <div class="min-w-0 space-y-6">
+        <VPanel title="Source">
+          <div class="space-y-4">
             <div
-              class="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-colors"
-              @click="triggerFileInput"
+              class="grid w-full grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1"
+              role="tablist"
+              aria-label="Source type"
             >
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="sourceMode === 'catalog'"
+                class="justify-center"
+                :class="tabButtonClasses(sourceMode === 'catalog')"
+                @click="sourceMode = 'catalog'"
+              >
+                Existing airfoil
+              </button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="sourceMode === 'upload'"
+                class="justify-center"
+                :class="tabButtonClasses(sourceMode === 'upload')"
+                @click="sourceMode = 'upload'"
+              >
+                Upload file
+              </button>
+            </div>
+
+            <div v-show="sourceMode === 'catalog'" role="tabpanel">
+              <SparAirfoilSelector v-model="selectedAirfoil" :show-selection-summary="false" />
+            </div>
+
+            <div v-show="sourceMode === 'upload'" role="tabpanel" class="space-y-3">
               <input
                 ref="fileInput"
                 type="file"
                 accept=".csv,.txt,.dat"
                 class="hidden"
                 @change="handleFileSelect"
-              />
-              <Icon name="heroicons:document-arrow-up" class="h-8 w-8 mx-auto text-gray-400 mb-2" />
-              <p class="text-sm font-medium text-gray-900">
-                Click to upload coordinate file
-              </p>
-              <p class="text-xs text-gray-500 mt-1">
-                TXT, CSV, or DAT with X,Y points (comma or space separated)
-              </p>
-              <p v-if="uploadedFileName" class="text-sm text-indigo-600 font-medium mt-3">
-                {{ uploadedFileName }}
-              </p>
-            </div>
+              >
+              <button
+                type="button"
+                class="w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center transition-colors hover:border-primary-400 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                @click="triggerFileInput"
+              >
+                <Icon name="heroicons:document-arrow-up" class="mx-auto mb-2 h-8 w-8 text-gray-400" aria-hidden="true" />
+                <span class="block text-sm font-medium text-gray-900">
+                  Click to upload coordinate file
+                </span>
+                <span class="mt-1 block text-xs text-gray-500">
+                  TXT, CSV, or DAT with X,Y points (comma or space separated)
+                </span>
+                <span v-if="uploadedFileName" class="mt-3 block break-all text-sm font-medium text-primary-700">
+                  {{ uploadedFileName }}
+                </span>
+              </button>
 
-            <div class="flex gap-2">
               <VButton
                 v-if="uploadedFileName"
                 type="button"
-                color="neutral"
+                color="light"
                 size="sm"
                 @click="clearUpload"
               >
                 Clear File
               </VButton>
+
+              <details class="text-sm text-gray-600">
+                <summary class="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
+                  Upload format tips
+                </summary>
+                <ul class="mt-2 list-inside list-disc space-y-1 text-xs text-gray-500">
+                  <li>Points are sorted by X and split into upper/lower surfaces automatically</li>
+                  <li>Optional blank line separates upper and lower surfaces explicitly</li>
+                  <li>First non-numeric line may be used as the airfoil name</li>
+                </ul>
+              </details>
             </div>
 
-            <details class="text-sm text-gray-600">
-              <summary class="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
-                Upload format tips
-              </summary>
-              <ul class="mt-2 list-disc list-inside space-y-1 text-xs text-gray-500">
-                <li>Points are sorted by X and split into upper/lower surfaces automatically</li>
-                <li>Optional blank line separates upper and lower surfaces explicitly</li>
-                <li>First non-numeric line may be used as the airfoil name</li>
+            <dl v-if="hasGeometry && geometry" class="grid grid-cols-2 gap-4 border-t border-gray-200 pt-4">
+              <VStat label="Upper points" :value="geometry.upperX.length" />
+              <VStat label="Lower points" :value="geometry.lowerX.length" />
+            </dl>
+
+            <div
+              v-if="importWarnings.length > 0"
+              class="rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800"
+            >
+              <p class="mb-1 font-medium">
+                Import notes
+              </p>
+              <ul class="list-inside list-disc space-y-0.5 text-xs">
+                <li v-for="(warning, i) in importWarnings" :key="i">
+                  {{ warning }}
+                </li>
               </ul>
-            </details>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Loading -->
-      <div v-if="isLoadingGeometry" class="flex items-center justify-center py-8 w-full">
-        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+        </VPanel>
       </div>
 
-      <!-- Error -->
-      <div v-else-if="loadError" class="w-full p-4 bg-red-50 border border-red-200 rounded-md">
-        <div class="flex">
-          <Icon name="heroicons:exclamation-triangle" class="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
-          <p class="text-sm text-red-800">{{ loadError }}</p>
-        </div>
+      <!-- Fit -->
+      <div class="min-w-0 lg:col-span-2">
+        <VPanel :title="hasGeometry && geometry ? geometry.name : 'Bezier fit'">
+          <VStateBlock v-if="isLoadingGeometry" variant="loading" title="Loading geometry" />
+          <VStateBlock v-else-if="loadError" variant="error" title="Could not load geometry" :description="loadError" />
+          <BezierFitTab
+            v-else-if="hasGeometry && geometry"
+            :upper-x="geometry.upperX"
+            :upper-y="geometry.upperY"
+            :lower-x="geometry.lowerX"
+            :lower-y="geometry.lowerY"
+            :airfoil-name="geometry.name"
+          />
+          <VStateBlock
+            v-else
+            icon="heroicons:chart-bar"
+            title="Upload a coordinate file to begin, or select an airfoil"
+            description="Choose a source, then run Bezier fitting and export control points or reparametrized coordinates."
+          />
+        </VPanel>
       </div>
-
-      <!-- Geometry / fit -->
-      <section v-else-if="hasGeometry && geometry" class="w-full" aria-label="Bezier fit">
-        <div class="mb-4">
-          <p class="text-sm text-gray-500 mt-1">
-            Upper: {{ geometry.upperX.length }} points · Lower: {{ geometry.lowerX.length }} points
-          </p>
-        </div>
-
-        <div
-          v-if="importWarnings.length > 0"
-          class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800"
-        >
-          <p class="font-medium mb-1">Import notes</p>
-          <ul class="list-disc list-inside space-y-0.5 text-xs">
-            <li v-for="(warning, i) in importWarnings" :key="i">
-              {{ warning }}
-            </li>
-          </ul>
-        </div>
-
-        <BezierFitTab
-          :upper-x="geometry.upperX"
-          :upper-y="geometry.upperY"
-          :lower-x="geometry.lowerX"
-          :lower-y="geometry.lowerY"
-          :airfoil-name="geometry.name"
-        />
-      </section>
-
-      <!-- Empty state -->
-      <section
-        v-else-if="!isLoadingGeometry"
-        class="w-full py-12 text-center text-gray-500"
-        aria-label="No geometry loaded"
-      >
-        <Icon name="heroicons:chart-bar" class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-        <p class="font-medium text-gray-700">
-          Upload a coordinate file to begin, or select an airfoil above
-        </p>
-        <p class="text-sm mt-2">
-          Choose a source above, then run Bezier fitting and export control points or reparametrized coordinates.
-        </p>
-      </section>
     </div>
   </div>
 </template>

@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  /* The one page width used by every layout, header and footer */
+  .page-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Small uppercase label above a data value or table column */
+  .data-label {
+    @apply text-xs font-medium uppercase tracking-wide text-gray-500;
+  }
+
+  /* Numeric data: monospace with fixed-width digits */
+  .num {
+    @apply font-mono tabular-nums;
+  }
+}

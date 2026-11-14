@@ -7,65 +7,85 @@ import {
   DisclosurePanel,
 } from '@headlessui/vue'
 import type { NavigationItem } from '~~/types'
+import { useAuthStore } from '~~/stores/auth'
 
 defineProps<{
   navigation: NavigationItem[]
 }>()
 
 const mobileMenu = useMobileMenu()
+const auth = useAuthStore()
+
+const route = useRoute()
+const isActive = (to?: string) => !!to && (route.path === to || (to !== '/' && route.path.startsWith(`${to}/`)))
+
+function linkClass(to?: string) {
+  return [
+    'block rounded-lg px-3 py-2 text-base font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+    isActive(to) ? 'bg-primary-50 text-primary-700' : 'text-gray-900 hover:bg-gray-100',
+  ]
+}
 </script>
 
 <template>
   <ClientOnly>
-    <Dialog as="div" :open="mobileMenu" @close="mobileMenu = false">
-      <DialogPanel focus="true" class="fixed inset-0 z-10 overflow-y-auto bg-white px-6 py-6 lg:hidden">
-        <div class="flex items-center justify-between">
-          <Logo />
-          <button type="button" class="-m-2.5 rounded-md p-2.5 text-gray-700" @click="mobileMenu = false">
-            <span class="sr-only">Close menu</span>
+    <Dialog as="div" class="lg:hidden" :open="mobileMenu" @close="mobileMenu = false">
+      <div class="fixed inset-0 z-40 bg-gray-900/20" aria-hidden="true" />
+      <DialogPanel class="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white sm:max-w-sm sm:border-l sm:border-gray-200">
+        <div class="flex h-14 items-center justify-between border-b border-gray-200 px-4 sm:px-6">
+          <NuxtLink to="/" aria-label="Airfolio home" class="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" @click="mobileMenu = false">
+            <Logo size="sm" />
+          </NuxtLink>
+          <button
+            type="button"
+            class="-mr-2 rounded-md p-2 text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Close menu"
+            @click="mobileMenu = false"
+          >
             <XMarkIcon class="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
-        <div class="mt-6 flow-root">
-          <div class="-my-6 divide-y divide-gray-500/10">
-            <div class="space-y-2 py-6">
-              <template v-for="item in navigation" :key="item.title">
-                <Disclosure v-if="item.children">
-                  <DisclosureButton class="-mx-3 text-left block w-full rounded-lg py-2 px-3 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-400/10">
-                    {{ item.title }}
-                    <Icon name="heroicons:chevron-down-20-solid" class="w-5 h-5 ml-2" />
-                  </DisclosureButton>
-                  <DisclosurePanel class="text-gray-500 px-4 border-l">
-                    <NuxtLink
-                      v-for="child in item.children"
-                      :key="child.title"
-                      :to="child.to" class="-mx-3 block rounded-lg py-2 px-3 text-base font-medium leading-7 text-gray-900 hover:bg-gray-400/10"
-                      @click="mobileMenu = false"
-                    >
-                      {{ child.title }}
-                    </NuxtLink>
-                  </DisclosurePanel>
-                </Disclosure>
-                <NuxtLink
-                  v-else
-                  :to="item.to" class="-mx-3 block rounded-lg py-2 px-3 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-400/10"
-                  @click="mobileMenu = false"
-                >
-                  {{ item.title }}
-                </NuxtLink>
-              </template>
-            </div>
-            <!-- <div class="py-6">
-              <NuxtLink
-                to="/auth/login"
-                class="-mx-3 block rounded-lg py-2.5 px-3 text-base font-semibold leading-6 text-gray-900 hover:bg-gray-400/10"
-                @click="mobileMenu = false"
-              >
-                Log in
-              </NuxtLink>
-            </div> -->
-          </div>
-        </div>
+        <nav class="space-y-1 px-4 py-4 sm:px-6" aria-label="Main">
+          <template v-for="item in navigation" :key="item.title">
+            <Disclosure v-if="item.children" v-slot="{ open }" :default-open="item.children.some(c => isActive(c.to))">
+              <DisclosureButton class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-base font-medium text-gray-900 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                {{ item.title }}
+                <Icon name="heroicons:chevron-down-20-solid" class="h-5 w-5 text-gray-400 transition-transform" :class="{ 'rotate-180': open }" aria-hidden="true" />
+              </DisclosureButton>
+              <DisclosurePanel class="ml-3 space-y-1 border-l border-gray-200 pl-3">
+                <template v-for="(child, idx) in item.children" :key="child.title || child.header || idx">
+                  <div v-if="child.header" class="data-label px-3 pb-1 pt-3">
+                    {{ child.header }}
+                  </div>
+                  <NuxtLink
+                    v-else-if="child.to"
+                    :to="child.to"
+                    :class="linkClass(child.to)"
+                    @click="mobileMenu = false"
+                  >
+                    {{ child.title }}
+                  </NuxtLink>
+                </template>
+              </DisclosurePanel>
+            </Disclosure>
+            <NuxtLink
+              v-else
+              :to="item.to"
+              :class="linkClass(item.to)"
+              @click="mobileMenu = false"
+            >
+              {{ item.title }}
+            </NuxtLink>
+          </template>
+          <NuxtLink
+            v-if="auth.loggedIn"
+            to="/admin"
+            :class="linkClass('/admin')"
+            @click="mobileMenu = false"
+          >
+            Admin
+          </NuxtLink>
+        </nav>
       </DialogPanel>
     </Dialog>
   </ClientOnly>
