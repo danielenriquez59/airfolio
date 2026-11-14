@@ -311,6 +311,7 @@ watch(
   () => JSON.stringify(filters.value),
   () => {
     filteredEntriesCache.value = (cacheEntries.value as any[]).filter(matchesFilters)
+    emitSelectionChange()
   }
 )
 
@@ -408,7 +409,8 @@ const toggleSelection = (entryId: string) => {
  * Select all visible (filtered) entries
  */
 const selectAll = () => {
-  selectedEntries.value = filteredEntries.value.map(entry => entry.id)
+  // Add visible entries; keep ticks on rows hidden by the filters
+  selectedEntries.value = [...new Set([...selectedEntries.value, ...filteredEntries.value.map(entry => entry.id)])]
   emitSelectionChange()
 }
 
@@ -426,7 +428,8 @@ const deselectAll = () => {
  * Emit selection change event with selected entries data
  */
 const emitSelectionChange = () => {
-  const selected = (cacheEntries.value as any[]).filter(entry => selectedEntries.value.includes(entry.id))
+  // Only rows that are both visible under the filters and ticked
+  const selected = (cacheEntries.value as any[]).filter(entry => matchesFilters(entry) && selectedEntries.value.includes(entry.id))
   emit('selection-change', selected)
 }
 
