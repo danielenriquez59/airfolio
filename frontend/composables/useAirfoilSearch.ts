@@ -39,8 +39,9 @@ export const useAirfoilSearch = () => {
   /**
    * Search airfoils with filters
    * Uses fuzzy name search with pg_trgm for query matching
+   * `columns` narrows the download; rows then hold only those columns despite the Airfoil type
    */
-  const searchAirfoils = async (params: SearchParams = {}): Promise<SearchResult> => {
+  const searchAirfoils = async (params: SearchParams = {}, columns = '*'): Promise<SearchResult> => {
     const {
       query,
       includeName,
@@ -63,7 +64,7 @@ export const useAirfoilSearch = () => {
     // Build query
     let supabaseQuery = supabase
       .from('airfoils')
-      .select('*', { count: 'exact' })
+      .select(columns as '*', { count: 'exact' })
 
     // Fuzzy name search - use ilike for partial matching
     // For full pg_trgm fuzzy search, you may need a database function or RPC call

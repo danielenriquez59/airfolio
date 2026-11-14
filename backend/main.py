@@ -347,10 +347,8 @@ def analyze(request: AnalysisRequest):
                 )
             
             try:
-                # Fetch all airfoil coordinates from database
-                response = supabase.table('airfoils').select(
-                    'id, name, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
-                ).in_('id', request.airfoil_ids).execute()
+                # Names only here: coordinates are fetched below for cache misses alone
+                response = supabase.table('airfoils').select('id, name').in_('id', request.airfoil_ids).execute()
                 
                 if not response.data:
                     raise HTTPException(status_code=404, detail="No airfoils found with the provided IDs")
@@ -408,23 +406,29 @@ def analyze(request: AnalysisRequest):
                 except Exception as cache_error:
                     print(f"Batch cache lookup failed: {cache_error}")
                     # Continue with empty cache_lookup - will run all analyses
-                
+
+                missed_ids = [i for i in request.airfoil_ids if i not in cache_lookup]
+                if missed_ids:
+                    coords_response = supabase.table('airfoils').select(
+                        'id, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
+                    ).in_('id', missed_ids).execute()
+                    airfoil_map = {airfoil['id']: airfoil for airfoil in coords_response.data}
+
                 # Step 3: Process each airfoil (now just a map lookup, no DB queries!)
                 comparison_results = {}
                 cache_rows = []
                 n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
                 
                 for airfoil_id in request.airfoil_ids:
-                    airfoil_data = airfoil_map[airfoil_id]
                     airfoil_name, cond_hash = airfoil_hash_map[airfoil_id]
-                    
+
                     # Check batch cache lookup
                     if airfoil_id in cache_lookup:
                         # Cache hit!
                         comparison_results[airfoil_name] = cache_lookup[airfoil_id]
                     else:
                         # Cache miss - need to run analysis
-                        # Extract coordinates
+                        airfoil_data = airfoil_map[airfoil_id]
                         upper_x_coords = airfoil_data['upper_x_coordinates']
                         upper_y_coords = airfoil_data['upper_y_coordinates']
                         lower_x_coords = airfoil_data['lower_x_coordinates']
@@ -452,10 +456,13 @@ def analyze(request: AnalysisRequest):
                             'outputs': analysis_results
                         })
                 
-                # One insert for all new results: a round trip per row cost ~0.1 s each
+                # One write for all new results: a round trip per row cost ~0.1 s each.
+                # Skip rows another request saved meanwhile, so one conflict does not lose the batch.
                 if cache_rows:
                     try:
-                        supabase.table('performance_cache').insert(cache_rows).execute()
+                        supabase.table('performance_cache').upsert(
+                            cache_rows, on_conflict='airfoil_id,cond_hash', ignore_duplicates=True
+                        ).execute()
                     except Exception as e:
                         print(f"Failed to cache {len(cache_rows)} results: {e}")
 

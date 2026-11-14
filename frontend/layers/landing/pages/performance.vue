@@ -438,7 +438,7 @@ const loadAnalysisData = async () => {
       airfoilIds = []
       airfoilNames = []
       for (let page = 1; ; page++) {
-        const { data } = await searchAirfoils({ ...searchParams, page, limit: 1000 })
+        const { data } = await searchAirfoils({ ...searchParams, page, limit: 1000 }, 'id, name')
         airfoilIds.push(...data.map(a => a.id))
         airfoilNames.push(...data.map(a => a.name))
         if (data.length < 1000) break
@@ -503,7 +503,7 @@ const updateAirfoilCount = useDebounceFn(async () => {
   isLoadingCount.value = true
   try {
     const params = buildSearchParams(1, 1)
-    const result = await searchAirfoils(params)
+    const result = await searchAirfoils(params, 'id')
     matchedCount.value = result.count
   } catch (error) {
     console.error('Error fetching airfoil count:', error)

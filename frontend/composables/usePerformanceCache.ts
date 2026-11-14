@@ -1,55 +1,11 @@
 /**
  * Composable for performance cache operations
- * Handles checking cache and running analysis if needed
+ * Loads comparison results through the backend and reads saved results for one airfoil
  */
 import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
 
 type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
-
-/**
- * Check if conditions match (for cache lookup)
- */
-function conditionsMatch(inputs: any, conditions: AnalysisConditions): boolean {
-  if (!inputs || typeof inputs !== 'object') return false
-
-  // Rows written by the control-surface page are flapped polars, never the clean airfoil
-  if ((inputs.deflection ?? 0) !== 0) return false
-
-  // Check Re
-  if (Math.abs((inputs.Re ?? 0) - conditions.Re) > 0.01) return false
-
-  // Check Mach
-  if (Math.abs((inputs.Mach ?? 0) - (conditions.Mach ?? 0)) > 0.01) return false
-
-  // Check alpha_range
-  if (!inputs.alpha_range || !Array.isArray(inputs.alpha_range) || inputs.alpha_range.length !== 3) {
-    return false
-  }
-  if (
-    Math.abs(inputs.alpha_range[0] - conditions.alpha_range[0]) > 0.01 ||
-    Math.abs(inputs.alpha_range[1] - conditions.alpha_range[1]) > 0.01 ||
-    Math.abs(inputs.alpha_range[2] - conditions.alpha_range[2]) > 0.01
-  ) {
-    return false
-  }
-
-  // Check n_crit (default to 9.0 if not specified)
-  const inputNcrit = inputs.n_crit ?? 9.0
-  const conditionNcrit = conditions.n_crit ?? 9.0
-  if (Math.abs(inputNcrit - conditionNcrit) > 0.01) return false
-
-  // Check control surface params (default to 0)
-  const inputCsFrac = inputs.control_surface_fraction ?? 0
-  const conditionCsFrac = conditions.control_surface_fraction ?? 0
-  if (Math.abs(inputCsFrac - conditionCsFrac) > 0.01) return false
-
-  const inputCsDef = inputs.control_surface_deflection ?? 0
-  const conditionCsDef = conditions.control_surface_deflection ?? 0
-  if (Math.abs(inputCsDef - conditionCsDef) > 0.01) return false
-
-  return true
-}
 
 export interface CachedPerformanceData {
   airfoilId: string
@@ -63,7 +19,6 @@ export interface CachedPerformanceData {
     avg_confidence?: number
     smoothness_CM?: number
   }
-  cached: boolean
 }
 
 export const usePerformanceCache = () => {
@@ -71,43 +26,7 @@ export const usePerformanceCache = () => {
   const { submitAnalysis } = useAnalysis()
 
   /**
-   * Check if performance data exists in cache for given airfoil and conditions
-   */
-  const fetchCachedData = async (
-    airfoilId: string,
-    conditions: AnalysisConditions
-  ): Promise<PerformanceCache | null> => {
-    try {
-      // Fetch all cache entries for this airfoil
-      const { data, error } = await supabase
-        .from('performance_cache')
-        .select('*')
-        .eq('airfoil_id', airfoilId)
-
-      if (error) {
-        throw error
-      }
-
-      if (!data || data.length === 0) {
-        return null
-      }
-
-      // Find matching entry by comparing conditions
-      const matching = data.find(entry => {
-        const inputs = entry.inputs as any
-        return conditionsMatch(inputs, conditions)
-      })
-
-      return matching || null
-    } catch (err: any) {
-      console.error('Error fetching cached data:', err)
-      return null
-    }
-  }
-
-  /**
-   * Run analysis for airfoils if not cached, otherwise return cached data
-   * Returns performance data for all requested airfoils
+   * Get performance data for all requested airfoils; the backend returns saved results and analyses the rest
    */
   const runAnalysisIfNeeded = async (
     airfoilIds: string[],
@@ -117,89 +36,33 @@ export const usePerformanceCache = () => {
   ): Promise<CachedPerformanceData[]> => {
     const results: CachedPerformanceData[] = []
 
-    // Check cache for each airfoil, 50 at a time: thousands of requests at once make the browser refuse them
-    const cacheChecks: (PerformanceCache | null)[] = []
-    for (let i = 0; i < airfoilIds.length; i += 50) {
-      onProgress?.(`Checking saved results… ${i.toLocaleString()} of ${airfoilIds.length.toLocaleString()}`)
-      cacheChecks.push(...await Promise.all(
-        airfoilIds.slice(i, i + 50).map(id => fetchCachedData(id, conditions))
-      ))
-    }
-
-    // Determine which airfoils need analysis
-    const needsAnalysis: string[] = []
-    const cachedResults: Map<string, PerformanceCache> = new Map()
-
-    airfoilIds.forEach((id, idx) => {
-      const cached = cacheChecks[idx]
-      if (cached) {
-        cachedResults.set(id, cached)
-      } else {
-        needsAnalysis.push(id)
-      }
-    })
-
-    // Run analysis for airfoils not in cache, 200 per request: the backend cannot look up thousands of IDs at once
-    const analysisResults = new Map<string, any>()
-    for (let i = 0; i < needsAnalysis.length; i += 200) {
-      const chunk = needsAnalysis.slice(i, i + 200)
-      onProgress?.(`Analysing… ${i.toLocaleString()} of ${needsAnalysis.length.toLocaleString()} airfoils`)
-      try {
-        const { results: chunkResults } = await submitAnalysis(chunk, conditions)
-        if (!chunkResults) continue
-        // Backend keys results by airfoil name, except for a single airfoil, where it returns the polar itself
-        const inOrder = Object.values(chunkResults)
-        chunk.forEach((id, k) => {
-          const name = airfoilNames[airfoilIds.indexOf(id)]
-          analysisResults.set(id, chunk.length === 1 ? chunkResults : (chunkResults[name] || inOrder[k]))
-        })
-      } catch (err: any) {
-        console.error('Error running analysis:', err)
-        throw err
-      }
-    }
-
-    // Combine cached and new results
-    airfoilIds.forEach((id, idx) => {
-      const name = airfoilNames[idx] || `Airfoil_${id.substring(0, 8)}`
-      const cached = cachedResults.get(id)
-
-      if (cached) {
-        const outputs = cached.outputs as any
+    // 200 per request: the backend cannot look up thousands of IDs at once
+    for (let i = 0; i < airfoilIds.length; i += 200) {
+      const chunk = airfoilIds.slice(i, i + 200)
+      onProgress?.(`Loading results… ${i.toLocaleString()} of ${airfoilIds.length.toLocaleString()} airfoils`)
+      const { results: chunkResults } = await submitAnalysis(chunk, conditions)
+      if (!chunkResults) continue
+      // Backend keys results by airfoil name, except for a single airfoil, where it returns the polar itself
+      const inOrder = Object.values(chunkResults)
+      chunk.forEach((id, k) => {
+        const name = airfoilNames[i + k] || `Airfoil_${id.substring(0, 8)}`
+        const result: any = chunk.length === 1 ? chunkResults : (chunkResults[airfoilNames[i + k]] || inOrder[k])
+        if (!result) return
         results.push({
           airfoilId: id,
           airfoilName: name,
           conditions,
           data: {
-            alpha: outputs.alpha || [],
-            CL: outputs.CL || [],
-            CD: outputs.CD || [],
-            CM: outputs.CM || [],
-            avg_confidence: outputs.avg_confidence,
-            smoothness_CM: outputs.smoothness_CM,
+            alpha: result.alpha || [],
+            CL: result.CL || [],
+            CD: result.CD || [],
+            CM: result.CM || [],
+            avg_confidence: result.avg_confidence,
+            smoothness_CM: result.smoothness_CM,
           },
-          cached: true,
         })
-      } else {
-        const result = analysisResults.get(id)
-        if (result) {
-          results.push({
-            airfoilId: id,
-            airfoilName: name,
-            conditions,
-            data: {
-              alpha: result.alpha || [],
-              CL: result.CL || [],
-              CD: result.CD || [],
-              CM: result.CM || [],
-              avg_confidence: result.avg_confidence,
-              smoothness_CM: result.smoothness_CM,
-            },
-            cached: false,
-          })
-        }
-      }
-    })
+      })
+    }
 
     return results
   }
@@ -229,7 +92,6 @@ export const usePerformanceCache = () => {
   }
 
   return {
-    fetchCachedData,
     runAnalysisIfNeeded,
     fetchAllCachedEntries,
   }
