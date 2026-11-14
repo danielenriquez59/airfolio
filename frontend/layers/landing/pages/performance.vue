@@ -789,7 +789,11 @@ onMounted(async () => {
   
   loadParamsFromURL()
   loadPerformanceFiltersFromURL()
-  
+  // The filter watcher clears the selection on the restored filters; let it run, then put the URL ids back
+  const restoredIds = preAnalysisSelectedAirfoils.value
+  await nextTick()
+  preAnalysisSelectedAirfoils.value = restoredIds
+
   // If selection mode is 'specific', fetch filtered list
   if (selectionMode.value === 'specific') {
     await fetchFilteredAirfoilsList()
