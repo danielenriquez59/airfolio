@@ -19,16 +19,12 @@ export function calc_force(M: Mfoil): void {
 
   // pressure coefficient at each node
   const ue = M.oper.viscous ? M.glob.U.subarray(3 * M.glob.Nsys, 4 * M.glob.Nsys) : get_ueinv(M)
-  const cp = new Float64Array(ue.length)
-  const cp_ue = new Float64Array(ue.length)
-  for (let i = 0; i < ue.length; i++) [cp[i], cp_ue[i]] = get_cp(ue[i], M.param)
+  const cp = ue.map(u => get_cp(u, M.param)[0]) // Python also forms cp_ue, cl_ue, cl_alpha here (CL-target mode only)
   M.post.cp = cp
   M.post.cpi = get_ueinv(M).map(u => get_cp(u, M.param)[0]) // inviscid cp
 
   // lift, moment, near-field pressure cd by cp integration
   let cl = 0
-  const cl_ue = new Float64Array(N)
-  let cl_alpha = 0
   let cm = 0
   let cdpi = 0
   for (let i0 = 1; i0 <= N; i0++) {
@@ -47,9 +43,6 @@ export function calc_force(M: Mfoil): void {
     const cp2 = cp[i]
     const cpbar = 0.5 * (cp1 + cp2)
     cl = cl + dx * cpbar
-    cl_ue[ip] += dx * 0.5 * cp_ue[ip]
-    cl_ue[i] += dx * 0.5 * cp_ue[i]
-    cl_alpha += cpbar * (sind(alpha) * dxv0 - cosd(alpha) * dxv1) * Math.PI / 180
     cm += cp1 * dx1nds / 3 + cp1 * dx2nds / 6 + cp2 * dx1nds / 6 + cp2 * dx2nds / 3
     cdpi = cdpi + dz * cpbar
   }
@@ -57,8 +50,6 @@ export function calc_force(M: Mfoil): void {
   cm /= chord ** 2
   cdpi /= chord
   M.post.cl = cl
-  M.post.cl_ue = cl_ue
-  M.post.cl_alpha = cl_alpha
   M.post.cm = cm
   M.post.cdpi = cdpi
 
@@ -76,13 +67,9 @@ export function calc_force(M: Mfoil): void {
     // Squire-Young relation for total drag (extrapolates theta from end of wake)
     const Iw = M.vsol.Is[2]
     const Ue = Ucol(Iw[Iw.length - 1]) // station at the end of the wake
-    const [H, H_U] = get_H(Ue)
-    const [uk, uk_ue] = get_uk(Ue[3], M.param)
-    cd = 2.0 * Ue[0] * (uk / Vinf) ** ((5 + H) / 2)
-    const cd_U = H_U.map(v => 2.0 * Ue[0] * (uk / Vinf) ** ((5 + H) / 2) * Math.log(uk / Vinf) * 0.5 * v)
-    cd_U[0] += 2.0 * (uk / Vinf) ** ((5 + H) / 2)
-    cd_U[3] += 2.0 * Ue[0] * (5 + H) / 2 * (uk / Vinf) ** ((3 + H) / 2) * (1 / Vinf) * uk_ue
-    M.post.cd_U = cd_U
+    const H = get_H(Ue)[0]
+    const uk = get_uk(Ue[3], M.param)[0]
+    cd = 2.0 * Ue[0] * (uk / Vinf) ** ((5 + H) / 2) // Python also forms cd_U here
 
     // skin friction drag
     let Df = 0

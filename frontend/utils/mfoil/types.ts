@@ -31,11 +31,8 @@ export interface Oper {
   Vinf: number
   alpha: number // degrees
   rho: number
-  cltgt: number
-  givencl: boolean
   initbl: boolean
   viscous: boolean
-  redowake: boolean
   Re: number
   Ma: number
 }
@@ -73,26 +70,21 @@ export interface Glob {
   Nsys: number
   U: Float64Array // [4, Nsys]
   dU: Float64Array
-  dalpha: number
   conv: boolean
   R: Float64Array // [3*Nsys]
   // Jacobians: sparse in Python, dense row-major here; layout documented at the top of viscous.ts
   R_U: Float64Array
   R_x: Float64Array
   R_V: Float64Array
-  realloc: boolean
 }
 
 export interface Post {
   cp: Float64Array
   cpi: Float64Array
   cl: number
-  cl_ue: Float64Array
-  cl_alpha: number
   cm: number
   cdpi: number
   cd: number
-  cd_U: Float64Array
   cdf: number
   cdp: number
   th: Float64Array
@@ -106,7 +98,6 @@ export interface Post {
 }
 
 export interface Param {
-  verb: number
   rtol: number
   niglob: number
   ncrit: number
@@ -157,7 +148,7 @@ export function newPanel(): Panel {
 }
 
 export function newOper(): Oper {
-  return { Vinf: 1, alpha: 0, rho: 1, cltgt: 0, givencl: false, initbl: true, viscous: false, redowake: false, Re: 1e5, Ma: 0 }
+  return { Vinf: 1, alpha: 0, rho: 1, initbl: true, viscous: false, Re: 1e5, Ma: 0 }
 }
 
 export function newIsol(): Isol {
@@ -183,7 +174,7 @@ export function newVsol(): Vsol {
 }
 
 export function newGlob(): Glob {
-  return { Nsys: 0, U: empty(), dU: empty(), dalpha: 0, conv: true, R: empty(), R_U: empty(), R_x: empty(), R_V: empty(), realloc: false }
+  return { Nsys: 0, U: empty(), dU: empty(), conv: true, R: empty(), R_U: empty(), R_x: empty(), R_V: empty() }
 }
 
 export function newPost(): Post {
@@ -191,12 +182,9 @@ export function newPost(): Post {
     cp: empty(),
     cpi: empty(),
     cl: 0,
-    cl_ue: empty(),
-    cl_alpha: 0,
     cm: 0,
     cdpi: 0,
     cd: 0,
-    cd_U: empty(),
     cdf: 0,
     cdp: 0,
     th: empty(),
@@ -212,7 +200,6 @@ export function newPost(): Post {
 
 export function newParam(): Param {
   return {
-    verb: 1,
     rtol: 1e-10,
     niglob: 50,
     ncrit: 9.0,

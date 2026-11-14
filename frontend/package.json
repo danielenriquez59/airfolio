@@ -11,7 +11,7 @@
     "build-storybook": "build-storybook",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test:mfoil": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/mfoil/*.test.ts\""
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.13",

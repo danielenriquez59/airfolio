@@ -39,14 +39,17 @@ const loadError = ref<string | null>(null)
 async function loadAirfoil(name: string | undefined) {
   reset() // results belong to the airfoil they were run for
   loadError.value = null
+  loading.value = !!name
   if (!name) {
     airfoil.value = null
     selected.value = null
     return
   }
-  loading.value = true
+  const stale = () => name !== route.query.airfoil // a newer pick superseded this load
   try {
     const data = await fetchAirfoilByName(name)
+    if (stale())
+      return
     if (!data?.upper_x_coordinates?.length || !data.lower_x_coordinates?.length) {
       airfoil.value = null
       loadError.value = data ? 'This airfoil has no geometry data' : 'Airfoil not found'
@@ -56,11 +59,14 @@ async function loadAirfoil(name: string | undefined) {
     selected.value = data
   }
   catch (err: unknown) {
+    if (stale())
+      return
     airfoil.value = null
     loadError.value = err instanceof Error ? err.message : 'Failed to load airfoil'
   }
   finally {
-    loading.value = false
+    if (!stale())
+      loading.value = false
   }
 }
 
@@ -376,9 +382,9 @@ function downloadCSV() {
                 <VBadge v-if="!selectedPoint.converged" tone="warning">
                   Not converged
                 </VBadge>
-                <span>CL <span class="num text-gray-900">{{ fmt(selectedPoint.cl, 4) }}</span></span>
-                <span>CD <span class="num text-gray-900">{{ fmt(selectedPoint.cd, 5) }}</span></span>
-                <span>CM <span class="num text-gray-900">{{ fmt(selectedPoint.cm, 4) }}</span></span>
+                <span>CL <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cl : NaN, 4) }}</span></span>
+                <span>CD <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cd : NaN, 5) }}</span></span>
+                <span>CM <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cm : NaN, 4) }}</span></span>
               </div>
               <MfoilDistributionPlots :point="selectedPoint" />
             </div>
@@ -425,29 +431,8 @@ function downloadCSV() {
                       <Icon v-if="!p.converged" name="heroicons:exclamation-triangle" class="mr-1 h-3.5 w-3.5 text-warning-600" aria-label="Not converged" />
                       {{ p.alpha }}
                     </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.cl, 4) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.cd, 5) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.cdp, 5) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.cdf, 5) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.cm, 4) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(ld(p), 1) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.xtrUpper, 3) }}
-                    </td>
-                    <td class="num px-3 py-1.5 text-right">
-                      {{ fmt(p.xtrLower, 3) }}
+                    <td v-for="([v, d], j) in ([[p.cl, 4], [p.cd, 5], [p.cdp, 5], [p.cdf, 5], [p.cm, 4], [ld(p), 1], [p.xtrUpper, 3], [p.xtrLower, 3]] as const)" :key="j" class="num px-3 py-1.5 text-right">
+                      {{ fmt(p.converged ? v : NaN, d) }}
                     </td>
                   </tr>
                 </tbody>

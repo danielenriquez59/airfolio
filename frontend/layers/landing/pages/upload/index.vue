@@ -129,7 +129,7 @@ const cstFit = computed(() => {
   if (geomTab.value !== 'cst' || upper.value.badLines.length || lower.value.badLines.length)
     return null
   // Fit needs at least as many points as unknowns (2 * weights + 2)
-  if (upper.value.pts.length + lower.value.pts.length < 2 * cstWeights.value + 2)
+  if (upper.value.pts.length < 2 || lower.value.pts.length < 2 || upper.value.pts.length + lower.value.pts.length < 2 * cstWeights.value + 2)
     return null
   // fitCSTAirfoil expects upper TE→LE and lower LE→TE (and returns that ordering); flip a surface entered
   // the other way, but don't sort, which would scramble a cambered nose that dips below the LE x

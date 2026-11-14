@@ -98,6 +98,7 @@ const cfOptions = options('Cf')
 const dsOptions = options('δ*/c')
 // Separated flow drives Hk far up; cap the axis so one spike does not flatten the attached-flow values
 const HK_MAX = 8
+const fmtXtr = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : '—') // NaN when the solve failed
 const hkOptions = computed(() => {
   const o = options('Hk')
   const { upper, lower } = props.point
@@ -120,7 +121,7 @@ const hkOptions = computed(() => {
       </li>
       <li class="flex items-center gap-1.5">
         <span aria-hidden="true">▲</span>
-        Transition (upper {{ point.xtrUpper.toFixed(3) }}, lower {{ point.xtrLower.toFixed(3) }})
+        Transition (upper {{ fmtXtr(point.xtrUpper) }}, lower {{ fmtXtr(point.xtrLower) }})
       </li>
     </ul>
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -141,7 +141,7 @@ export function solvePolar(input: MfoilInput, onPoint: (p: MfoilPoint) => void):
   const X = M.foil.x
   for (let i = 1; i < N - 1; i++) {
     if ((X[i] - X[i - 1]) * (X[i + 1] - X[i]) + (X[N + i] - X[N + i - 1]) * (X[N + i + 1] - X[N + i]) < 0)
-      throw new Error(`The ${input.npanel}-panel paneling of this airfoil folds back near x/c = ${X[i].toFixed(3)}; try the other panel count.`)
+      throw new Error(`The ${input.npanel}-panel paneling of this airfoil folds back near x/c = ${X[i].toFixed(3)}; try Smooth airfoil or the other panel count.`)
   }
   setoper(M, { Re: input.reynolds, Ma: input.mach, ncrit: input.ncrit })
   const alphas = [...new Set(input.alphas)].sort((a, b) => a - b)
