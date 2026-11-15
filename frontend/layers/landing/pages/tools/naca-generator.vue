@@ -320,7 +320,9 @@ const performanceData = computed(() => {
         <section>
           <h3 class="mb-1 font-semibold text-gray-900">Harry Riblett GA airfoils</h3>
           <p>
-            Harry Riblett's <em>GA Airfoils</em> (1996) catalogs sections designed for general aviation and homebuilt
+            Harry Riblett's
+            <a href="https://www.scribd.com/doc/55803105/GA-Airfoils" target="_blank" rel="noopener" class="font-medium text-primary-600 hover:underline"><em>GA Airfoils</em></a>
+            (1996) catalogs sections designed for general aviation and homebuilt
             aircraft, built from NACA-style thickness forms and mean lines. A designation such as GA 30-613.5 reads as:
             maximum thickness at 30% chord, standard trailing-edge cusp (- standard, A reduced), 0.6 design lift
             coefficient, and 13.5% thickness. This Riblett airfoil generator builds any section with maximum thickness at
