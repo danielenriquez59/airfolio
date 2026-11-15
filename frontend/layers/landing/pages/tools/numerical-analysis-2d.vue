@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
+import type { NACA6Params } from '~/composables/useNACAGenerator'
 import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import MfoilDistributionPlots from '~/components/analysis/MfoilDistributionPlots.vue'
@@ -7,6 +8,8 @@ import { summarizePolar } from '~/composables/useMfoil'
 import { type MfoilSlot, useMfoilRuns } from '~/composables/useMfoilRuns'
 import { smoothAirfoilCST } from '~/composables/useCSTParameters'
 import { sanitizeFilename, triggerDownload } from '~/composables/useAirfoilDownload'
+import NACAParameterEditor from '~/layers/landing/components/naca/NACAParameterEditor.vue'
+import { type NACASpec, SERIES, canonicalAirfoilName, isGeneratedAirfoil, mfoilRunKey, nacaFileBase, nacaParamText, nacaSpecAirfoil, parseNACASpec } from '~/utils/nacaSpec'
 import { navTabButtonClasses, tabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
@@ -30,10 +33,19 @@ const MAX_AIRFOILS = 3
 const route = useRoute()
 const router = useRouter()
 const { fetchAirfoilByName } = useAirfoils()
-const { slots, latest, sync, runAll, stopAll } = useMfoilRuns(MAX_AIRFOILS, fetchAirfoilByName)
+// A naca4:/naca5:/naca6: name is a generated airfoil, never a library lookup
+async function fetchSlotAirfoil(name: string) {
+  if (!isGeneratedAirfoil(name))
+    return fetchAirfoilByName(name)
+  const spec = parseNACASpec(name)
+  if (!spec)
+    throw new Error('Unknown NACA specification')
+  return nacaSpecAirfoil(spec)
+}
+const { slots, latest, sync, runAll, stopAll } = useMfoilRuns(MAX_AIRFOILS, fetchSlotAirfoil)
 
 // Airfoils: the repeated ?airfoil= query is the source of truth, in list order; the picker and remove write to it
-const queryNames = computed(() => [route.query.airfoil ?? []].flat().filter((n): n is string => !!n))
+const queryNames = computed(() => [...new Set([route.query.airfoil ?? []].flat().filter((n): n is string => !!n).map(canonicalAirfoilName))])
 watch(queryNames, names => sync(names))
 onMounted(() => sync(queryNames.value))
 
@@ -54,18 +66,62 @@ watch(picked, (a) => {
     setNames([...names, a.name])
 })
 const removeSlot = (s: MfoilSlot) => setNames(slots.value.filter(x => x.id !== s.id).map(x => x.name))
+const pickerOpen = computed(() => !slots.value.length || (adding.value && slots.value.length < MAX_AIRFOILS))
+
+// Airfoil source: the library picker or a NACA generator; start values are the generator page's
+type Source = 'library' | NACASpec['kind']
+const SOURCES = [['naca4', 'NACA 4'], ['naca5', 'NACA 5'], ['naca6', 'NACA 6'], ['library', 'Library']] as const
+const source = ref<Source>('library')
+const naca = reactive({
+  naca4: { m: 0.02, p: 0.4, t: 0.12 },
+  naca5: { cl: 0.3, p: 0.15, t: 0.12, isReflex: false },
+  naca6: { family: '64', t: 0.12, cl: 0.2, a: 1 } as NACA6Params,
+})
+const draft = computed(() => {
+  const s = source.value
+  return s === 'library' || !pickerOpen.value ? null : nacaSpecAirfoil({ kind: s, params: naca[s] } as NACASpec)
+})
+const draftBlocked = computed(() => {
+  if (!draft.value)
+    return null
+  if (slots.value.length >= MAX_AIRFOILS)
+    return `Limit of ${MAX_AIRFOILS} airfoils.`
+  if (slots.value.some(s => s.name === draft.value!.name))
+    return 'This airfoil is already loaded.'
+  return null
+})
+function addDraft() {
+  if (!draft.value || draftBlocked.value)
+    return
+  setNames([...slots.value.map(s => s.name), draft.value.name])
+  adding.value = false
+}
 
 const label = (s: MfoilSlot) => s.airfoil?.display_name || s.airfoil?.name || s.name
+// Library names read in capitals; generated designations keep their case (6-series a=0.5 is not the A family)
+const caps = (x: { id: number }) => (isGeneratedAirfoil(slots.value.find(s => s.id === x.id)?.name ?? '') ? '' : 'uppercase')
 const color = (s: MfoilSlot) => seriesColor(s.colorIndex)
+// Names round (m 0.004 is NACA 0012 like m 0): a generated slot sharing its label shows its values
+const paramText = (s: MfoilSlot) => (slots.value.some(x => x.id !== s.id && label(x) === label(s)) ? nacaParamText(s.name) : null)
 const loaded = computed(() => slots.value.filter(s => s.airfoil))
-const geometries = computed(() => loaded.value.map(s => ({
+const geometries = computed(() => [...loaded.value.map(s => ({
   name: label(s),
   color: color(s),
   upperX: s.airfoil!.upper_x_coordinates ?? [],
   upperY: s.airfoil!.upper_y_coordinates ?? [],
   lowerX: s.airfoil!.lower_x_coordinates ?? [],
   lowerY: s.airfoil!.lower_y_coordinates ?? [],
-})))
+})), ...(draft.value
+  ? [{
+      name: draft.value.display_name!,
+      color: chartColors.tick,
+      dashed: true,
+      upperX: draft.value.upper_x_coordinates!,
+      upperY: draft.value.upper_y_coordinates!,
+      lowerX: draft.value.lower_x_coordinates!,
+      lowerY: draft.value.lower_y_coordinates!,
+    }]
+  : [])])
 
 // Flow conditions
 const reynolds = ref(1e6)
@@ -76,6 +132,12 @@ const alphaMax = ref(14)
 const alphaStep = ref(0.5)
 const npanel = ref<120 | 199>(120)
 const smooth = ref(false)
+// Shown unless every loaded airfoil is generated; hiding it clears it so a later library airfoil starts raw
+const showSmooth = computed(() => !slots.value.length || slots.value.some(s => !isGeneratedAirfoil(s.name)))
+watch(showSmooth, (v) => {
+  if (!v)
+    smooth.value = false
+})
 
 const alphas = computed(() => {
   const n = Math.floor((alphaMax.value - alphaMin.value) / alphaStep.value + 1e-9) + 1
@@ -104,12 +166,12 @@ const inputError = computed(() => {
 const isRunning = computed(() => slots.value.some(s => s.mfoil.status.value === 'running'))
 const tab = ref<'polars' | 'op'>('polars')
 const followLatest = ref(true) // selected angle follows the latest finished point until the user picks one
-// A slot already finished for this key is not rerun
-const runKey = computed(() => JSON.stringify([reynolds.value, mach.value, ncrit.value, alphas.value, npanel.value, smooth.value]))
+// A slot already finished for its key is not rerun
+const conditions = computed(() => [reynolds.value, mach.value, ncrit.value, alphas.value, npanel.value])
 
 function geometryFor(a: Airfoil) {
   const geom = { upperX: a.upper_x_coordinates!, upperY: a.upper_y_coordinates ?? [], lowerX: a.lower_x_coordinates!, lowerY: a.lower_y_coordinates ?? [] }
-  if (smooth.value) {
+  if (smooth.value && !isGeneratedAirfoil(a.name)) { // generated sections are smooth already
     try {
       const s = smoothAirfoilCST(geom.upperX, geom.upperY, geom.lowerX, geom.lowerY)
       return { upperX: s.upperX, upperY: s.upperY, lowerX: s.lowerX, lowerY: s.lowerY }
@@ -123,7 +185,7 @@ function startRun() {
   if (!loaded.value.length || inputError.value)
     return
   followLatest.value = true
-  runAll(runKey.value, a => ({
+  runAll(a => mfoilRunKey(conditions.value, smooth.value, a.name), a => ({
     ...geometryFor(a),
     reynolds: reynolds.value,
     mach: mach.value,
@@ -172,7 +234,7 @@ const lastPoint = computed(() => {
   const l = latest.value
   const s = l ? slots.value.find(x => x.id === l.id) : undefined
   const p = s && l ? pointAt(s, l.alpha) : undefined
-  return s && p ? { name: label(s), p } : null
+  return s && p ? { id: s.id, name: label(s), p } : null
 })
 
 const fmt = (v: number | null | undefined, d: number) => ((v == null || !Number.isFinite(v)) ? '—' : v.toFixed(d))
@@ -219,7 +281,9 @@ function downloadCSV() {
   const head = ['airfoil', 'alpha', 'CL', 'CD', 'CDp', 'CDf', 'CM', 'L/D', 'xtr_upper', 'xtr_lower', 'converged']
   const rows = tableRows.value.map(({ s, p }) => [csvField(label(s)), ...[p.alpha, p.cl, p.cd, p.cdp, p.cdf, p.cm, ld(p), p.xtrUpper, p.xtrLower, p.converged]
     .map(v => ((typeof v === 'number' && !Number.isFinite(v)) ? '' : String(v)))].join(','))
-  const base = tableSlots.value.length === 1 ? sanitizeFilename(tableSlots.value[0].name) : 'airfoils'
+  const one = tableSlots.value.length === 1 ? tableSlots.value[0].name : null
+  const spec = one ? parseNACASpec(one) : null
+  const base = spec ? nacaFileBase(spec) : one ? sanitizeFilename(one) : 'airfoils'
   triggerDownload([head.join(','), ...rows].join('\n'), `${base}_mfoil_Re${reynolds.value}.csv`)
 }
 </script>
@@ -248,9 +312,12 @@ function downloadCSV() {
             <li v-for="s in slots" :key="s.id" class="flex items-center gap-2 text-sm">
               <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
               <div class="min-w-0 flex-1">
-                <div class="truncate font-medium uppercase text-gray-900">
+                <div class="truncate font-medium text-gray-900" :class="caps(s)">
                   {{ label(s) }}
                 </div>
+                <p v-if="paramText(s)" class="num truncate text-xs text-gray-500">
+                  {{ paramText(s) }}
+                </p>
                 <p v-if="s.loading" class="flex items-center gap-1 text-xs text-gray-500">
                   <Icon name="heroicons:arrow-path" class="h-3 w-3 animate-spin" aria-hidden="true" />
                   Loading airfoil
@@ -293,10 +360,50 @@ function downloadCSV() {
           >
             {{ slots.length >= MAX_AIRFOILS ? `Limit of ${MAX_AIRFOILS} airfoils` : '+ Load another airfoil' }}
           </VButton>
-          <div v-if="!slots.length || (adding && slots.length < MAX_AIRFOILS)" :class="slots.length && 'mt-3'">
-            <SparAirfoilSelector v-model="picked" :show-selection-summary="false" />
+          <div v-if="pickerOpen" :class="slots.length && 'mt-3'">
+            <div class="mb-3 grid grid-cols-4 gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Airfoil source">
+              <button
+                v-for="opt in SOURCES"
+                :key="opt[0]"
+                type="button"
+                class="justify-center"
+                :class="tabButtonClasses(source === opt[0])"
+                :aria-pressed="source === opt[0]"
+                @click="source = opt[0]"
+              >
+                {{ opt[1] }}
+              </button>
+            </div>
+            <SparAirfoilSelector v-if="source === 'library'" v-model="picked" :show-selection-summary="false" />
+            <template v-else>
+              <NACAParameterEditor
+                embedded
+                :series-type="SERIES[source]"
+                :naca4-params="naca.naca4"
+                :naca5-params="naca.naca5"
+                :naca6-params="naca.naca6"
+                :naca-name="draft?.display_name ?? ''"
+                @update:naca4-params="naca.naca4 = $event"
+                @update:naca5-params="naca.naca5 = $event"
+                @update:naca6-params="naca.naca6 = $event"
+              />
+              <VButton
+                type="button"
+                color="primary"
+                size="sm"
+                class="mt-4"
+                :disabled="!!draftBlocked"
+                :aria-describedby="draftBlocked ? 'mf-add-reason' : undefined"
+                @click="addDraft"
+              >
+                Add to analysis
+              </VButton>
+              <p v-if="draftBlocked" id="mf-add-reason" class="mt-2 text-xs text-gray-500">
+                {{ draftBlocked }}
+              </p>
+            </template>
           </div>
-          <div class="mt-3 flex items-center gap-1.5">
+          <div v-if="showSmooth" class="mt-3 flex items-center gap-1.5">
             <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
               <input v-model="smooth" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
               Smooth airfoil
@@ -407,7 +514,7 @@ function downloadCSV() {
               :class="lastPoint.p.converged ? 'text-gray-600' : 'text-warning-700'"
               aria-live="polite"
             >
-              <span class="uppercase">{{ lastPoint.name }}</span> AoA {{ lastPoint.p.alpha }}° {{ lastPoint.p.converged ? 'converged' : 'not converged' }}
+              <span :class="caps(lastPoint)">{{ lastPoint.name }}</span> AoA {{ lastPoint.p.alpha }}° {{ lastPoint.p.converged ? 'converged' : 'not converged' }}
             </p>
           </div>
         </VPanel>
@@ -441,7 +548,7 @@ function downloadCSV() {
                 @click="s.visible = !s.visible"
               >
                 <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
-                <span class="uppercase">{{ label(s) }}</span>
+                <span :class="caps(s)">{{ label(s) }}</span>
               </button>
             </div>
 
@@ -483,7 +590,7 @@ function downloadCSV() {
                 <li v-for="o in opSeries" :key="o.id" class="flex flex-wrap items-center gap-x-5 gap-y-1">
                   <span class="flex min-w-0 items-center gap-1.5 font-medium text-gray-900">
                     <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: o.color }" aria-hidden="true" />
-                    <span class="truncate uppercase">{{ o.name }}</span>
+                    <span class="truncate" :class="caps(o)">{{ o.name }}</span>
                   </span>
                   <VBadge v-if="!o.point.converged" tone="warning">
                     Not converged
@@ -508,7 +615,7 @@ function downloadCSV() {
                     <th v-for="s in loaded" :key="s.id" scope="col" class="data-label whitespace-nowrap px-3 py-2 text-right">
                       <span class="inline-flex items-center gap-1.5">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
-                        <span class="uppercase">{{ label(s) }}</span>
+                        <span :class="caps(s)">{{ label(s) }}</span>
                       </span>
                     </th>
                   </tr>
@@ -552,7 +659,7 @@ function downloadCSV() {
                 @click="toggleTable(s.id)"
               >
                 <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
-                <span class="uppercase">{{ label(s) }}</span>
+                <span :class="caps(s)">{{ label(s) }}</span>
               </button>
             </div>
             <div class="max-h-[28rem] overflow-auto">
@@ -579,7 +686,7 @@ function downloadCSV() {
                     <td class="whitespace-nowrap px-3 py-1.5">
                       <span class="inline-flex items-center gap-1.5">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
-                        <span class="uppercase">{{ label(s) }}</span>
+                        <span :class="caps(s)">{{ label(s) }}</span>
                       </span>
                     </td>
                     <td class="num whitespace-nowrap px-3 py-1.5 text-right">

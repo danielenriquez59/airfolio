@@ -62,6 +62,7 @@ interface GeometryData {
   lowerX: number[]
   lowerY: number[]
   color?: string
+  dashed?: boolean
 }
 
 interface Props {
@@ -157,6 +158,7 @@ const chartData = computed(() => {
         pointHoverBorderColor: color,
         pointHoverBackgroundColor: 'rgb(255, 255, 255)',
         borderWidth: 2,
+        borderDash: geom.dashed ? [5, 4] : undefined,
         tension: 0.1,
         fill: false, // Don't fill when overlaying multiple geometries
       })

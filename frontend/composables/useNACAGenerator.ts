@@ -27,6 +27,13 @@ export interface NACA6Params {
   a: number // Chordwise extent of uniform loading (ignored for A families)
 }
 
+// Parameter ranges of the generator UI; specs outside them are rejected
+export const NACA_RANGES = {
+  '4-digit': { m: [0, 0.095], p: [0.1, 0.9], t: [0.01, 0.4] },
+  '5-digit': { cl: [0, 1.5], p: [0.05, 0.25], t: [0.01, 0.4] },
+  '6-series': { t: [0.06, 0.21], cl: [0, 1], a: [0, 1] },
+} as const
+
 export interface NACACoordinates {
   upperX: number[]
   upperY: number[]
@@ -307,7 +314,7 @@ export const generateNACA6 = (params: NACA6Params): NACACoordinates => {
  */
 export const generateNACA4Name = (params: NACA4Params): string => {
   const mInt = Math.round(params.m * 100)
-  const pInt = Math.round(params.p * 10)
+  const pInt = mInt === 0 ? 0 : Math.round(params.p * 10) // symmetric sections are 00xx
   const tInt = Math.round(params.t * 100)
   return `NACA ${mInt}${pInt}${tInt.toString().padStart(2, '0')}`
 }
@@ -316,6 +323,8 @@ export const generateNACA5Name = (params: NACA5Params): string => {
   // 5 Digit Naming: L P Q XX
   // L = Cl * (20/3). Example Cl=0.3 -> L=2.
   const L = Math.round(params.cl * (20 / 3))
+  // No camber: the shape is the symmetric 4-digit section, and L = 0 has no 5-digit meaning
+  if (L === 0) return `NACA 00${Math.round(params.t * 100).toString().padStart(2, '0')}`
   // P = pos * 20. Example 0.15 -> P=3.
   const P = Math.round(params.p * 20)
   // Q = 0 for standard, 1 for reflex

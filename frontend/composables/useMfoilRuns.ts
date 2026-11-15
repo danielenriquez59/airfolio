@@ -112,9 +112,11 @@ export function useMfoilRuns(max: number, fetchAirfoil: (name: string) => Promis
     slots.value.sort((a, b) => names.indexOf(a.name) - names.indexOf(b.name))
   }
 
-  function runAll(key: string, input: (airfoil: Airfoil) => MfoilInput) {
+  // key per airfoil: conditions that do not apply to an airfoil must not rerun it
+  function runAll(keyOf: (airfoil: Airfoil) => string, input: (airfoil: Airfoil) => MfoilInput) {
     for (const s of slots.value) {
-      if (!s.airfoil || !needsRun(s.mfoil.status.value, s.ranKey, key))
+      const key = s.airfoil ? keyOf(s.airfoil) : null
+      if (!s.airfoil || !key || !needsRun(s.mfoil.status.value, s.ranKey, key))
         continue
       s.ranKey = key
       s.mfoil.run(input(s.airfoil))

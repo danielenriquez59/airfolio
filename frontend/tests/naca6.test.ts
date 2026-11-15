@@ -2,7 +2,7 @@
 // Expected values from the PDAS naca456 sample outputs
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { compactNACA6Name, generateNACA6Name, meanLine6, meanLine6M, naca6ThicknessPoints } from '../composables/useNACAGenerator.ts'
+import { compactNACA6Name, generateNACA4Name, generateNACA6Name, meanLine6, meanLine6M, naca6ThicknessPoints } from '../composables/useNACAGenerator.ts'
 import type { NACA6Family } from '../utils/naca6Tables.ts'
 
 const FAMILIES: NACA6Family[] = ['63', '64', '65', '66', '67', '63A', '64A', '65A']
@@ -89,4 +89,9 @@ test('compactNACA6Name runs the designation together for filenames', () => {
   assert.equal(compactNACA6Name({ ...base, cl: 0.2, t: 0.1 }), '64210')
   assert.equal(compactNACA6Name({ ...base, family: '64A', cl: 0.2 }), '641A212')
   assert.equal(compactNACA6Name({ ...base, t: 0.15, a: 0 }), '642415a0')
+})
+
+test('generateNACA4Name: zero camber is 00xx', () => {
+  assert.equal(generateNACA4Name({ m: 0, p: 0.4, t: 0.12 }), 'NACA 0012')
+  assert.equal(generateNACA4Name({ m: 0.02, p: 0.4, t: 0.12 }), 'NACA 2412')
 })
