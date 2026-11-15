@@ -1,7 +1,11 @@
 /**
- * Composable for NACA 4-digit and 5-digit series airfoil generation
+ * Composable for NACA 4-digit, 5-digit and 6-series airfoil generation
  * Implements the NACA airfoil specification mathematics
  */
+
+import { NACA6_TABLES, type NACA6Family } from '../utils/naca6Tables.ts'
+
+export type { NACA6Family }
 
 export interface NACA4Params {
   m: number // Max camber (as fraction of chord, 0-0.095)
@@ -14,6 +18,13 @@ export interface NACA5Params {
   p: number // Position of max camber (as fraction of chord, 0.05-0.25)
   t: number // Max thickness (as fraction of chord, 0.01-0.40)
   isReflex: boolean // Reflex camber (for future use)
+}
+
+export interface NACA6Params {
+  family: NACA6Family
+  t: number // Max thickness (fraction of chord, 0.06-0.21)
+  cl: number // Design lift coefficient of the mean line
+  a: number // Chordwise extent of uniform loading (ignored for A families)
 }
 
 export interface NACACoordinates {
@@ -201,6 +212,97 @@ export const generateNACA5 = (
 }
 
 /**
+ * NACA 6- and 6A-series, following PDAS naca456 (SetSixDigitPoints, MeanLine6, MeanLine6M)
+ */
+const EPS = 1e-7
+
+/**
+ * Half-thickness points from the conformal mapping of a circle; spacing is fixed by the tables (201 points, LE to TE)
+ */
+export const naca6ThicknessPoints = (family: NACA6Family, t: number): { x: number[]; y: number[] } => {
+  const { eps, psi, scale } = NACA6_TABLES[family]
+  const sf = scale.reduceRight((acc, c) => acc * t + c, 0)
+  // z' = z*exp((psi - psi0) - i*eps) = exp(psi + i*(phi - eps)), so zeta = z' + 1/z' splits into real and imaginary parts directly
+  const re: number[] = []
+  const im: number[] = []
+  for (let k = 0; k <= 200; k++) {
+    const r = Math.exp(sf * psi[k])
+    const th = (Math.PI * k) / 200 - sf * eps[k]
+    re.push((r + 1 / r) * Math.cos(th))
+    im.push((r - 1 / r) * Math.sin(th))
+  }
+  const len = Math.hypot(re[200] - re[0], im[200] - im[0])
+  return { x: re.map((v) => (re[0] - v) / len), y: im.map((v) => (v - im[0]) / len) }
+}
+
+// Abbott & von Doenhoff eq. 4-26/4-27 before the cl scaling; needs 0 < x < 1 and a < 1
+const meanLineCore = (a: number, x: number) => {
+  const oma = 1 - a
+  const omx = 1 - x
+  const g = a < EPS ? -0.25 : -(a * a * (0.5 * Math.log(a) - 0.25) + 0.25) / oma
+  const h = a < EPS ? -0.5 : g + (0.5 * oma * oma * Math.log(oma) - 0.25 * oma * oma) / oma
+  const amx = a - x
+  const atA = Math.abs(amx) < EPS
+  const term1 = atA ? 0 : amx * amx * (2 * Math.log(Math.abs(amx)) - 1)
+  const term1p = atA ? 0 : -amx * Math.log(Math.abs(amx))
+  const term2 = omx * omx * (1 - 2 * Math.log(omx))
+  const term2p = omx * Math.log(omx)
+  return {
+    y: (0.25 * (term1 + term2)) / oma - x * Math.log(x) + g - h * x,
+    dy: (term1p + term2p) / oma - 1 - Math.log(x) - h,
+  }
+}
+
+/**
+ * 6-series mean line with uniform loading up to x = a
+ */
+export const meanLine6 = (a: number, cl: number, x: number): { y: number; dy: number } => {
+  if (x < EPS || 1 - x < EPS) return { y: 0, dy: 0 }
+  if (Math.abs(1 - a) < EPS) {
+    const k = cl / (4 * Math.PI)
+    return { y: -k * ((1 - x) * Math.log(1 - x) + x * Math.log(x)), dy: k * (Math.log(1 - x) - Math.log(x)) }
+  }
+  const { y, dy } = meanLineCore(a, x)
+  const k = cl / (2 * Math.PI * (a + 1))
+  return { y: k * y, dy: k * dy }
+}
+
+/**
+ * Modified a = 0.8 mean line of the 6A series (NACA Report 903): straight from x = 0.86 to the trailing edge
+ */
+export const meanLine6M = (cl: number, x: number): { y: number; dy: number } => {
+  const teSlope = -0.24521 * cl
+  if (x > 0.86) return { y: teSlope * (x - 1), dy: teSlope }
+  if (x < EPS) return { y: 0, dy: 0 }
+  const { y, dy } = meanLineCore(0.8, x)
+  const k = (cl * 0.97948) / (2 * Math.PI * 1.8)
+  return { y: k * y, dy: k * dy }
+}
+
+export const generateNACA6 = (params: NACA6Params): NACACoordinates => {
+  const { family, t, cl, a } = params
+  const { x, y: thickness } = naca6ThicknessPoints(family, t)
+  const isA = family.endsWith('A')
+
+  const upperX: number[] = []
+  const upperY: number[] = []
+  const lowerX: number[] = []
+  const lowerY: number[] = []
+
+  x.forEach((xi, i) => {
+    const { y: yc, dy } = isA ? meanLine6M(cl, xi) : meanLine6(a, cl, xi)
+    const yt = thickness[i]
+    const theta = Math.atan(dy)
+    upperX.push(xi - yt * Math.sin(theta))
+    upperY.push(yc + yt * Math.cos(theta))
+    lowerX.push(xi + yt * Math.sin(theta))
+    lowerY.push(yc - yt * Math.cos(theta))
+  })
+
+  return { upperX, upperY, lowerX, lowerY }
+}
+
+/**
  * Generate NACA designation string from parameters
  */
 export const generateNACA4Name = (params: NACA4Params): string => {
@@ -225,6 +327,20 @@ export const generateNACA5Name = (params: NACA5Params): string => {
   return `NACA ${L}${P}${Q}${XX}`
 }
 
+export const generateNACA6Name = ({ family, t, cl, a }: NACA6Params): string => {
+  const tPercent = Math.round(t * 100)
+  // Low-drag-range subscript, written in parentheses: 64(1)-212
+  const range = Math.min(4, Math.max(0, Math.round((tPercent - 9) / 3)))
+  const series = family.slice(0, 2) + (range ? `(${range})` : '')
+  const digits = `${Math.round(cl * 10)}${tPercent.toString().padStart(2, '0')}`
+  if (family.endsWith('A')) return `NACA ${series}A${digits}`
+  return `NACA ${series}-${digits}${Math.abs(a - 1) > EPS ? ` a=${a}` : ''}`
+}
+
+// Designation run together for filenames: NACA 64(1)-412 a=0.5 -> 641412a05
+export const compactNACA6Name = (params: NACA6Params): string =>
+  generateNACA6Name(params).slice(5).replace(/[^0-9A-Za-z]/g, '')
+
 /**
  * Composable function
  */
@@ -232,8 +348,11 @@ export const useNACAGenerator = () => {
   return {
     generateNACA4,
     generateNACA5,
+    generateNACA6,
     generateNACA4Name,
     generateNACA5Name,
+    generateNACA6Name,
+    compactNACA6Name,
   }
 }
 

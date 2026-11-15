@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import type { NACA4Params, NACA5Params } from '~/composables/useNACAGenerator'
+import type { NACA4Params, NACA5Params, NACA6Family, NACA6Params } from '~/composables/useNACAGenerator'
 import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 
+type SeriesType = '4-digit' | '5-digit' | '6-series'
+
 interface Props {
-  seriesType: '4-digit' | '5-digit'
+  seriesType: SeriesType
   naca4Params: NACA4Params
   naca5Params: NACA5Params
+  naca6Params: NACA6Params
   nacaName: string
 }
 
 interface Emits {
-  (e: 'update:seriesType', type: '4-digit' | '5-digit'): void
+  (e: 'update:seriesType', type: SeriesType): void
   (e: 'update:naca4Params', params: NACA4Params): void
   (e: 'update:naca5Params', params: NACA5Params): void
+  (e: 'update:naca6Params', params: NACA6Params): void
 }
 
 const props = defineProps<Props>()
@@ -37,12 +41,29 @@ const handleNACA5Change = (key: keyof NACA5Params, value: string | number | bool
   emit('update:naca5Params', newParams)
 }
 
+const handleNACA6Change = (key: keyof NACA6Params, value: string | number) => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(numValue)) return
+  emit('update:naca6Params', { ...props.naca6Params, [key]: numValue })
+}
+
 const seriesOptions = [
   { value: '4-digit', label: '4-digit' },
   { value: '5-digit', label: '5-digit' },
+  { value: '6-series', label: '6-series' },
 ] as const
 
-const rows = computed(() => props.seriesType === '4-digit'
+const families: NACA6Family[] = ['63', '64', '65', '66', '67', '63A', '64A', '65A']
+
+const rows = computed(() => props.seriesType === '6-series'
+  ? [
+      { key: 't', label: 'Thickness', hint: '6% to 21%', min: 0.06, max: 0.21, step: 0.01, value: props.naca6Params.t },
+      { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: 0, max: 1, step: 0.1, value: props.naca6Params.cl },
+      ...(props.naca6Params.family.endsWith('A')
+        ? []
+        : [{ key: 'a', label: 'Loading extent a', hint: 'Uniform load to a·chord', min: 0, max: 1, step: 0.1, value: props.naca6Params.a }]),
+    ]
+  : props.seriesType === '4-digit'
   ? [
       { key: 'm', label: 'Max camber', hint: '0% to 9.5%', min: 0, max: 0.095, step: 0.001, value: props.naca4Params.m },
       { key: 'p', label: 'Camber position', hint: '10% chord steps', min: 0.1, max: 0.9, step: 0.1, value: props.naca4Params.p },
@@ -55,7 +76,9 @@ const rows = computed(() => props.seriesType === '4-digit'
     ])
 
 function handleChange(key: string, value: string | number) {
-  if (props.seriesType === '4-digit')
+  if (props.seriesType === '6-series')
+    handleNACA6Change(key as keyof NACA6Params, value)
+  else if (props.seriesType === '4-digit')
     handleNACA4Change(key as keyof NACA4Params, value)
   else
     handleNACA5Change(key as keyof NACA5Params, value)
@@ -83,6 +106,21 @@ function handleChange(key: string, value: string | number) {
     </div>
 
     <div class="space-y-4">
+      <div v-if="seriesType === '6-series'" class="space-y-1.5">
+        <span class="block text-sm font-medium text-gray-700">Family</span>
+        <div class="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="6-series family">
+          <button
+            v-for="f in families"
+            :key="f"
+            type="button"
+            :class="tabButtonClasses(naca6Params.family === f)"
+            :aria-pressed="naca6Params.family === f"
+            @click="emit('update:naca6Params', { ...naca6Params, family: f })"
+          >
+            {{ f }}
+          </button>
+        </div>
+      </div>
       <div
         v-for="row in rows"
         :key="`${seriesType}-${row.key}`"
@@ -121,6 +159,9 @@ function handleChange(key: string, value: string | number) {
         <span class="font-medium text-gray-900">Technical note.</span>
         <template v-if="seriesType === '4-digit'">
           The NACA 4-digit airfoil sections are generated using a thickness distribution equation and a mean camber line composed of two parabolic arcs merging smoothly at the position of maximum camber.
+        </template>
+        <template v-else-if="seriesType === '6-series'">
+          Thickness comes from the NACA conformal-mapping tables, and the mean line carries uniform loading up to x = a. 6A sections use the modified a = 0.8 mean line.
         </template>
         <template v-else>
           The NACA 5-digit series uses the same thickness form as the 4-digit series but employs a specific camber line designed to move the maximum camber forward for higher maximum lift coefficients. The calculations here approximate the standard camber lines.

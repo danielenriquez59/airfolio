@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { NACA4Params, NACA5Params, NACACoordinates } from '~/composables/useNACAGenerator'
+import type { NACA4Params, NACA5Params, NACA6Params, NACACoordinates } from '~/composables/useNACAGenerator'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 
 definePageMeta({
@@ -8,20 +8,20 @@ definePageMeta({
 
 // SEO
 useSeoMeta({
-  title: 'NACA Generator - Generate NACA 4-Digit and 5-Digit Series Airfoils',
-  description: 'Generate and analyze NACA 4-digit and 5-digit series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
-  ogTitle: 'NACA Generator - Generate NACA 4-Digit and 5-Digit Series Airfoils',
-  ogDescription: 'Generate and analyze NACA 4-digit and 5-digit series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  title: 'NACA Generator - Generate NACA 4-Digit, 5-Digit and 6-Series Airfoils',
+  description: 'Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  ogTitle: 'NACA Generator - Generate NACA 4-Digit, 5-Digit and 6-Series Airfoils',
+  ogDescription: 'Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
 
-const { generateNACA4, generateNACA5, generateNACA4Name, generateNACA5Name } = useNACAGenerator()
+const { generateNACA4, generateNACA5, generateNACA6, generateNACA4Name, generateNACA5Name, generateNACA6Name, compactNACA6Name } = useNACAGenerator()
 const { exportNACAParameters, exportNACALednicer, exportNACASelig } = useNACAExport()
 const config = useRuntimeConfig()
 
 // State
-const seriesType = ref<'4-digit' | '5-digit'>('4-digit')
+const seriesType = ref<'4-digit' | '5-digit' | '6-series'>('4-digit')
 const naca4Params = ref<NACA4Params>({
   m: 0.02, // 2% camber
   p: 0.4, // 40% chord
@@ -33,6 +33,7 @@ const naca5Params = ref<NACA5Params>({
   t: 0.12, // Thickness
   isReflex: false,
 })
+const naca6Params = ref<NACA6Params>({ family: '64', t: 0.12, cl: 0.2, a: 1 })
 const nacaCoordinates = ref<NACACoordinates | null>(null)
 const analysisResults = ref<any>(null)
 const isLoadingAnalysis = ref(false)
@@ -48,12 +49,18 @@ const handleTooltipsToggled = (enabled: boolean) => {
 
 // Generate NACA name
 const currentNacaName = computed(() => {
+  if (seriesType.value === '6-series') return generateNACA6Name(naca6Params.value)
   if (seriesType.value === '4-digit') {
     return generateNACA4Name(naca4Params.value)
   } else {
     return generateNACA5Name(naca5Params.value)
   }
 })
+
+// 6-series names hold brackets, spaces and =, so downloads use the compact designation
+const fileBase = computed(() =>
+  seriesType.value === '6-series' ? `NACA_${compactNACA6Name(naca6Params.value)}` : undefined
+)
 
 // Initialize on mount
 onMounted(() => {
@@ -62,7 +69,7 @@ onMounted(() => {
 
 // Watch for parameter changes
 watch(
-  () => [seriesType.value, naca4Params.value, naca5Params.value],
+  () => [seriesType.value, naca4Params.value, naca5Params.value, naca6Params.value],
   () => {
     regenerateCoordinates()
     analysisResults.value = null // the old polar belongs to the previous shape
@@ -72,7 +79,9 @@ watch(
 
 // Regenerate coordinates from NACA parameters
 const regenerateCoordinates = () => {
-  if (seriesType.value === '4-digit') {
+  if (seriesType.value === '6-series') {
+    nacaCoordinates.value = generateNACA6(naca6Params.value) // point count fixed by the 6-series tables
+  } else if (seriesType.value === '4-digit') {
     nacaCoordinates.value = generateNACA4(naca4Params.value, 100) // 100 points for visualization
   } else {
     nacaCoordinates.value = generateNACA5(naca5Params.value, 100) // 100 points for visualization
@@ -87,7 +96,9 @@ const handleExportParameters = () => {
     seriesType.value,
     seriesType.value === '4-digit' ? naca4Params.value : null,
     seriesType.value === '5-digit' ? naca5Params.value : null,
-    currentNacaName.value
+    seriesType.value === '6-series' ? naca6Params.value : null,
+    currentNacaName.value,
+    fileBase.value
   )
 }
 
@@ -95,14 +106,14 @@ const handleExportParameters = () => {
 const handleExportLednicer = () => {
   if (!nacaCoordinates.value) return
 
-  exportNACALednicer(nacaCoordinates.value, currentNacaName.value)
+  exportNACALednicer(nacaCoordinates.value, currentNacaName.value, fileBase.value)
 }
 
 // Handle export coordinates in Selig format
 const handleExportSelig = () => {
   if (!nacaCoordinates.value) return
 
-  exportNACASelig(nacaCoordinates.value, currentNacaName.value)
+  exportNACASelig(nacaCoordinates.value, currentNacaName.value, fileBase.value)
 }
 
 // Handle analysis
@@ -125,9 +136,11 @@ const handleAnalyze = async (conditions: {
   try {
     // Generate denser coordinates for analysis (150 points)
     const analysisCoords =
-      seriesType.value === '4-digit'
-        ? generateNACA4(naca4Params.value, 150)
-        : generateNACA5(naca5Params.value, 150)
+      seriesType.value === '6-series'
+        ? generateNACA6(naca6Params.value)
+        : seriesType.value === '4-digit'
+          ? generateNACA4(naca4Params.value, 150)
+          : generateNACA5(naca5Params.value, 150)
 
     // Call backend endpoint
     const response = await $fetch(`${config.public.backendUrl}/api/analyze-transient`, {
@@ -211,7 +224,7 @@ const performanceData = computed(() => {
   <div>
     <PageHeader
       title="NACA Generator"
-      subtitle="Generate and analyze NACA 4-digit and 5-digit series airfoils"
+      subtitle="Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils"
       eyebrow="Tools"
     >
       <template #actions>
@@ -238,10 +251,12 @@ const performanceData = computed(() => {
             :series-type="seriesType"
             :naca4-params="naca4Params"
             :naca5-params="naca5Params"
+            :naca6-params="naca6Params"
             :naca-name="currentNacaName"
             @update:series-type="seriesType = $event"
             @update:naca4-params="naca4Params = $event"
             @update:naca5-params="naca5Params = $event"
+            @update:naca6-params="naca6Params = $event"
           />
         </VPanel>
 
@@ -256,6 +271,7 @@ const performanceData = computed(() => {
             :geometries="geometries"
             :show-legend="false"
             :aspect-ratio="4"
+            equal-scale
             :zoomable="true"
           />
           <VStateBlock v-else variant="loading" title="Generating airfoil geometry" />

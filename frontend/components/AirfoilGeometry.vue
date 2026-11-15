@@ -97,6 +97,8 @@ interface Props {
   showTicks?: boolean
   /** Tick step for both axes when showTicks is true (e.g. 0.1 over 0–1) */
   tickStep?: number
+  /** With a numeric aspectRatio and no ticks, widen the y range so one x unit equals one y unit on screen */
+  equalScale?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -109,6 +111,7 @@ const props = withDefaults(defineProps<Props>(), {
   showTitle: false,
   showTicks: false,
   tickStep: 0.1,
+  equalScale: false,
 })
 
 // Chart instance reference for zoom reset
@@ -249,6 +252,9 @@ const calculatedAspectRatio = computed(() => {
 
 const chartOptions = computed(() => {
   const ranges = axisRanges.value
+  const equal = props.equalScale && typeof props.aspectRatio === 'number' && !props.showTicks
+  const ySpan = equal ? Math.max(ranges.yMax - ranges.yMin, (ranges.xMax - ranges.xMin) / (props.aspectRatio as number)) : 0
+  const yMid = (ranges.yMin + ranges.yMax) / 2
 
   return {
     responsive: true,
@@ -302,7 +308,7 @@ const chartOptions = computed(() => {
               min: props.showTicks ? 0 : ranges.xMin,
               max: props.showTicks ? 1 : ranges.xMax,
             },
-            y: {
+            y: equal ? { min: yMid - ySpan / 2, max: yMid + ySpan / 2 } : {
               min: props.showTicks
                 ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
                 : ranges.yMin,
@@ -324,6 +330,7 @@ const chartOptions = computed(() => {
         grid: {
           display: props.showGrid,
           color: chartColors.grid,
+          ...(equal && { drawTicks: false }), // the 8 px tick gutter would skew the plot area off the canvas ratio
         },
         ticks: {
           ...themedAxis().ticks,
@@ -338,16 +345,17 @@ const chartOptions = computed(() => {
       },
       y: {
         type: 'linear' as const,
-        min: props.showTicks
+        min: equal ? yMid - ySpan / 2 : props.showTicks
           ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
           : (props.aspectRatio === null ? ranges.yMin : ranges.yMin - 0.001),
-        max: props.showTicks
+        max: equal ? yMid + ySpan / 2 : props.showTicks
           ? Math.ceil(ranges.yMax / props.tickStep) * props.tickStep
           : (props.aspectRatio === null ? ranges.yMax : ranges.yMax + 0.001),
         ...themedAxis(),
         grid: {
           display: props.showGrid,
           color: chartColors.grid,
+          ...(equal && { drawTicks: false }), // the 8 px tick gutter would skew the plot area off the canvas ratio
         },
         ticks: {
           ...themedAxis().ticks,

@@ -1,4 +1,4 @@
-import type { NACACoordinates, NACA4Params, NACA5Params } from './useNACAGenerator'
+import type { NACACoordinates, NACA4Params, NACA5Params, NACA6Params } from './useNACAGenerator'
 
 /**
  * Generate filename-safe string from airfoil name
@@ -31,16 +31,20 @@ const formatNumber = (num: number): string => {
 
 /**
  * Export NACA parameters to CSV format
- * @param seriesType '4-digit' or '5-digit'
+ * @param seriesType '4-digit', '5-digit' or '6-series'
  * @param naca4Params 4-digit parameters (if applicable)
  * @param naca5Params 5-digit parameters (if applicable)
+ * @param naca6Params 6-series parameters (if applicable)
  * @param airfoilName Name of the airfoil (for filename)
+ * @param fileBase Filename stem; defaults to the sanitised airfoil name
  */
 export const exportNACAParameters = (
-  seriesType: '4-digit' | '5-digit',
+  seriesType: '4-digit' | '5-digit' | '6-series',
   naca4Params: NACA4Params | null,
   naca5Params: NACA5Params | null,
-  airfoilName: string = 'NACA_Airfoil'
+  naca6Params: NACA6Params | null,
+  airfoilName: string = 'NACA_Airfoil',
+  fileBase: string = sanitizeFilename(airfoilName)
 ) => {
   const lines: string[] = []
 
@@ -67,10 +71,17 @@ export const exportNACAParameters = (
     lines.push(`is_reflex,${naca5Params.isReflex}`)
     lines.push(`camber_position_percent,${formatNumber(naca5Params.p * 100)}`)
     lines.push(`max_thickness_percent,${formatNumber(naca5Params.t * 100)}`)
+  } else if (seriesType === '6-series' && naca6Params) {
+    lines.push(`family,${naca6Params.family}`)
+    lines.push(`max_thickness_t,${formatNumber(naca6Params.t)}`)
+    lines.push(`design_lift_coefficient_cl,${formatNumber(naca6Params.cl)}`)
+    // 6A sections always use the modified a = 0.8 mean line
+    lines.push(`loading_extent_a,${formatNumber(naca6Params.family.endsWith('A') ? 0.8 : naca6Params.a)}`)
+    lines.push(`max_thickness_percent,${formatNumber(naca6Params.t * 100)}`)
   }
 
   const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_parameters.csv`
+  const filename = `${fileBase}_naca_parameters.csv`
 
   triggerDownload(content, filename)
 }
@@ -137,7 +148,8 @@ const sortLowerCoordinates = (
  */
 export const exportNACALednicer = (
   coordinates: NACACoordinates,
-  airfoilName: string = 'NACA_Airfoil'
+  airfoilName: string = 'NACA_Airfoil',
+  fileBase: string = sanitizeFilename(airfoilName)
 ) => {
   // Sort coordinates and remove duplicates
   // Both surfaces: ascending X (LE to TE)
@@ -177,7 +189,7 @@ export const exportNACALednicer = (
   })
 
   const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_lednicer.dat`
+  const filename = `${fileBase}_naca_lednicer.dat`
   triggerDownload(content, filename, 'text/plain')
 }
 
@@ -188,7 +200,8 @@ export const exportNACALednicer = (
  */
 export const exportNACASelig = (
   coordinates: NACACoordinates,
-  airfoilName: string = 'NACA_Airfoil'
+  airfoilName: string = 'NACA_Airfoil',
+  fileBase: string = sanitizeFilename(airfoilName)
 ) => {
   // Sort coordinates and remove duplicates
   // Upper: descending X (TE to LE)
@@ -221,7 +234,7 @@ export const exportNACASelig = (
   })
 
   const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_selig.dat`
+  const filename = `${fileBase}_naca_selig.dat`
   triggerDownload(content, filename, 'text/plain')
 }
 
