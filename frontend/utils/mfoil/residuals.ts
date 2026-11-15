@@ -1,4 +1,4 @@
-// Boundary-layer station residuals of mfoil (backend/mfoil.py), same names as the Python.
+// Boundary-layer station residuals of mfoil (references/mfoil/mfoil.py), same names as the Python.
 // Two-station states U are [4, 2] row-major: U[k*2 + j] is component k (th, ds, sa, ue) of station j.
 // Jacobians w.r.t. U are [r, 8] row-major with columns [U1 (4), U2 (4)].
 

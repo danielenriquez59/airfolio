@@ -1,5 +1,5 @@
 // Port of the inviscid solve and viscous-inviscid coupling matrices of mfoil.py
-// (backend/mfoil.py, MIT licence, Copyright (C) 2023 Krzysztof J. Fidkowski; full notice in
+// (references/mfoil/mfoil.py, MIT licence, Copyright (C) 2023 Krzysztof J. Fidkowski; full notice in
 // geometry.ts). Same function names and order as the Python; conventions in types.ts.
 
 import type { Mfoil, Param } from './types.ts'

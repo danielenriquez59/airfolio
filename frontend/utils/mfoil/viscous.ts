@@ -1,4 +1,4 @@
-// Port of the viscous (coupled boundary-layer) solve of mfoil.py (backend/mfoil.py, MIT licence,
+// Port of the viscous (coupled boundary-layer) solve of mfoil.py (references/mfoil/mfoil.py, MIT licence,
 // Copyright (C) 2023 Krzysztof J. Fidkowski; full notice in geometry.ts). Same function names and
 // order as the Python; conventions in types.ts. Alpha is always prescribed: the cl-target path
 // (givencl, clalpha_residual, dalpha, rebuild_isol) is not ported.

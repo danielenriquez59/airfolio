@@ -1,5 +1,5 @@
 // TypeScript port of the geometry, paneling and panel-influence functions of mfoil.py
-// (backend/mfoil.py), function by function with the Python names and order.
+// (references/mfoil/mfoil.py; the references folder is git-ignored, not part of the repository), function by function with the Python names and order.
 //
 // mfoil.py: class and methods for subsonic airfoil analysis (v 2023-06-28)
 //

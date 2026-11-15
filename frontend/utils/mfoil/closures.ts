@@ -1,4 +1,4 @@
-// Boundary-layer closures of mfoil (backend/mfoil.py, "GET FUNCTIONS"), same names and order.
+// Boundary-layer closures of mfoil (references/mfoil/mfoil.py, "GET FUNCTIONS"), same names and order.
 // U is one station state Float64Array(4) = [th, ds, sa, ue]; each returns [value, value_U, ...].
 // Derivative vectors take the length of their inputs (4, or 8 for [U1, U2] linearizations).
 

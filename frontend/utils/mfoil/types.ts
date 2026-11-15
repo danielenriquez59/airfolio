@@ -1,4 +1,4 @@
-// State containers of the mfoil port, mirroring the Python classes in backend/mfoil.py
+// State containers of the mfoil port, mirroring the Python classes in references/mfoil/mfoil.py
 // (same field names and defaults; plotting/verbosity-only fields dropped).
 //
 // Conventions used by every mfoil module:
