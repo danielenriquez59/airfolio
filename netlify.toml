@@ -16,6 +16,18 @@
   to = "/tools/numerical-analysis-2d/"
   status = 301
 
+# The CST page is now the CST tab of the airfoil generator
+[[redirects]]
+  from = "/cst-visualizer"
+  to = "/tools/airfoil-generator/?series=cst"
+  status = 301
+
+# Old URL of the airfoil generator (query string such as ?series= is kept)
+[[redirects]]
+  from = "/tools/naca-generator"
+  to = "/tools/airfoil-generator/"
+  status = 301
+
 # Handle Single Page Application (SPA) routing fallback
 [[redirects]]
   from = "/*"

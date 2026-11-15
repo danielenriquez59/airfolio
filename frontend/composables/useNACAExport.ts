@@ -1,4 +1,4 @@
-import type { NACACoordinates, NACA4Params, NACA5Params, NACA6Params, RiblettParams } from './useNACAGenerator'
+import type { NACACoordinates, NACA16Params, NACA4Params, NACA5Params, NACA6Params, RiblettParams } from './useNACAGenerator'
 
 /**
  * Generate filename-safe string from airfoil name
@@ -39,13 +39,14 @@ const formatNumber = (num: number): string => {
  * @param fileBase Filename stem; defaults to the sanitised airfoil name
  */
 export const exportNACAParameters = (
-  seriesType: '4-digit' | '5-digit' | '6-series' | 'riblett',
+  seriesType: '4-digit' | '5-digit' | '16-series' | '6-series' | 'riblett',
   naca4Params: NACA4Params | null,
   naca5Params: NACA5Params | null,
   naca6Params: NACA6Params | null,
   airfoilName: string = 'NACA_Airfoil',
   fileBase: string = sanitizeFilename(airfoilName),
-  riblettParams: RiblettParams | null = null
+  riblettParams: RiblettParams | null = null,
+  naca16Params: NACA16Params | null = null
 ) => {
   const lines: string[] = []
 
@@ -65,6 +66,19 @@ export const exportNACAParameters = (
     lines.push(`max_camber_percent,${formatNumber(naca4Params.m * 100)}`)
     lines.push(`camber_position_percent,${formatNumber(naca4Params.p * 100)}`)
     lines.push(`max_thickness_percent,${formatNumber(naca4Params.t * 100)}`)
+    lines.push(`modified_thickness,${!!naca4Params.modified}`)
+    if (naca4Params.modified) {
+      lines.push(`leading_edge_radius_index,${naca4Params.le}`)
+      lines.push(`max_thickness_position_xt,${formatNumber(naca4Params.xt!)}`)
+    }
+  } else if (seriesType === '16-series' && naca16Params) {
+    lines.push(`max_thickness_t,${formatNumber(naca16Params.t)}`)
+    lines.push(`design_lift_coefficient_cl,${formatNumber(naca16Params.cl)}`)
+    // fixed by the series: modified 4-digit thickness and the a = 1 mean line
+    lines.push('leading_edge_radius_index,4')
+    lines.push(`max_thickness_position_xt,${formatNumber(0.5)}`)
+    lines.push(`loading_extent_a,${formatNumber(1)}`)
+    lines.push(`max_thickness_percent,${formatNumber(naca16Params.t * 100)}`)
   } else if (seriesType === '5-digit' && naca5Params) {
     lines.push(`design_lift_coefficient_cl,${formatNumber(naca5Params.cl)}`)
     lines.push(`camber_position_p,${formatNumber(naca5Params.p)}`)

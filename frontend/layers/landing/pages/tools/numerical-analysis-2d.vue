@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import type { NACA6Params } from '~/composables/useNACAGenerator'
+import type { NACA16Params, NACA4Params, NACA6Params, RiblettParams } from '~/composables/useNACAGenerator'
 import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import MfoilDistributionPlots from '~/components/analysis/MfoilDistributionPlots.vue'
@@ -33,7 +33,7 @@ const MAX_AIRFOILS = 3
 const route = useRoute()
 const router = useRouter()
 const { fetchAirfoilByName } = useAirfoils()
-// A naca4:/naca5:/naca6: name is a generated airfoil, never a library lookup
+// A generated-airfoil spec (naca4:, riblett:, ...) is never a library lookup
 async function fetchSlotAirfoil(name: string) {
   if (!isGeneratedAirfoil(name))
     return fetchAirfoilByName(name)
@@ -68,14 +68,16 @@ watch(picked, (a) => {
 const removeSlot = (s: MfoilSlot) => setNames(slots.value.filter(x => x.id !== s.id).map(x => x.name))
 const pickerOpen = computed(() => !slots.value.length || (adding.value && slots.value.length < MAX_AIRFOILS))
 
-// Airfoil source: the library picker or a NACA generator; start values are the generator page's
+// Airfoil source: the library picker or a NACA / Riblett generator; start values are the generator page's
 type Source = 'library' | NACASpec['kind']
-const SOURCES = [['naca4', 'NACA 4'], ['naca5', 'NACA 5'], ['naca6', 'NACA 6'], ['library', 'Library']] as const
+const SOURCES = [['naca4', 'NACA 4'], ['naca5', 'NACA 5'], ['naca16', 'NACA 16'], ['naca6', 'NACA 6'], ['riblett', 'Riblett'], ['library', 'Library']] as const
 const source = ref<Source>('library')
 const naca = reactive({
-  naca4: { m: 0.02, p: 0.4, t: 0.12 },
+  naca4: { m: 0.02, p: 0.4, t: 0.12, modified: false, le: 6, xt: 0.3 } as NACA4Params,
   naca5: { cl: 0.3, p: 0.15, t: 0.12, isReflex: false },
+  naca16: { t: 0.12, cl: 0.2 } as NACA16Params,
   naca6: { family: '64', t: 0.12, cl: 0.2, a: 1 } as NACA6Params,
+  riblett: { series: '35', cusp: 'A', cl: 0.4, t: 0.15, sharpTE: false } as RiblettParams,
 })
 const draft = computed(() => {
   const s = source.value
@@ -361,12 +363,12 @@ function downloadCSV() {
             {{ slots.length >= MAX_AIRFOILS ? `Limit of ${MAX_AIRFOILS} airfoils` : '+ Load another airfoil' }}
           </VButton>
           <div v-if="pickerOpen" :class="slots.length && 'mt-3'">
-            <div class="mb-3 grid grid-cols-4 gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Airfoil source">
+            <div class="mb-3 flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Airfoil source">
               <button
                 v-for="opt in SOURCES"
                 :key="opt[0]"
                 type="button"
-                class="justify-center"
+                class="flex-1 justify-center whitespace-nowrap"
                 :class="tabButtonClasses(source === opt[0])"
                 :aria-pressed="source === opt[0]"
                 @click="source = opt[0]"
@@ -382,10 +384,14 @@ function downloadCSV() {
                 :naca4-params="naca.naca4"
                 :naca5-params="naca.naca5"
                 :naca6-params="naca.naca6"
+                :naca16-params="naca.naca16"
+                :riblett-params="naca.riblett"
                 :naca-name="draft?.display_name ?? ''"
                 @update:naca4-params="naca.naca4 = $event"
                 @update:naca5-params="naca.naca5 = $event"
                 @update:naca6-params="naca.naca6 = $event"
+                @update:naca16-params="naca.naca16 = $event"
+                @update:riblett-params="naca.riblett = $event"
               />
               <VButton
                 type="button"
@@ -552,7 +558,7 @@ function downloadCSV() {
               </button>
             </div>
 
-            <VStateBlock v-if="!loaded.length" icon="heroicons:magnifying-glass" title="Pick an airfoil" description="Search the database on the left, then run the analysis." />
+            <VStateBlock v-if="!loaded.length" icon="heroicons:magnifying-glass" title="Add an airfoil" description="Generate a NACA or Riblett section or search the library on the left, then run the analysis." />
             <VStateBlock v-else-if="!hasResults && isRunning" variant="loading" title="Running mfoil" description="Results fill in as each angle finishes." />
             <VStateBlock v-else-if="!hasResults && firstError" variant="error" title="Analysis failed" :description="firstError" />
             <VStateBlock v-else-if="!hasResults" icon="heroicons:chart-bar" title="No results yet" description="Set the flow conditions, then run the viscous polar." />

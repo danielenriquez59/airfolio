@@ -157,6 +157,8 @@ export default defineNuxtConfig({
     '/': { sitemap: { images: [{ loc: '/og-image.png' }] } },
     // Old URL of the 2D analysis page, for the dev server; Netlify redirects it in netlify.toml
     '/tools/mfoil': { redirect: { to: '/tools/numerical-analysis-2d', statusCode: 301 } },
+    '/cst-visualizer': { redirect: { to: '/tools/airfoil-generator?series=cst', statusCode: 301 } },
+    '/tools/naca-generator': { redirect: { to: '/tools/airfoil-generator', statusCode: 301 } },
   },
 
   nitro: {
@@ -165,7 +167,7 @@ export default defineNuxtConfig({
       failOnError: false,
       crawlLinks: true,
       // a generated redirect page at tools/mfoil/ would shadow the netlify.toml rule and drop the query string
-      ignore: ['/tools/mfoil'],
+      ignore: ['/tools/mfoil', '/cst-visualizer', '/tools/naca-generator'],
     },
   },
 })
