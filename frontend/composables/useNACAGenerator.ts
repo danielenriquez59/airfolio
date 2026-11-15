@@ -4,8 +4,17 @@
  */
 
 import { NACA6_TABLES, type NACA6Family } from '../utils/naca6Tables.ts'
+import { RIBLETT_MEANLINES, RIBLETT_STATIONS, RIBLETT_THICKNESS, type RiblettCusp, type RiblettSeries } from '../utils/riblettTables.ts'
 
 export type { NACA6Family }
+
+export interface RiblettParams {
+  series: RiblettSeries // Max thickness position, percent chord
+  cusp: RiblettCusp // '-' standard cusp, 'A' reduced cusp
+  cl: number // Design lift coefficient of the mean line (0-0.6)
+  t: number // Max thickness (fraction of chord)
+  sharpTE: boolean // Close the trailing edge to zero thickness
+}
 
 export interface NACA4Params {
   m: number // Max camber (as fraction of chord, 0-0.095)
@@ -32,6 +41,7 @@ export const NACA_RANGES = {
   '4-digit': { m: [0, 0.095], p: [0.1, 0.9], t: [0.01, 0.4] },
   '5-digit': { cl: [0, 1.5], p: [0.05, 0.25], t: [0.01, 0.4] },
   '6-series': { t: [0.06, 0.21], cl: [0, 1], a: [0, 1] },
+  'riblett': { cl: [0, 0.6], t: [0.06, 0.24] },
 } as const
 
 export interface NACACoordinates {
@@ -309,6 +319,39 @@ export const generateNACA6 = (params: NACA6Params): NACACoordinates => {
   return { upperX, upperY, lowerX, lowerY }
 }
 
+// Riblett GA: tabulated mean line (linearly blended between tables) ± thickness table scaled from 15%
+export const generateRiblett = ({ series, cusp, cl, t, sharpTE }: RiblettParams): NACACoordinates => {
+  const camber = cl * 10
+  const keys = Object.keys(RIBLETT_MEANLINES).map(Number).sort((a, b) => a - b)
+  const hi = keys.find(k => k >= camber) ?? keys[keys.length - 1]
+  const lo = [...keys].reverse().find(k => k <= camber) ?? keys[0]
+  const w = hi === lo ? 0 : (hi - camber) / (hi - lo)
+  const mean = RIBLETT_MEANLINES[lo].map((y, i) => w * y + (1 - w) * RIBLETT_MEANLINES[hi][i])
+  const half = RIBLETT_THICKNESS[`${series}${cusp}`].map(d => (t * 100 / 15) * d)
+
+  let upper = mean.map((m, i) => m + half[i])
+  let lower = mean.map((m, i) => m - half[i])
+  if (sharpTE) {
+    const last = RIBLETT_STATIONS.length - 1
+    const uTE = upper[last]
+    const lTE = lower[last]
+    upper = upper.map((y, i) => y - uTE * RIBLETT_STATIONS[i] / 100)
+    lower = lower.map((y, i) => y - lTE * RIBLETT_STATIONS[i] / 100)
+  }
+
+  const x = RIBLETT_STATIONS.map(s => s / 100)
+  return { upperX: x, upperY: upper.map(y => y / 100), lowerX: [...x], lowerY: lower.map(y => y / 100) }
+}
+
+// Riblett style: GA 35A415; fractional values go in brackets, GA 35A[3.5]15
+export const generateRiblettName = ({ series, cusp, cl, t }: RiblettParams): string => {
+  const fmt = (v: number, width: number) => {
+    const r = Math.round(v)
+    return Math.abs(v - r) < 1e-6 ? r.toString().padStart(width, '0') : `[${+v.toFixed(2)}]`
+  }
+  return `GA ${series}${cusp}${fmt(cl * 10, 1)}${fmt(t * 100, 2)}`
+}
+
 /**
  * Generate NACA designation string from parameters
  */
@@ -362,6 +405,8 @@ export const useNACAGenerator = () => {
     generateNACA5Name,
     generateNACA6Name,
     compactNACA6Name,
+    generateRiblett,
+    generateRiblettName,
   }
 }
 

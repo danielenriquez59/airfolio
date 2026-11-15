@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { NACA4Params, NACA5Params, NACA6Params, NACACoordinates } from '~/composables/useNACAGenerator'
+import type { NACA4Params, NACA5Params, NACA6Params, NACACoordinates, RiblettParams } from '~/composables/useNACAGenerator'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 
 definePageMeta({
@@ -8,20 +8,20 @@ definePageMeta({
 
 // SEO
 useSeoMeta({
-  title: 'NACA Generator - Generate NACA 4-Digit, 5-Digit and 6-Series Airfoils',
-  description: 'Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
-  ogTitle: 'NACA Generator - Generate NACA 4-Digit, 5-Digit and 6-Series Airfoils',
-  ogDescription: 'Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  title: 'NACA Generator - Generate NACA 4-Digit, 5-Digit, 6-Series and Riblett GA Airfoils',
+  description: 'Generate and analyze NACA 4-digit, 5-digit, 6-series and Riblett GA airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
+  ogTitle: 'NACA Generator - Generate NACA 4-Digit, 5-Digit, 6-Series and Riblett GA Airfoils',
+  ogDescription: 'Generate and analyze NACA 4-digit, 5-digit, 6-series and Riblett GA airfoils. Visualize airfoil geometry, adjust camber and thickness parameters, run performance analysis, and export in multiple formats.',
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
 
-const { generateNACA4, generateNACA5, generateNACA6, generateNACA4Name, generateNACA5Name, generateNACA6Name, compactNACA6Name } = useNACAGenerator()
+const { generateNACA4, generateNACA5, generateNACA6, generateNACA4Name, generateNACA5Name, generateNACA6Name, compactNACA6Name, generateRiblett, generateRiblettName } = useNACAGenerator()
 const { exportNACAParameters, exportNACALednicer, exportNACASelig } = useNACAExport()
 const config = useRuntimeConfig()
 
 // State
-const seriesType = ref<'4-digit' | '5-digit' | '6-series'>('4-digit')
+const seriesType = ref<'4-digit' | '5-digit' | '6-series' | 'riblett'>('4-digit')
 const naca4Params = ref<NACA4Params>({
   m: 0.02, // 2% camber
   p: 0.4, // 40% chord
@@ -34,6 +34,7 @@ const naca5Params = ref<NACA5Params>({
   isReflex: false,
 })
 const naca6Params = ref<NACA6Params>({ family: '64', t: 0.12, cl: 0.2, a: 1 })
+const riblettParams = ref<RiblettParams>({ series: '35', cusp: 'A', cl: 0.4, t: 0.15, sharpTE: false })
 const nacaCoordinates = ref<NACACoordinates | null>(null)
 const analysisResults = ref<any>(null)
 const isLoadingAnalysis = ref(false)
@@ -49,6 +50,7 @@ const handleTooltipsToggled = (enabled: boolean) => {
 
 // Generate NACA name
 const currentNacaName = computed(() => {
+  if (seriesType.value === 'riblett') return generateRiblettName(riblettParams.value)
   if (seriesType.value === '6-series') return generateNACA6Name(naca6Params.value)
   if (seriesType.value === '4-digit') {
     return generateNACA4Name(naca4Params.value)
@@ -69,7 +71,7 @@ onMounted(() => {
 
 // Watch for parameter changes
 watch(
-  () => [seriesType.value, naca4Params.value, naca5Params.value, naca6Params.value],
+  () => [seriesType.value, naca4Params.value, naca5Params.value, naca6Params.value, riblettParams.value],
   () => {
     regenerateCoordinates()
     analysisResults.value = null // the old polar belongs to the previous shape
@@ -79,7 +81,9 @@ watch(
 
 // Regenerate coordinates from NACA parameters
 const regenerateCoordinates = () => {
-  if (seriesType.value === '6-series') {
+  if (seriesType.value === 'riblett') {
+    nacaCoordinates.value = generateRiblett(riblettParams.value) // 27 tabulated stations
+  } else if (seriesType.value === '6-series') {
     nacaCoordinates.value = generateNACA6(naca6Params.value) // point count fixed by the 6-series tables
   } else if (seriesType.value === '4-digit') {
     nacaCoordinates.value = generateNACA4(naca4Params.value, 100) // 100 points for visualization
@@ -98,7 +102,8 @@ const handleExportParameters = () => {
     seriesType.value === '5-digit' ? naca5Params.value : null,
     seriesType.value === '6-series' ? naca6Params.value : null,
     currentNacaName.value,
-    fileBase.value
+    fileBase.value,
+    seriesType.value === 'riblett' ? riblettParams.value : null
   )
 }
 
@@ -136,7 +141,9 @@ const handleAnalyze = async (conditions: {
   try {
     // Generate denser coordinates for analysis (150 points)
     const analysisCoords =
-      seriesType.value === '6-series'
+      seriesType.value === 'riblett'
+        ? generateRiblett(riblettParams.value)
+        : seriesType.value === '6-series'
         ? generateNACA6(naca6Params.value)
         : seriesType.value === '4-digit'
           ? generateNACA4(naca4Params.value, 150)
@@ -224,7 +231,7 @@ const performanceData = computed(() => {
   <div>
     <PageHeader
       title="NACA Generator"
-      subtitle="Generate and analyze NACA 4-digit, 5-digit and 6-series airfoils"
+      subtitle="Generate and analyze NACA 4-digit, 5-digit, 6-series and Riblett GA airfoils"
       eyebrow="Tools"
     >
       <template #actions>
@@ -252,11 +259,13 @@ const performanceData = computed(() => {
             :naca4-params="naca4Params"
             :naca5-params="naca5Params"
             :naca6-params="naca6Params"
+            :riblett-params="riblettParams"
             :naca-name="currentNacaName"
             @update:series-type="seriesType = $event"
             @update:naca4-params="naca4Params = $event"
             @update:naca5-params="naca5Params = $event"
             @update:naca6-params="naca6Params = $event"
+            @update:riblett-params="riblettParams = $event"
           />
         </VPanel>
 
@@ -296,5 +305,37 @@ const performanceData = computed(() => {
         </VPanel>
       </div>
     </div>
+
+    <!-- Always rendered so the static page carries this text for search engines, whichever tab is open -->
+    <VPanel title="About the airfoil families" class="mt-6">
+      <div class="max-w-3xl space-y-5 text-sm leading-relaxed text-gray-700">
+        <section>
+          <h3 class="mb-1 font-semibold text-gray-900">NACA 4-digit, 5-digit and 6-series</h3>
+          <p>
+            The NACA families are defined by formulas (4- and 5-digit) or by NACA's conformal-mapping tables (6-series).
+            Set camber, camber position, design lift coefficient and thickness to generate any section in the family,
+            then plot it, run a NeuralFoil polar, or download Selig and Lednicer coordinate files.
+          </p>
+        </section>
+        <section>
+          <h3 class="mb-1 font-semibold text-gray-900">Harry Riblett GA airfoils</h3>
+          <p>
+            Harry Riblett's <em>GA Airfoils</em> (1996) catalogs sections designed for general aviation and homebuilt
+            aircraft, built from NACA-style thickness forms and mean lines. A designation such as GA 30-613.5 reads as:
+            maximum thickness at 30% chord, standard trailing-edge cusp (- standard, A reduced), 0.6 design lift
+            coefficient, and 13.5% thickness. This Riblett airfoil generator builds any section with maximum thickness at
+            30, 35, 37 or 40% chord, design lift from 0 to 0.6 and thickness from 6 to 24%, with an optional sharp
+            trailing edge. Exports are in Selig and Lednicer .dat formats for XFOIL, XFLR5 or CAD rib layouts.
+          </p>
+          <p class="mt-2">
+            Popular Riblett sections in the database:
+            <NuxtLink to="/airfoils/ga30-613.5" class="font-medium text-primary-600 hover:underline">GA 30-613.5</NuxtLink>,
+            <NuxtLink to="/airfoils/ga30-413.5" class="font-medium text-primary-600 hover:underline">GA 30-413.5</NuxtLink>,
+            <NuxtLink to="/airfoils/ga35a415" class="font-medium text-primary-600 hover:underline">GA 35A415</NuxtLink> and
+            <NuxtLink to="/airfoils/ga37a315" class="font-medium text-primary-600 hover:underline">GA 37A315</NuxtLink>.
+          </p>
+        </section>
+      </div>
+    </VPanel>
   </div>
 </template>

@@ -1,4 +1,4 @@
-import type { NACACoordinates, NACA4Params, NACA5Params, NACA6Params } from './useNACAGenerator'
+import type { NACACoordinates, NACA4Params, NACA5Params, NACA6Params, RiblettParams } from './useNACAGenerator'
 
 /**
  * Generate filename-safe string from airfoil name
@@ -39,12 +39,13 @@ const formatNumber = (num: number): string => {
  * @param fileBase Filename stem; defaults to the sanitised airfoil name
  */
 export const exportNACAParameters = (
-  seriesType: '4-digit' | '5-digit' | '6-series',
+  seriesType: '4-digit' | '5-digit' | '6-series' | 'riblett',
   naca4Params: NACA4Params | null,
   naca5Params: NACA5Params | null,
   naca6Params: NACA6Params | null,
   airfoilName: string = 'NACA_Airfoil',
-  fileBase: string = sanitizeFilename(airfoilName)
+  fileBase: string = sanitizeFilename(airfoilName),
+  riblettParams: RiblettParams | null = null
 ) => {
   const lines: string[] = []
 
@@ -78,6 +79,13 @@ export const exportNACAParameters = (
     // 6A sections always use the modified a = 0.8 mean line
     lines.push(`loading_extent_a,${formatNumber(naca6Params.family.endsWith('A') ? 0.8 : naca6Params.a)}`)
     lines.push(`max_thickness_percent,${formatNumber(naca6Params.t * 100)}`)
+  } else if (seriesType === 'riblett' && riblettParams) {
+    lines.push(`thickness_series,${riblettParams.series}`)
+    lines.push(`cusp,${riblettParams.cusp === 'A' ? 'reduced' : 'standard'}`)
+    lines.push(`design_lift_coefficient_cl,${formatNumber(riblettParams.cl)}`)
+    lines.push(`max_thickness_t,${formatNumber(riblettParams.t)}`)
+    lines.push(`sharp_te,${riblettParams.sharpTE}`)
+    lines.push(`max_thickness_percent,${formatNumber(riblettParams.t * 100)}`)
   }
 
   const content = lines.join('\n')
