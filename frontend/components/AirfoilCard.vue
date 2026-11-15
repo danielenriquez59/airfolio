@@ -84,7 +84,7 @@ const formatPercent = (value: number | null | undefined): string => {
 // Helper function to get display name (display_name if available, otherwise name)
 const getDisplayName = (airfoil: Airfoil | null): string => {
   if (!airfoil) return ''
-  return airfoil.display_name || airfoil.name
+  return (airfoil.display_name || airfoil.name).toUpperCase()
 }
 
 const href = computed(() => airfoil.value?.name ? `/airfoils/${encodeURIComponent(airfoil.value.name)}` : undefined)
