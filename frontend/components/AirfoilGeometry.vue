@@ -394,7 +394,7 @@ watch(() => props.showPointsOnHover, (newVal) => {
   <ClientOnly>
     <div class="w-full">
       <!-- Control Buttons - Above Chart -->
-      <div v-if="zoomable || showMarkerToggle" class="flex gap-2 justify-end mb-2">
+      <div v-if="zoomable || showMarkerToggle" class="hidden sm:flex gap-2 justify-end mb-2">
         <VButton
           v-if="zoomable"
           type="button"
