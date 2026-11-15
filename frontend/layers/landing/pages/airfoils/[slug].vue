@@ -381,148 +381,152 @@ useHead({
             </VBadge>
           </div>
         </template>
-        <template #actions>
-          <VButton v-if="airfoil.id" color="primary" @click="showAnalysisModal = true">
-            <Icon name="tabler:brain" class="h-4 w-4" aria-hidden="true" />
-            Run NN Analysis
-          </VButton>
-          <VButton
-            v-if="airfoil.id"
-            :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            color="light"
-          >
-            <Icon name="tabler:angle" class="h-4 w-4" aria-hidden="true" />
-            Control Surface Analysis
-          </VButton>
-          <VButton
-            v-if="airfoil.id"
-            :to="`/tools/numerical-analysis-2d?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            color="light"
-          >
-            <Icon name="tabler:wind" class="h-4 w-4" aria-hidden="true" />
-            Numerical Analysis 2D
-          </VButton>
-          <VDropdown
-            v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
-            right
-          >
-            <template #activator>
-              <VDropdownButton as="button" type="button" :class="buttonVariants({ color: 'light', size: 'md' })">
-                <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
-                Download
-                <Icon name="heroicons:chevron-down" class="h-4 w-4 text-gray-500" aria-hidden="true" />
-              </VDropdownButton>
-            </template>
-            <VDropdownItem
-              v-for="format in downloadFormats"
-              :key="format.value"
-              @click="handleDownload(format.value)"
-            >
-              <span class="block text-left">
-                <span class="block font-medium text-gray-900">{{ format.text }}</span>
-                <span class="mt-0.5 block text-xs text-gray-500">{{ format.description }}</span>
-              </span>
-            </VDropdownItem>
-          </VDropdown>
-        </template>
       </PageHeader>
 
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Geometry plot / Bezier fit, with the parameters below (visible on both tabs) -->
-        <VPanel class="min-w-0 lg:col-span-2">
-          <div class="-mx-4 -mt-4 mb-4 flex gap-2 border-b border-gray-200 px-4 sm:-mx-5 sm:-mt-5 sm:mb-5 sm:px-5">
-            <button
-              type="button"
-              :class="navTabButtonClasses(activeGeometryTab === 'plot')"
-              :aria-pressed="activeGeometryTab === 'plot'"
-              @click="activeGeometryTab = 'plot'"
+        <div class="flex min-w-0 flex-col gap-4 lg:col-span-2">
+          <VPanel>
+            <div class="-mx-4 -mt-4 mb-4 flex gap-2 border-b border-gray-200 px-4 sm:-mx-5 sm:-mt-5 sm:mb-5 sm:px-5">
+              <button
+                type="button"
+                :class="navTabButtonClasses(activeGeometryTab === 'plot')"
+                :aria-pressed="activeGeometryTab === 'plot'"
+                @click="activeGeometryTab = 'plot'"
+              >
+                Geometry
+              </button>
+              <button
+                type="button"
+                :class="navTabButtonClasses(activeGeometryTab === 'bezier')"
+                :aria-pressed="activeGeometryTab === 'bezier'"
+                @click="activeGeometryTab = 'bezier'"
+              >
+                Bezier Fit
+              </button>
+            </div>
+
+            <!-- Geometry Tab -->
+            <div v-if="activeGeometryTab === 'plot'">
+              <AirfoilGeometry
+                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                :upper-x="airfoil.upper_x_coordinates"
+                :upper-y="airfoil.upper_y_coordinates"
+                :lower-x="airfoil.lower_x_coordinates"
+                :lower-y="airfoil.lower_y_coordinates"
+                :name="getDisplayName(airfoil)"
+                :aspect-ratio="7"
+                :show-grid="true"
+                :zoomable="true"
+                :show-points-on-hover="false"
+                :show-marker-toggle="true"
+              />
+              <VStateBlock v-else title="Geometry data not available" />
+            </div>
+
+            <!-- Bezier Fit Tab -->
+            <div v-else-if="activeGeometryTab === 'bezier'">
+              <BezierFitTab
+                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                :upper-x="airfoil.upper_x_coordinates"
+                :upper-y="airfoil.upper_y_coordinates"
+                :lower-x="airfoil.lower_x_coordinates"
+                :lower-y="airfoil.lower_y_coordinates"
+                :airfoil-name="getDisplayName(airfoil)"
+              />
+              <VStateBlock v-else title="Geometry data not available for Bezier fitting" />
+            </div>
+
+            <!-- Geometric parameters -->
+            <div class="mt-5 border-t border-gray-200 pt-4">
+              <h3 class="sr-only">
+                Geometric parameters
+              </h3>
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+                <VStat
+                  v-if="airfoil.thickness_pct"
+                  label="Thickness (t/c)"
+                  :value="(airfoil.thickness_pct * 100).toFixed(2)"
+                  unit="%"
+                  :hint="airfoil.thickness_loc_pct ? `at ${(airfoil.thickness_loc_pct * 100).toFixed(1)}% x/c` : undefined"
+                />
+                <VStat
+                  v-if="airfoil.camber_pct"
+                  label="Camber (y/c)"
+                  :value="(airfoil.camber_pct * 100).toFixed(2)"
+                  unit="%"
+                  :hint="airfoil.camber_loc_pct ? `at ${(airfoil.camber_loc_pct * 100).toFixed(1)}% x/c` : undefined"
+                />
+                <VStat
+                  v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined"
+                  label="Area (A/c²)"
+                  :value="(airfoil.area_coefficient * 100).toFixed(2)"
+                  unit="% c²"
+                />
+                <VStat v-if="airfoil.le_radius" label="LE radius" :value="airfoil.le_radius.toFixed(4)" />
+                <VStat v-if="airfoil.te_thickness" label="TE thickness" :value="airfoil.te_thickness.toFixed(4)" />
+                <VStat
+                  v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined"
+                  label="Upper nodes"
+                  :value="airfoil.upper_surface_nodes"
+                />
+                <VStat
+                  v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined"
+                  label="Lower nodes"
+                  :value="airfoil.lower_surface_nodes"
+                />
+              </dl>
+            </div>
+          </VPanel>
+          <!-- Download sits at the row end, so its right-anchored menu always opens inside the row -->
+          <div class="flex flex-wrap items-center gap-2 empty:hidden">
+            <VButton v-if="airfoil.id" color="primary" @click="showAnalysisModal = true">
+              <Icon name="tabler:brain" class="h-4 w-4" aria-hidden="true" />
+              Run NN Analysis
+            </VButton>
+            <VButton
+              v-if="airfoil.id"
+              :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
+              color="light"
             >
-              Geometry
-            </button>
-            <button
-              type="button"
-              :class="navTabButtonClasses(activeGeometryTab === 'bezier')"
-              :aria-pressed="activeGeometryTab === 'bezier'"
-              @click="activeGeometryTab = 'bezier'"
+              <Icon name="tabler:angle" class="h-4 w-4" aria-hidden="true" />
+              Control Surface Analysis
+            </VButton>
+            <VButton
+              v-if="airfoil.id"
+              :to="`/tools/numerical-analysis-2d?airfoil=${encodeURIComponent(airfoilSlug)}`"
+              color="light"
             >
-              Bezier Fit
-            </button>
+              <Icon name="tabler:wind" class="h-4 w-4" aria-hidden="true" />
+              Numerical Analysis 2D
+            </VButton>
+            <VDropdown
+              v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
+              right
+              class="ml-auto"
+            >
+              <template #activator>
+                <VDropdownButton as="button" type="button" :class="buttonVariants({ color: 'light', size: 'md' })">
+                  <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
+                  Download
+                  <Icon name="heroicons:chevron-down" class="h-4 w-4 text-gray-500" aria-hidden="true" />
+                </VDropdownButton>
+              </template>
+              <VDropdownItem
+                v-for="format in downloadFormats"
+                :key="format.value"
+                @click="handleDownload(format.value)"
+              >
+                <span class="block text-left">
+                  <span class="block font-medium text-gray-900">{{ format.text }}</span>
+                  <span class="mt-0.5 block text-xs text-gray-500">{{ format.description }}</span>
+                </span>
+              </VDropdownItem>
+            </VDropdown>
           </div>
+        </div>
 
-          <!-- Geometry Tab -->
-          <div v-if="activeGeometryTab === 'plot'">
-            <AirfoilGeometry
-              v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-              :upper-x="airfoil.upper_x_coordinates"
-              :upper-y="airfoil.upper_y_coordinates"
-              :lower-x="airfoil.lower_x_coordinates"
-              :lower-y="airfoil.lower_y_coordinates"
-              :name="getDisplayName(airfoil)"
-              :aspect-ratio="7"
-              :show-grid="true"
-              :zoomable="true"
-              :show-points-on-hover="false"
-              :show-marker-toggle="true"
-            />
-            <VStateBlock v-else title="Geometry data not available" />
-          </div>
-
-          <!-- Bezier Fit Tab -->
-          <div v-else-if="activeGeometryTab === 'bezier'">
-            <BezierFitTab
-              v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-              :upper-x="airfoil.upper_x_coordinates"
-              :upper-y="airfoil.upper_y_coordinates"
-              :lower-x="airfoil.lower_x_coordinates"
-              :lower-y="airfoil.lower_y_coordinates"
-              :airfoil-name="getDisplayName(airfoil)"
-            />
-            <VStateBlock v-else title="Geometry data not available for Bezier fitting" />
-          </div>
-
-          <!-- Geometric parameters -->
-          <div class="mt-5 border-t border-gray-200 pt-4">
-            <h3 class="sr-only">
-              Geometric parameters
-            </h3>
-            <dl class="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
-              <VStat
-                v-if="airfoil.thickness_pct"
-                label="Thickness (t/c)"
-                :value="(airfoil.thickness_pct * 100).toFixed(2)"
-                unit="%"
-                :hint="airfoil.thickness_loc_pct ? `at ${(airfoil.thickness_loc_pct * 100).toFixed(1)}% x/c` : undefined"
-              />
-              <VStat
-                v-if="airfoil.camber_pct"
-                label="Camber (y/c)"
-                :value="(airfoil.camber_pct * 100).toFixed(2)"
-                unit="%"
-                :hint="airfoil.camber_loc_pct ? `at ${(airfoil.camber_loc_pct * 100).toFixed(1)}% x/c` : undefined"
-              />
-              <VStat
-                v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined"
-                label="Area (A/c²)"
-                :value="(airfoil.area_coefficient * 100).toFixed(2)"
-                unit="% c²"
-              />
-              <VStat v-if="airfoil.le_radius" label="LE radius" :value="airfoil.le_radius.toFixed(4)" />
-              <VStat v-if="airfoil.te_thickness" label="TE thickness" :value="airfoil.te_thickness.toFixed(4)" />
-              <VStat
-                v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined"
-                label="Upper nodes"
-                :value="airfoil.upper_surface_nodes"
-              />
-              <VStat
-                v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined"
-                label="Lower nodes"
-                :value="airfoil.lower_surface_nodes"
-              />
-            </dl>
-          </div>
-        </VPanel>
-
-        <!-- Points and details: on lg+ the column takes the row height set by the left panel -->
+        <!-- Points and details: on lg+ the column takes the row height set by the left cell (geometry + buttons) -->
         <div class="flex min-w-0 flex-col gap-6">
           <!-- lg+: flush body is a relative flex-1 box; the scroller is absolute so the table never makes the row taller -->
           <VPanel
