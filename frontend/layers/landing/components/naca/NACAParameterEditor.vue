@@ -1,134 +1,107 @@
 <script setup lang="ts">
-import type { NACA16Params, NACA4Params, NACA5Params, NACA6Family, NACA6Params, RiblettParams } from '~/composables/useNACAGenerator'
+import type { NACA6Family } from '~/composables/useNACAGenerator'
 import type { RiblettSeries } from '~/utils/riblettTables'
 import { NACA_RANGES } from '~/composables/useNACAGenerator'
+import { AIRFOIL_FAMILIES, type Family, FAMILY_KEYS, snapToStep } from '~/utils/airfoilFamilies'
 import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 
-type SeriesType = '4-digit' | '5-digit' | '16-series' | '6-series' | 'riblett' | 'cst' // cst: the page shows its own CST editor
-
 interface Props {
-  seriesType: SeriesType
-  naca4Params: NACA4Params
-  naca5Params: NACA5Params
-  naca6Params: NACA6Params
-  naca16Params?: NACA16Params
-  riblettParams?: RiblettParams
+  seriesType: Family // cst: the page shows its own CST editor
+  params: Record<string, any> // the parameters of seriesType's family
   nacaName: string
   embedded?: boolean // hosted by another page: no series tabs, no technical note
 }
 
 interface Emits {
-  (e: 'update:seriesType', type: SeriesType): void
-  (e: 'update:naca4Params', params: NACA4Params): void
-  (e: 'update:naca5Params', params: NACA5Params): void
-  (e: 'update:naca6Params', params: NACA6Params): void
-  (e: 'update:naca16Params', params: NACA16Params): void
-  (e: 'update:riblettParams', params: RiblettParams): void
+  (e: 'update:seriesType', type: Family): void
+  (e: 'update:params', params: Record<string, any>): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const handleNACA4Change = (key: keyof NACA4Params, value: string | number) => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(numValue)) return
-  const newParams = { ...props.naca4Params, [key]: numValue }
-  emit('update:naca4Params', newParams)
-}
+const update = (patch: Record<string, unknown>) => emit('update:params', { ...props.params, ...patch })
 
-const handleNACA5Change = (key: keyof NACA5Params, value: string | number | boolean) => {
-  if (typeof value === 'boolean') {
-    const newParams = { ...props.naca5Params, [key]: value }
-    emit('update:naca5Params', newParams)
-    return
-  }
-  const numValue = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(numValue)) return
-  const newParams = { ...props.naca5Params, [key]: numValue }
-  emit('update:naca5Params', newParams)
-}
-
-const handleNACA6Change = (key: keyof NACA6Params, value: string | number) => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(numValue)) return
-  emit('update:naca6Params', { ...props.naca6Params, [key]: numValue })
-}
-
-const seriesOptions = [
-  { value: '4-digit', label: '4-digit' },
-  { value: '5-digit', label: '5-digit' },
-  { value: '16-series', label: '16-series' },
-  { value: '6-series', label: '6-series' },
-  { value: 'riblett', label: 'Riblett GA' },
-  { value: 'cst', label: 'CST' },
-] as const
+const seriesOptions = FAMILY_KEYS.map(value => ({ value, label: AIRFOIL_FAMILIES[value].label }))
 
 const families: NACA6Family[] = ['63', '64', '65', '66', '67', '63A', '64A', '65A']
 const riblettSeries: RiblettSeries[] = ['30', '35', '37', '40']
-
-const updateRiblett = (patch: Partial<RiblettParams>) => emit('update:riblettParams', { ...props.riblettParams!, ...patch })
 
 const r6 = NACA_RANGES['6-series']
 const r4 = NACA_RANGES['4-digit']
 const r5 = NACA_RANGES['5-digit']
 const rr = NACA_RANGES.riblett
 const r16 = NACA_RANGES['16-series']
+const rp = NACA_RANGES.parsec
+// [key, label, hint, step, group]; ranges come from NACA_RANGES.parsec.
+// Grouped (PARSEC) rows get a 6rem number box for signed 3-decimal values such as -0.042
+const PARSEC_ROWS = [
+  ['rLE', 'LE radius', 'Fraction of chord', 0.001, 'Leading edge'],
+  ['xUp', 'Crest x', 'Upper crest position', 0.01, 'Upper crest'],
+  ['zUp', 'Crest z', 'Upper crest height', 0.001, 'Upper crest'],
+  ['zxxUp', 'Curvature', 'z\'\' at the crest', 0.01, 'Upper crest'],
+  ['xLo', 'Crest x', 'Lower crest position', 0.01, 'Lower crest'],
+  ['zLo', 'Crest z', 'Lower crest height', 0.001, 'Lower crest'],
+  ['zxxLo', 'Curvature', 'z\'\' at the crest', 0.01, 'Lower crest'],
+  ['zTE', 'TE height', 'Mid-thickness z', 0.001, 'Trailing edge'],
+  ['dzTE', 'TE thickness', 'Gap at the TE', 0.001, 'Trailing edge'],
+  ['alphaTE', 'TE direction', 'deg, + points down', 0.5, 'Trailing edge'],
+  ['betaTE', 'TE wedge angle', 'deg', 0.5, 'Trailing edge'],
+] as const
 // Reflex has no table entry below p = 0.10, so switching it on lifts p to 0.10
-const setReflex = (on: boolean) => emit('update:naca5Params', { ...props.naca5Params, isReflex: on, p: on ? Math.max(props.naca5Params.p, r5.pReflex[0]) : props.naca5Params.p })
-const rows = computed(() => props.seriesType === 'riblett'
-  ? [
-      { key: 'cl', label: 'Design Cl', hint: '0 to 0.6', min: rr.cl[0], max: rr.cl[1], step: 0.1, value: props.riblettParams!.cl },
-      { key: 't', label: 'Thickness', hint: '6% to 24%', min: rr.t[0], max: rr.t[1], step: 0.01, value: props.riblettParams!.t },
-    ]
-  : props.seriesType === '16-series'
-  ? [
-      { key: 't', label: 'Thickness', hint: '6% to 21%', min: r16.t[0], max: r16.t[1], step: 0.01, value: props.naca16Params!.t },
-      { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r16.cl[0], max: r16.cl[1], step: 0.1, value: props.naca16Params!.cl },
-    ]
-  : props.seriesType === '6-series'
-  ? [
-      { key: 't', label: 'Thickness', hint: '6% to 21%', min: r6.t[0], max: r6.t[1], step: 0.01, value: props.naca6Params.t },
-      { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r6.cl[0], max: r6.cl[1], step: 0.1, value: props.naca6Params.cl },
-      ...(props.naca6Params.family.endsWith('A')
-        ? []
-        : [{ key: 'a', label: 'Loading extent a', hint: 'Uniform load to a·chord', min: r6.a[0], max: r6.a[1], step: 0.1, value: props.naca6Params.a }]),
-    ]
-  : props.seriesType === '4-digit'
-  ? [
-      { key: 'm', label: 'Max camber', hint: '0% to 9.5%', min: r4.m[0], max: r4.m[1], step: 0.001, value: props.naca4Params.m },
-      { key: 'p', label: 'Camber position', hint: '10% chord steps', min: r4.p[0], max: r4.p[1], step: 0.1, value: props.naca4Params.p },
-      { key: 't', label: 'Thickness', hint: '1% to 40%', min: r4.t[0], max: r4.t[1], step: 0.01, value: props.naca4Params.t },
-      ...(props.naca4Params.modified
-        ? [
-            { key: 'le', label: 'LE radius index', hint: '0 to 9, 6 = 4-digit', min: r4.le[0], max: r4.le[1], step: 1, value: props.naca4Params.le! },
-            { key: 'xt', label: 'Max thickness at', hint: '20% to 60% chord', min: r4.xt[0], max: r4.xt[1], step: 0.1, value: props.naca4Params.xt! },
-          ]
-        : []),
-    ]
-  : [
-      { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r5.cl[0], max: r5.cl[1], step: 0.15, value: props.naca5Params.cl },
-      { key: 'p', label: 'Camber position', hint: props.naca5Params.isReflex ? '10% to 25%' : '5% to 25%', min: props.naca5Params.isReflex ? r5.pReflex[0] : r5.p[0], max: r5.p[1], step: 0.05, value: props.naca5Params.p },
-      { key: 't', label: 'Thickness', hint: '1% to 40%', min: r5.t[0], max: r5.t[1], step: 0.01, value: props.naca5Params.t },
-    ])
+const setReflex = (on: boolean) => update({ isReflex: on, p: on ? Math.max(props.params.p, r5.pReflex[0]) : props.params.p })
+// Slider rows of the active family (labels, hints and steps are UI, so they live here rather than in AIRFOIL_FAMILIES)
+const rows = computed<{ key: string, label: string, hint: string, min: number, max: number, step: number, value: number, group?: string }[]>(() => {
+  const p = props.params
+  return props.seriesType === 'parsec'
+    ? PARSEC_ROWS.map(([key, label, hint, step, group]) => ({ key, label, hint, step, group, min: rp[key][0], max: rp[key][1], value: p[key] }))
+    : props.seriesType === 'riblett'
+    ? [
+        { key: 'cl', label: 'Design Cl', hint: '0 to 0.6', min: rr.cl[0], max: rr.cl[1], step: 0.1, value: p.cl },
+        { key: 't', label: 'Thickness', hint: '6% to 24%', min: rr.t[0], max: rr.t[1], step: 0.01, value: p.t },
+      ]
+    : props.seriesType === '16-series'
+    ? [
+        { key: 't', label: 'Thickness', hint: '6% to 21%', min: r16.t[0], max: r16.t[1], step: 0.01, value: p.t },
+        { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r16.cl[0], max: r16.cl[1], step: 0.1, value: p.cl },
+      ]
+    : props.seriesType === '6-series'
+    ? [
+        { key: 't', label: 'Thickness', hint: '6% to 21%', min: r6.t[0], max: r6.t[1], step: 0.01, value: p.t },
+        { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r6.cl[0], max: r6.cl[1], step: 0.1, value: p.cl },
+        ...(p.family.endsWith('A')
+          ? []
+          : [{ key: 'a', label: 'Loading extent a', hint: 'Uniform load to a·chord', min: r6.a[0], max: r6.a[1], step: 0.1, value: p.a }]),
+      ]
+    : props.seriesType === '4-digit'
+    ? [
+        { key: 'm', label: 'Max camber', hint: '0% to 9.5%', min: r4.m[0], max: r4.m[1], step: 0.001, value: p.m },
+        { key: 'p', label: 'Camber position', hint: '10% chord steps', min: r4.p[0], max: r4.p[1], step: 0.1, value: p.p },
+        { key: 't', label: 'Thickness', hint: '1% to 40%', min: r4.t[0], max: r4.t[1], step: 0.01, value: p.t },
+        ...(p.modified
+          ? [
+              { key: 'le', label: 'LE radius index', hint: '0 to 9, 6 = 4-digit', min: r4.le[0], max: r4.le[1], step: 1, value: p.le },
+              { key: 'xt', label: 'Max thickness at', hint: '20% to 60% chord', min: r4.xt[0], max: r4.xt[1], step: 0.1, value: p.xt },
+            ]
+          : []),
+      ]
+    : props.seriesType === '5-digit'
+    ? [
+        { key: 'cl', label: 'Design Cl', hint: 'Ideal design lift', min: r5.cl[0], max: r5.cl[1], step: 0.15, value: p.cl },
+        { key: 'p', label: 'Camber position', hint: p.isReflex ? '10% to 25%' : '5% to 25%', min: p.isReflex ? r5.pReflex[0] : r5.p[0], max: r5.p[1], step: 0.05, value: p.p },
+        { key: 't', label: 'Thickness', hint: '1% to 40%', min: r5.t[0], max: r5.t[1], step: 0.01, value: p.t },
+      ]
+    : []
+})
 
-// Clamp to the row's range: typed values outside it give NaN or unphysical sections
+// Clamp to the row's range and snap to its slider step: typed values outside it give NaN or unphysical sections
 function handleChange(key: string, value: string | number, input?: HTMLInputElement) {
   const row = rows.value.find(r => r.key === key)!
   const n = typeof value === 'string' ? parseFloat(value) : value
-  const c = Number.isNaN(n) ? row.value : Math.min(row.max, Math.max(row.min, n))
-  const v = row.step === 1 ? Math.round(c) : c // whole-number rows (LE radius index)
+  const v = Number.isNaN(n) ? row.value : snapToStep(n, row.min, row.max, row.step)
   if (input)
     input.value = String(v) // the prop may not change (typed 2 clamps to the current 1), so set the box directly
-  if (props.seriesType === 'riblett')
-    updateRiblett({ [key]: v })
-  else if (props.seriesType === '16-series')
-    emit('update:naca16Params', { ...props.naca16Params!, [key]: v })
-  else if (props.seriesType === '6-series')
-    handleNACA6Change(key as keyof NACA6Params, v)
-  else if (props.seriesType === '4-digit')
-    handleNACA4Change(key as keyof NACA4Params, v)
-  else
-    handleNACA5Change(key as keyof NACA5Params, v)
+  update({ [key]: v })
 }
 </script>
 
@@ -160,15 +133,15 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
             v-for="f in families"
             :key="f"
             type="button"
-            :class="tabButtonClasses(naca6Params.family === f)"
-            :aria-pressed="naca6Params.family === f"
-            @click="emit('update:naca6Params', { ...naca6Params, family: f })"
+            :class="tabButtonClasses(params.family === f)"
+            :aria-pressed="params.family === f"
+            @click="update({ family: f })"
           >
             {{ f }}
           </button>
         </div>
       </div>
-      <template v-if="seriesType === 'riblett' && riblettParams">
+      <template v-if="seriesType === 'riblett'">
         <div class="space-y-1.5">
           <span class="block text-sm font-medium text-gray-700">Max thickness at % chord</span>
           <div class="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Riblett series">
@@ -176,9 +149,9 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
               v-for="s in riblettSeries"
               :key="s"
               type="button"
-              :class="tabButtonClasses(riblettParams.series === s)"
-              :aria-pressed="riblettParams.series === s"
-              @click="updateRiblett({ series: s })"
+              :class="tabButtonClasses(params.series === s)"
+              :aria-pressed="params.series === s"
+              @click="update({ series: s })"
             >
               {{ s }}
             </button>
@@ -191,20 +164,18 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
               v-for="c in [{ value: '-', label: 'Standard (-)' }, { value: 'A', label: 'Reduced (A)' }] as const"
               :key="c.value"
               type="button"
-              :class="tabButtonClasses(riblettParams.cusp === c.value)"
-              :aria-pressed="riblettParams.cusp === c.value"
-              @click="updateRiblett({ cusp: c.value })"
+              :class="tabButtonClasses(params.cusp === c.value)"
+              :aria-pressed="params.cusp === c.value"
+              @click="update({ cusp: c.value })"
             >
               {{ c.label }}
             </button>
           </div>
         </div>
       </template>
-      <div
-        v-for="row in rows"
-        :key="`${seriesType}-${row.key}`"
-        class="grid grid-cols-[7rem_minmax(0,1fr)_5rem] items-center gap-3"
-      >
+      <template v-for="(row, i) in rows" :key="`${seriesType}-${row.key}`">
+      <h3 v-if="row.group && row.group !== rows[i - 1]?.group" class="data-label pt-1">{{ row.group }}</h3>
+      <div class="grid items-center gap-3" :class="row.group ? 'grid-cols-[7rem_minmax(0,1fr)_6rem]' : 'grid-cols-[7rem_minmax(0,1fr)_5rem]'">
         <label :for="`naca-${row.key}`" class="min-w-0">
           <span class="block text-sm font-medium text-gray-700">{{ row.label }}</span>
           <span class="block text-xs text-gray-500">{{ row.hint }}</span>
@@ -230,24 +201,25 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
           @change="handleChange(row.key, ($event.target as HTMLInputElement).value, $event.target as HTMLInputElement)"
         >
       </div>
+      </template>
       <div v-if="seriesType === '4-digit' || seriesType === '5-digit'" class="flex items-center gap-3">
         <VSwitch
           v-if="seriesType === '4-digit'"
           key="naca4-modified"
           name="naca4-modified"
           sr-text="Modified thickness"
-          :model-value="!!naca4Params.modified"
-          @update:model-value="emit('update:naca4Params', { ...naca4Params, modified: $event })"
+          :model-value="!!params.modified"
+          @update:model-value="update({ modified: $event })"
         />
-        <VSwitch v-else key="naca5-reflex" name="naca5-reflex" sr-text="Reflex" :model-value="naca5Params.isReflex" @update:model-value="setReflex" />
+        <VSwitch v-else key="naca5-reflex" name="naca5-reflex" sr-text="Reflex" :model-value="params.isReflex" @update:model-value="setReflex" />
         <span class="text-sm font-medium text-gray-700" aria-hidden="true">{{ seriesType === '4-digit' ? 'Modified thickness' : 'Reflex' }}</span>
       </div>
-      <label v-if="seriesType === 'riblett' && riblettParams" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+      <label v-if="seriesType === 'riblett'" class="flex items-center gap-2 text-sm font-medium text-gray-700">
         <input
           type="checkbox"
-          :checked="riblettParams.sharpTE"
+          :checked="params.sharpTE"
           class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          @change="updateRiblett({ sharpTE: ($event.target as HTMLInputElement).checked })"
+          @change="update({ sharpTE: ($event.target as HTMLInputElement).checked })"
         >
         Sharp trailing edge
       </label>
@@ -257,7 +229,7 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
       <Icon name="heroicons:information-circle-20-solid" class="mt-0.5 h-4 w-4 shrink-0 text-primary-600" aria-hidden="true" />
       <p>
         <span class="font-medium text-gray-900">Technical note.</span>
-        <template v-if="seriesType === '4-digit' && naca4Params.modified">
+        <template v-if="seriesType === '4-digit' && params.modified">
           Modified 4-digit sections keep the 4-digit camber line but set the leading-edge radius (index 6 is the plain 4-digit radius) and the position of maximum thickness, written after the dash: 0012-64.
         </template>
         <template v-else-if="seriesType === '4-digit'">
@@ -266,11 +238,14 @@ function handleChange(key: string, value: string | number, input?: HTMLInputElem
         <template v-else-if="seriesType === '16-series'">
           The 16-series uses the modified 4-digit thickness with leading-edge index 4 and maximum thickness at half chord, on the a = 1 mean line: 16-212 has design Cl 0.2 and 12% thickness.
         </template>
-        <template v-else-if="seriesType === '5-digit' && naca5Params.isReflex">
+        <template v-else-if="seriesType === '5-digit' && params.isReflex">
           The reflex mean line curves back up near the trailing edge so the pitching moment is close to zero; the third digit 1 marks it, as in 23112.
         </template>
         <template v-else-if="seriesType === 'riblett'">
           Harry Riblett's GA sections combine tabulated thickness forms (max thickness at 30, 35, 37 or 40% chord) with tabulated mean lines, from "GA Airfoils" (1996). Design Cl between the tabulated 0.2, 0.3, 0.4 and 0.6 mean lines is interpolated; geometry uses the 27 tabulated stations.
+        </template>
+        <template v-else-if="seriesType === 'parsec'">
+          PARSEC (Sobieczky) sets each surface as a sum of six powers of x from 11 geometric parameters: leading-edge radius, the position, height and curvature of each crest, and the trailing-edge height, thickness, direction and wedge angle.
         </template>
         <template v-else-if="seriesType === 'cst'">
           CST (Class Shape Transformation) writes each surface as a class function, which gives the round nose and sharp trailing edge, times a Bernstein-polynomial shape function whose weights you set below. A few weights describe most airfoils smoothly, and Fit finds the weights of a catalog airfoil.

@@ -1,10 +1,11 @@
 /**
- * Composable for NACA 4-digit (and modified), 5-digit (and reflex), 16-series and 6-series airfoil generation
+ * Composable for NACA 4-digit (and modified), 5-digit (and reflex), 16-series, 6-series, Riblett GA and PARSEC airfoil generation
  * Implements the NACA airfoil specification mathematics
  */
 
 import { NACA6_TABLES, type NACA6Family } from '../utils/naca6Tables.ts'
 import { RIBLETT_MEANLINES, RIBLETT_STATIONS, RIBLETT_THICKNESS, type RiblettCusp, type RiblettSeries } from '../utils/riblettTables.ts'
+import { solve } from '../utils/mfoil/linalg.ts'
 
 export type { NACA6Family }
 
@@ -44,6 +45,15 @@ export interface NACA6Params {
   a: number // Chordwise extent of uniform loading (ignored for A families)
 }
 
+// Sobieczky's 11 PARSEC parameters (fractions of chord, angles in degrees)
+export interface PARSECParams {
+  rLE: number // leading-edge radius
+  xUp: number; zUp: number; zxxUp: number // upper crest position, height, curvature
+  xLo: number; zLo: number; zxxLo: number // lower crest position, height, curvature
+  zTE: number; dzTE: number // trailing-edge height and thickness
+  alphaTE: number; betaTE: number // trailing-edge direction and wedge angle
+}
+
 // Parameter ranges of the generator UI; specs outside them are rejected
 export const NACA_RANGES = {
   '4-digit': { m: [0, 0.095], p: [0.1, 0.9], t: [0.01, 0.4], le: [0, 9], xt: [0.2, 0.6] },
@@ -51,6 +61,10 @@ export const NACA_RANGES = {
   '16-series': { t: [0.06, 0.21], cl: [0, 1] },
   '6-series': { t: [0.06, 0.21], cl: [0, 1], a: [0, 1] },
   'riblett': { cl: [0, 0.6], t: [0.06, 0.24] },
+  'parsec': {
+    rLE: [0.002, 0.05], xUp: [0.15, 0.7], zUp: [0.01, 0.2], zxxUp: [-2, 0], xLo: [0.15, 0.7], zLo: [-0.2, 0.05], zxxLo: [-1, 2],
+    zTE: [-0.05, 0.05], dzTE: [0, 0.03], alphaTE: [-10, 25], betaTE: [0, 30],
+  },
 } as const
 
 export interface NACACoordinates {
@@ -117,57 +131,20 @@ export const sectionPoints = (xs: number[], thickness: (x: number) => number, me
 }
 
 /**
- * NACA 4-Digit Series Calculation
+ * NACA 4-digit mean line: two parabolic arcs meeting at the position of maximum camber
  */
-export const generateNACA4 = (
-  params: NACA4Params,
-  numPoints: number = 100
-): NACACoordinates => {
-  const { m, p, t } = params
-
-  const upperX: number[] = []
-  const upperY: number[] = []
-  const lowerX: number[] = []
-  const lowerY: number[] = []
-
-  for (let i = 0; i <= numPoints; i++) {
-    // Cosine spacing for better density at leading/trailing edges
-    const beta = (i / numPoints) * Math.PI
-    const x = (1 - Math.cos(beta)) / 2
-
-    let yc = 0
-    let dyc_dx = 0
-
-    if (p === 0 || m === 0) {
-      // Symmetric airfoil
-      yc = 0
-      dyc_dx = 0
-    } else {
-      if (x < p) {
-        yc = (m / Math.pow(p, 2)) * (2 * p * x - Math.pow(x, 2))
-        dyc_dx = (2 * m / Math.pow(p, 2)) * (p - x)
-      } else {
-        yc = (m / Math.pow(1 - p, 2)) * ((1 - 2 * p) + 2 * p * x - Math.pow(x, 2))
-        dyc_dx = (2 * m / Math.pow(1 - p, 2)) * (p - x)
-      }
-    }
-
-    const yt = params.modified ? thickness4M(t, params.le!, params.xt!, x) : calculateThickness(x, t)
-    const theta = Math.atan(dyc_dx)
-
-    const xu = x - yt * Math.sin(theta)
-    const yu = yc + yt * Math.cos(theta)
-    const xl = x + yt * Math.sin(theta)
-    const yl = yc - yt * Math.cos(theta)
-
-    upperX.push(xu)
-    upperY.push(yu)
-    lowerX.push(xl)
-    lowerY.push(yl)
-  }
-
-  return { upperX, upperY, lowerX, lowerY }
+export const meanLine4 = ({ m, p }: NACA4Params, x: number): { y: number; dy: number } => {
+  if (p === 0 || m === 0) return { y: 0, dy: 0 } // symmetric
+  if (x < p) return { y: (m / Math.pow(p, 2)) * (2 * p * x - Math.pow(x, 2)), dy: (2 * m / Math.pow(p, 2)) * (p - x) }
+  return { y: (m / Math.pow(1 - p, 2)) * ((1 - 2 * p) + 2 * p * x - Math.pow(x, 2)), dy: (2 * m / Math.pow(1 - p, 2)) * (p - x) }
 }
+
+export const generateNACA4 = (params: NACA4Params, numPoints: number = 100): NACACoordinates =>
+  sectionPoints(
+    cosineX(numPoints),
+    x => params.modified ? thickness4M(params.t, params.le!, params.xt!, x) : calculateThickness(x, params.t),
+    x => meanLine4(params, x),
+  )
 
 /**
  * NACA 5-Digit Series Calculation
@@ -412,21 +389,41 @@ export const compactNACA6Name = (params: NACA6Params): string =>
   generateNACA6Name(params).slice(5).replace(/[^0-9A-Za-z]/g, '')
 
 /**
- * Composable function
+ * PARSEC (H. Sobieczky 1998; system as in dqsis/parsec-airfoils parseccoef.py): each surface is
+ * z = sum a_n x^(n - 1/2), n = 1..6, with a1 = +-sqrt(2 rLE) and a2..a6 from the TE and crest conditions.
+ * Convention: TE heights zTE +- dzTE/2 and slopes tan(-(alphaTE +- betaTE/2)) (upper +, lower -),
+ * so positive alphaTE points the TE down (positive camber) and betaTE is the wedge angle.
  */
-export const useNACAGenerator = () => {
+const parsecSurface = (a1: number, xc: number, zc: number, zxx: number, zte: number, slope: number): number[] => {
+  const s = Math.sqrt(xc)
+  const A = new Float64Array([
+    1, 1, 1, 1, 1, // z(1)
+    ...[1.5, 2.5, 3.5, 4.5, 5.5].map(p => xc ** p), // z(xc)
+    1.5, 2.5, 3.5, 4.5, 5.5, // z'(1)
+    ...[1.5, 2.5, 3.5, 4.5, 5.5].map(p => p * xc ** (p - 1)), // z'(xc)
+    ...[1.5, 2.5, 3.5, 4.5, 5.5].map(p => p * (p - 1) * xc ** (p - 2)), // z''(xc)
+  ])
+  const b = new Float64Array([zte - a1, zc - a1 * s, slope - a1 / 2, -a1 / (2 * s), zxx + a1 / (4 * xc * s)])
+  return [a1, ...solve(A, b, 5)]
+}
+
+export const parsecCoefficients = (p: PARSECParams): { upper: number[]; lower: number[] } => {
+  const deg = Math.PI / 180
+  const a1 = Math.sqrt(2 * p.rLE)
   return {
-    generateNACA4,
-    generateNACA5,
-    generateNACA6,
-    generateNACA4Name,
-    generateNACA5Name,
-    generateNACA6Name,
-    compactNACA6Name,
-    generateNACA16,
-    generateNACA16Name,
-    generateRiblett,
-    generateRiblettName,
+    upper: parsecSurface(a1, p.xUp, p.zUp, p.zxxUp, p.zTE + p.dzTE / 2, Math.tan(-(p.alphaTE + p.betaTE / 2) * deg)),
+    lower: parsecSurface(-a1, p.xLo, p.zLo, p.zxxLo, p.zTE - p.dzTE / 2, Math.tan(-(p.alphaTE - p.betaTE / 2) * deg)),
   }
 }
+
+export const parsecZ = (a: number[], x: number) => a.reduce((z, an, i) => z + an * x ** (i + 0.5), 0)
+
+export const generatePARSEC = (params: PARSECParams, numPoints: number = 100): NACACoordinates => {
+  const { upper, lower } = parsecCoefficients(params)
+  const xs = cosineX(numPoints)
+  return { upperX: xs, upperY: xs.map(x => parsecZ(upper, x)), lowerX: [...xs], lowerY: xs.map(x => parsecZ(lower, x)) }
+}
+
+/** Upper surface below the lower one somewhere between LE and TE (both sides share the same x) */
+export const surfacesCross = (c: NACACoordinates) => c.upperY.some((y, i) => i > 0 && i < c.upperY.length - 1 && y < c.lowerY[i])
 

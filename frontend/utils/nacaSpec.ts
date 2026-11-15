@@ -5,7 +5,8 @@
  */
 import type { Database } from '~/types/database.types'
 import type { NACA16Params, NACA4Params, NACA5Params, NACA6Family, NACA6Params, RiblettParams } from '../composables/useNACAGenerator.ts'
-import { NACA_RANGES, compactNACA6Name, generateNACA16, generateNACA16Name, generateNACA4, generateNACA4Name, generateNACA5, generateNACA5Name, generateNACA6, generateNACA6Name, generateRiblett, generateRiblettName } from '../composables/useNACAGenerator.ts'
+import { NACA_RANGES } from '../composables/useNACAGenerator.ts'
+import { familyDef } from './airfoilFamilies.ts'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -28,22 +29,21 @@ export const SERIES = { naca4: '4-digit', naca5: '5-digit', naca16: '16-series',
 const FAMILIES: NACA6Family[] = ['63', '64', '65', '66', '67', '63A', '64A', '65A']
 const RIBLETT_SERIES = ['30', '35', '37', '40']
 const RIBLETT_CUSPS = ['-', 'A']
-// Spec code -> label and numeric fields in spec order (naca6 family and riblett series,cusp lead; riblett sharpTE trails)
+// Spec code -> kind, label and numeric fields in spec order (naca6 family and riblett series,cusp lead; riblett sharpTE trails)
 const CODES = {
-  naca4: { label: '4-digit', keys: ['m', 'p', 't'] },
-  naca4m: { label: '4-digit modified', keys: ['m', 'p', 't', 'le', 'xt'] },
-  naca5: { label: '5-digit', keys: ['cl', 'p', 't'] },
-  naca5r: { label: '5-digit reflex', keys: ['cl', 'p', 't'] },
-  naca16: { label: '16-series', keys: ['t', 'cl'] },
-  naca6: { label: '6-series', keys: ['t', 'cl', 'a'] },
-  riblett: { label: 'Riblett GA', keys: ['t', 'cl'] },
+  naca4: { kind: 'naca4', label: '4-digit', keys: ['m', 'p', 't'] },
+  naca4m: { kind: 'naca4', label: '4-digit modified', keys: ['m', 'p', 't', 'le', 'xt'] },
+  naca5: { kind: 'naca5', label: '5-digit', keys: ['cl', 'p', 't'] },
+  naca5r: { kind: 'naca5', label: '5-digit reflex', keys: ['cl', 'p', 't'] },
+  naca16: { kind: 'naca16', label: '16-series', keys: ['t', 'cl'] },
+  naca6: { kind: 'naca6', label: '6-series', keys: ['t', 'cl', 'a'] },
+  riblett: { kind: 'riblett', label: 'Riblett GA', keys: ['t', 'cl'] },
 } as const
 type Code = keyof typeof CODES
-const kindOf = (code: Code) => code.replace(/^(naca\d+)[mr]$/, '$1') as NACASpec['kind']
 const codeOf = ({ kind, params }: NACASpec): Code =>
   kind === 'naca4' && params.modified ? 'naca4m' : kind === 'naca5' && params.isReflex ? 'naca5r' : kind
 const range = (code: Code, k: string): readonly [number, number] =>
-  code === 'naca5r' && k === 'p' ? NACA_RANGES['5-digit'].pReflex : (NACA_RANGES[SERIES[kindOf(code)]] as Record<string, readonly [number, number]>)[k]
+  code === 'naca5r' && k === 'p' ? NACA_RANGES['5-digit'].pReflex : (NACA_RANGES[SERIES[CODES[code].kind]] as Record<string, readonly [number, number]>)[k]
 
 const round4 = (v: number) => String(Math.round(v * 1e4) / 1e4)
 
@@ -68,7 +68,7 @@ export function parseNACASpec(s: string): NACASpec | null {
   if (!m)
     return null
   const code = m[1] as Code
-  const kind = kindOf(code)
+  const kind = CODES[code].kind
   const parts = m[2].split(',')
   const keys = CODES[code].keys
   const head = kind === 'naca6' ? 1 : kind === 'riblett' ? 2 : 0
@@ -117,31 +117,16 @@ export function nacaParamText(name: string): string | null {
   return [CODES[code].label, ...head, ...CODES[code].keys.map((k, i) => `${k} ${vals[i]}`), ...tail].join(' · ')
 }
 
-export function nacaDesignation({ kind, params }: NACASpec): string {
-  return kind === 'naca4'
-    ? generateNACA4Name(params)
-    : kind === 'naca5' ? generateNACA5Name(params) : kind === 'naca16' ? generateNACA16Name(params) : kind === 'riblett' ? generateRiblettName(params) : generateNACA6Name(params)
-}
+export const nacaDesignation = (spec: NACASpec): string => familyDef(SERIES[spec.kind]).name(spec.params)
 
-// NACA_641412a05, NACA_16212, NACA_0012-64, NACA_2412, GA_35A415, GA_35A_3_5_15 (as the generator page's sanitised name)
-export function nacaFileBase(spec: NACASpec): string {
-  if (spec.kind === 'naca6')
-    return `NACA_${compactNACA6Name(spec.params)}`
-  if (spec.kind === 'riblett')
-    return nacaDesignation(spec).replace(/[^a-zA-Z0-9_-]/g, '_')
-  const name = nacaDesignation(spec).replace(' ', '_')
-  return spec.kind === 'naca16' ? name.replace('-', '') : name
-}
+// NACA_641412a05, NACA_16212, NACA_0012-64, NACA_2412, GA_35A415, GA_35A_3_5_15 (the generator page's file stems)
+export const nacaFileBase = (spec: NACASpec): string => familyDef(SERIES[spec.kind]).fileBase(spec.params)
 
 /** A synthetic library row; the generator gives both surfaces LE->TE, rows hold upper TE->LE, lower LE->TE */
 export function nacaSpecAirfoil(spec: NACASpec): Airfoil {
   // 101 cosine-spaced points per surface (6-series: fixed 201 by its tables, Riblett: 27 tabulated stations);
   // mfoil splines and repanels to npanel anyway
-  const c = spec.kind === 'naca4'
-    ? generateNACA4(spec.params, 100)
-    : spec.kind === 'naca5'
-      ? generateNACA5(spec.params, 100)
-      : spec.kind === 'naca16' ? generateNACA16(spec.params, 100) : spec.kind === 'riblett' ? generateRiblett(spec.params) : generateNACA6(spec.params)
+  const c = familyDef(SERIES[spec.kind]).generate(spec.params, 100)
   return {
     name: formatNACASpec(spec),
     display_name: nacaDesignation(spec),

@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import type { NACA16Params, NACA4Params, NACA5Params, NACA6Params, NACACoordinates, RiblettParams } from '~/composables/useNACAGenerator'
-import type { CSTParameters } from '~/composables/useCSTParameters'
+import type { NACACoordinates } from '~/composables/useNACAGenerator'
+import { surfacesCross } from '~/composables/useNACAGenerator'
+import { exportCoordinates, exportNACAParameters, pointsToClipboardText } from '~/composables/useNACAExport'
+import { exportCSTParameters } from '~/composables/useCSTExport'
+import { AIRFOIL_FAMILIES, type Family, type FamilyParams, FAMILY_KEYS, defaultCSTWeights, familyDef } from '~/utils/airfoilFamilies'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 
 definePageMeta({
@@ -9,65 +12,28 @@ definePageMeta({
 
 // SEO
 useSeoMeta({
-  title: 'Airfoil Generator - NACA 4-Digit, 5-Digit, 16-Series, 6-Series, Riblett GA and CST Airfoils',
-  description: 'Generate and analyze NACA 4-digit (and modified), 5-digit (and reflex), 16-series, 6-series, Riblett GA and CST (Class Shape Transformation) airfoils. Visualize airfoil geometry, adjust camber, thickness or CST weights, fit CST to catalog airfoils, run performance analysis, and export in Selig and Lednicer formats.',
-  ogTitle: 'Airfoil Generator - NACA 4-Digit, 5-Digit, 16-Series, 6-Series, Riblett GA and CST Airfoils',
-  ogDescription: 'Generate and analyze NACA 4-digit (and modified), 5-digit (and reflex), 16-series, 6-series, Riblett GA and CST (Class Shape Transformation) airfoils. Visualize airfoil geometry, run performance analysis, and export in Selig and Lednicer formats.',
+  title: 'Airfoil Generator - NACA 4-Digit, 5-Digit, 16-Series, 6-Series, Riblett GA, CST and PARSEC Airfoils',
+  description: 'Generate and analyze NACA 4-digit (and modified), 5-digit (and reflex), 16-series, 6-series, Riblett GA, CST (Class Shape Transformation) and PARSEC airfoils. Visualize airfoil geometry, adjust camber, thickness, CST weights or PARSEC parameters, fit CST to catalog airfoils, run performance analysis, and export in Selig and Lednicer formats.',
+  ogTitle: 'Airfoil Generator - NACA 4-Digit, 5-Digit, 16-Series, 6-Series, Riblett GA, CST and PARSEC Airfoils',
+  ogDescription: 'Generate and analyze NACA 4-digit (and modified), 5-digit (and reflex), 16-series, 6-series, Riblett GA, CST (Class Shape Transformation) and PARSEC airfoils. Visualize airfoil geometry, run performance analysis, and export in Selig and Lednicer formats.',
   ogType: 'website',
   twitterCard: 'summary_large_image',
 })
 
-const { generateNACA4, generateNACA5, generateNACA6, generateNACA16, generateNACA4Name, generateNACA5Name, generateNACA6Name, generateNACA16Name, compactNACA6Name, generateRiblett, generateRiblettName } = useNACAGenerator()
-const { exportNACAParameters, exportNACALednicer, exportNACASelig } = useNACAExport()
-const { generateCSTCoordinates } = useCSTParameters()
-const { exportCSTParameters, exportCSTLednicer, exportCSTSelig } = useCSTExport()
 const config = useRuntimeConfig()
 const route = useRoute()
 const router = useRouter()
 
-// State; ?series= holds the tab, one of these values (none = 4-digit)
-const SERIES_TABS = ['4-digit', '5-digit', '16-series', '6-series', 'riblett', 'cst'] as const
-const seriesType = ref<typeof SERIES_TABS[number]>('4-digit')
-const naca4Params = ref<NACA4Params>({
-  m: 0.02, // 2% camber
-  p: 0.4, // 40% chord
-  t: 0.12, // 12% thickness
-  modified: false,
-  le: 6, // leading-edge radius index (modified only)
-  xt: 0.3, // max thickness position (modified only)
-})
-const naca5Params = ref<NACA5Params>({
-  cl: 0.3, // Design Cl
-  p: 0.15, // Position (15%)
-  t: 0.12, // Thickness
-  isReflex: false,
-})
-const naca6Params = ref<NACA6Params>({ family: '64', t: 0.12, cl: 0.2, a: 1 })
-const naca16Params = ref<NACA16Params>({ t: 0.12, cl: 0.2 })
-const riblettParams = ref<RiblettParams>({ series: '35', cusp: 'A', cl: 0.4, t: 0.15, sharpTE: false })
-
-// Default CST weights for a given order (the last weight is 0)
-const cstWeights = (n: number) => {
-  const upperWeights: number[] = []
-  const lowerWeights: number[] = []
-  for (let i = 0; i <= n; i++) {
-    const t = i / n
-    upperWeights.push(parseFloat((0.2 * Math.pow(1 - t, 2) + 0.4 * t * (1 - t)).toFixed(3)))
-    lowerWeights.push(parseFloat((-0.2 * Math.pow(1 - t, 2) - 0.15 * t * (1 - t)).toFixed(3)))
-  }
-  upperWeights[n] = 0
-  lowerWeights[n] = 0
-  return { upperWeights, lowerWeights }
-}
-// LE/TE defaults of the legacy DAE-11 preset; order 3 shows as 4 weights
-const cstParameters = ref<CSTParameters>({ ...cstWeights(3), leWeight: 0.5035, teThickness: 0.0001, order: 3 })
+// State: the open tab (?series= holds it, none = 4-digit) and every family's parameters, kept across tab switches
+const seriesType = ref<Family>('4-digit')
+const params = reactive(structuredClone(Object.fromEntries(FAMILY_KEYS.map(f => [f, AIRFOIL_FAMILIES[f].defaults]))) as unknown as FamilyParams)
 const handleOrderUpdate = (order: number) => {
-  cstParameters.value = { ...cstParameters.value, order, ...cstWeights(order) }
+  params.cst = { ...params.cst, order, ...defaultCSTWeights(order) }
 }
-const cstCoords = (points: number) => {
-  const p = cstParameters.value
-  return generateCSTCoordinates(p.upperWeights, p.lowerWeights, p.leWeight, p.teThickness, p.order, points)
-}
+const family = computed(() => familyDef(seriesType.value))
+// 6-series and Riblett have fixed points
+const coordinates = (analysis: boolean) =>
+  family.value.generate(params[seriesType.value], analysis ? 150 : seriesType.value === 'cst' ? 400 : 100)
 const nacaCoordinates = ref<NACACoordinates | null>(null)
 const analysisResults = ref<any>(null)
 const isLoadingAnalysis = ref(false)
@@ -81,30 +47,14 @@ const handleTooltipsToggled = (enabled: boolean) => {
   tooltipsEnabled.value = enabled
 }
 
-// Generate NACA name
-const currentNacaName = computed(() => {
-  if (seriesType.value === 'cst') return 'CST Airfoil'
-  if (seriesType.value === 'riblett') return generateRiblettName(riblettParams.value)
-  if (seriesType.value === '6-series') return generateNACA6Name(naca6Params.value)
-  if (seriesType.value === '16-series') return generateNACA16Name(naca16Params.value)
-  if (seriesType.value === '4-digit') {
-    return generateNACA4Name(naca4Params.value)
-  } else {
-    return generateNACA5Name(naca5Params.value)
-  }
-})
-
-// 6-series names hold brackets, spaces and =, so downloads use the compact designation; 16-212 -> NACA_16212
-const fileBase = computed(() =>
-  seriesType.value === '6-series'
-    ? `NACA_${compactNACA6Name(naca6Params.value)}`
-    : seriesType.value === '16-series' ? currentNacaName.value.replace(' ', '_').replace('-', '') : undefined
-)
+const currentNacaName = computed(() => family.value.name(params[seriesType.value]))
+const fileBase = computed(() => family.value.fileBase(params[seriesType.value]))
+const crossing = computed(() => seriesType.value === 'parsec' && !!nacaCoordinates.value && surfacesCross(nacaCoordinates.value))
 
 // The static page is rendered without a query, so the tab from ?series= is applied after mount (no hydration mismatch)
 onMounted(() => {
-  const q = route.query.series
-  if (SERIES_TABS.includes(q as typeof SERIES_TABS[number])) seriesType.value = q as typeof SERIES_TABS[number]
+  const q = route.query.series as Family
+  if (FAMILY_KEYS.includes(q)) seriesType.value = q
   regenerateCoordinates()
 })
 watch(seriesType, (s) => {
@@ -113,7 +63,7 @@ watch(seriesType, (s) => {
 
 // Watch for parameter changes
 watch(
-  () => [seriesType.value, naca4Params.value, naca5Params.value, naca6Params.value, naca16Params.value, riblettParams.value, cstParameters.value],
+  () => [seriesType.value, params],
   () => {
     regenerateCoordinates()
     analysisResults.value = null // the old polar belongs to the previous shape
@@ -121,54 +71,35 @@ watch(
   { deep: true }
 )
 
-// Regenerate coordinates from NACA parameters
 const regenerateCoordinates = () => {
-  if (seriesType.value === 'cst') {
-    nacaCoordinates.value = cstCoords(400)
-  } else if (seriesType.value === 'riblett') {
-    nacaCoordinates.value = generateRiblett(riblettParams.value) // 27 tabulated stations
-  } else if (seriesType.value === '16-series') {
-    nacaCoordinates.value = generateNACA16(naca16Params.value, 100)
-  } else if (seriesType.value === '6-series') {
-    nacaCoordinates.value = generateNACA6(naca6Params.value) // point count fixed by the 6-series tables
-  } else if (seriesType.value === '4-digit') {
-    nacaCoordinates.value = generateNACA4(naca4Params.value, 100) // 100 points for visualization
-  } else {
-    nacaCoordinates.value = generateNACA5(naca5Params.value, 100) // 100 points for visualization
-  }
+  nacaCoordinates.value = coordinates(false)
 }
 
-// Handle export NACA parameters
 const handleExportParameters = () => {
   if (!nacaCoordinates.value) return
-  if (seriesType.value === 'cst') return exportCSTParameters(cstParameters.value, 'CST_Airfoil')
-
-  exportNACAParameters(
-    seriesType.value,
-    seriesType.value === '4-digit' ? naca4Params.value : null,
-    seriesType.value === '5-digit' ? naca5Params.value : null,
-    seriesType.value === '6-series' ? naca6Params.value : null,
-    currentNacaName.value,
-    fileBase.value,
-    seriesType.value === 'riblett' ? riblettParams.value : null,
-    seriesType.value === '16-series' ? naca16Params.value : null
-  )
+  if (seriesType.value === 'cst') return exportCSTParameters(params.cst, fileBase.value)
+  exportNACAParameters(seriesType.value, params[seriesType.value], currentNacaName.value, fileBase.value)
 }
 
-// Handle export coordinates in Lednicer format
-const handleExportLednicer = () => {
+// CST files carry CST_Airfoil as the name inside and the _cst_ suffix
+const handleExportCoordinates = (format: 'selig' | 'lednicer') => {
   if (!nacaCoordinates.value) return
-  if (seriesType.value === 'cst') return exportCSTLednicer(nacaCoordinates.value, 'CST_Airfoil')
-
-  exportNACALednicer(nacaCoordinates.value, currentNacaName.value, fileBase.value)
+  const cst = seriesType.value === 'cst'
+  exportCoordinates(nacaCoordinates.value, cst ? fileBase.value : currentNacaName.value, fileBase.value, cst ? 'cst' : 'naca', format)
 }
 
-// Handle export coordinates in Selig format
-const handleExportSelig = () => {
+// Same point list as the Selig file; the label shows the result for 2 s
+const copyState = ref<'idle' | 'copied' | 'failed'>('idle')
+const handleCopyPoints = async () => {
   if (!nacaCoordinates.value) return
-  if (seriesType.value === 'cst') return exportCSTSelig(nacaCoordinates.value, 'CST_Airfoil')
-
-  exportNACASelig(nacaCoordinates.value, currentNacaName.value, fileBase.value)
+  try {
+    await navigator.clipboard.writeText(pointsToClipboardText(nacaCoordinates.value))
+    copyState.value = 'copied'
+  }
+  catch {
+    copyState.value = 'failed' // no clipboard API, or permission refused
+  }
+  setTimeout(() => { copyState.value = 'idle' }, 2000)
 }
 
 // Handle analysis
@@ -189,19 +120,7 @@ const handleAnalyze = async (conditions: {
   error.value = null
 
   try {
-    // Generate denser coordinates for analysis (150 points)
-    const analysisCoords =
-      seriesType.value === 'cst'
-        ? cstCoords(150)
-        : seriesType.value === 'riblett'
-        ? generateRiblett(riblettParams.value)
-        : seriesType.value === '16-series'
-        ? generateNACA16(naca16Params.value, 150)
-        : seriesType.value === '6-series'
-        ? generateNACA6(naca6Params.value)
-        : seriesType.value === '4-digit'
-          ? generateNACA4(naca4Params.value, 150)
-          : generateNACA5(naca5Params.value, 150)
+    const analysisCoords = coordinates(true) // denser: 150 points
 
     // Call backend endpoint
     const response = await $fetch(`${config.public.backendUrl}/api/analyze-transient`, {
@@ -285,7 +204,7 @@ const performanceData = computed(() => {
   <div>
     <PageHeader
       title="Airfoil Generator"
-      subtitle="Generate and analyze NACA 4-digit, 5-digit, 16-series, 6-series, Riblett GA and CST airfoils"
+      subtitle="Generate and analyze NACA 4-digit, 5-digit, 16-series, 6-series, Riblett GA, CST and PARSEC airfoils"
       eyebrow="Tools"
     >
       <template #actions>
@@ -293,13 +212,17 @@ const performanceData = computed(() => {
           <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
           Parameters (CSV)
         </VButton>
-        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportSelig">
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportCoordinates('selig')">
           <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
           Selig (.dat)
         </VButton>
-        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportLednicer">
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleExportCoordinates('lednicer')">
           <Icon name="heroicons:arrow-down-tray-20-solid" class="h-4 w-4 shrink-0" aria-hidden="true" />
           Lednicer (.dat)
+        </VButton>
+        <VButton color="light" size="sm" :disabled="!nacaCoordinates" @click="handleCopyPoints">
+          <Icon :name="copyState === 'copied' ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4 shrink-0" aria-hidden="true" />
+          {{ copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy points' }}
         </VButton>
       </template>
     </PageHeader>
@@ -310,25 +233,17 @@ const performanceData = computed(() => {
         <VPanel title="Parameters">
           <NACAParameterEditor
             :series-type="seriesType"
-            :naca4-params="naca4Params"
-            :naca5-params="naca5Params"
-            :naca6-params="naca6Params"
-            :naca16-params="naca16Params"
-            :riblett-params="riblettParams"
+            :params="params[seriesType]"
             :naca-name="currentNacaName"
             @update:series-type="seriesType = $event"
-            @update:naca4-params="naca4Params = $event"
-            @update:naca5-params="naca5Params = $event"
-            @update:naca6-params="naca6Params = $event"
-            @update:naca16-params="naca16Params = $event"
-            @update:riblett-params="riblettParams = $event"
+            @update:params="params[seriesType] = $event"
           />
         </VPanel>
 
         <CSTParameterEditor
           v-if="seriesType === 'cst'"
-          :parameters="cstParameters"
-          @update:parameters="cstParameters = $event"
+          :parameters="params.cst"
+          @update:parameters="params.cst = $event"
           @update-order="handleOrderUpdate"
         />
 
@@ -347,6 +262,9 @@ const performanceData = computed(() => {
             :zoomable="true"
           />
           <VStateBlock v-else variant="loading" title="Generating airfoil geometry" />
+          <p v-if="crossing" class="mt-2 text-xs text-warning-700" role="status">
+            The upper and lower surfaces cross; adjust the crest or trailing-edge parameters.
+          </p>
         </VPanel>
 
         <VPanel title="Analysis results">
@@ -412,6 +330,15 @@ const performanceData = computed(() => {
           <p class="mt-2">
             Inspiration for the CST generator by
             <a href="https://github.com/matuscvengros/" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-600 hover:underline">Matuscvengros</a>.
+          </p>
+        </section>
+        <section>
+          <h3 class="mb-1 font-semibold text-gray-900">PARSEC</h3>
+          <p>
+            Helmut Sobieczky's PARSEC method (1998) builds each surface from six powers of x, fixed by 11 parameters
+            with a direct geometric meaning: leading-edge radius, the position, height and curvature of the upper and
+            lower crests, and the trailing-edge height, thickness, direction and wedge angle. That makes it a common
+            choice for airfoil optimization, where each parameter moves one visible feature of the shape.
           </p>
         </section>
       </div>

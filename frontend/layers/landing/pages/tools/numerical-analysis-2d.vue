@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import type { NACA16Params, NACA4Params, NACA6Params, RiblettParams } from '~/composables/useNACAGenerator'
+import { AIRFOIL_FAMILIES, type FamilyParams } from '~/utils/airfoilFamilies'
 import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import MfoilDistributionPlots from '~/components/analysis/MfoilDistributionPlots.vue'
@@ -72,13 +72,7 @@ const pickerOpen = computed(() => !slots.value.length || (adding.value && slots.
 type Source = 'library' | NACASpec['kind']
 const SOURCES = [['naca4', 'NACA 4'], ['naca5', 'NACA 5'], ['naca16', 'NACA 16'], ['naca6', 'NACA 6'], ['riblett', 'Riblett'], ['library', 'Library']] as const
 const source = ref<Source>('library')
-const naca = reactive({
-  naca4: { m: 0.02, p: 0.4, t: 0.12, modified: false, le: 6, xt: 0.3 } as NACA4Params,
-  naca5: { cl: 0.3, p: 0.15, t: 0.12, isReflex: false },
-  naca16: { t: 0.12, cl: 0.2 } as NACA16Params,
-  naca6: { family: '64', t: 0.12, cl: 0.2, a: 1 } as NACA6Params,
-  riblett: { series: '35', cusp: 'A', cl: 0.4, t: 0.15, sharpTE: false } as RiblettParams,
-})
+const naca = reactive(structuredClone(Object.fromEntries(Object.entries(SERIES).map(e => [e[0], AIRFOIL_FAMILIES[e[1]].defaults]))) as { [K in keyof typeof SERIES]: FamilyParams[typeof SERIES[K]] })
 const draft = computed(() => {
   const s = source.value
   return s === 'library' || !pickerOpen.value ? null : nacaSpecAirfoil({ kind: s, params: naca[s] } as NACASpec)
@@ -381,17 +375,9 @@ function downloadCSV() {
               <NACAParameterEditor
                 embedded
                 :series-type="SERIES[source]"
-                :naca4-params="naca.naca4"
-                :naca5-params="naca.naca5"
-                :naca6-params="naca.naca6"
-                :naca16-params="naca.naca16"
-                :riblett-params="naca.riblett"
+                :params="naca[source]"
                 :naca-name="draft?.display_name ?? ''"
-                @update:naca4-params="naca.naca4 = $event"
-                @update:naca5-params="naca.naca5 = $event"
-                @update:naca6-params="naca.naca6 = $event"
-                @update:naca16-params="naca.naca16 = $event"
-                @update:riblett-params="naca.riblett = $event"
+                @update:params="naca[source] = $event"
               />
               <VButton
                 type="button"
