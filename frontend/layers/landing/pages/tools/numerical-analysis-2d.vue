@@ -3,10 +3,11 @@ import type { Database } from '~/types/database.types'
 import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import MfoilDistributionPlots from '~/components/analysis/MfoilDistributionPlots.vue'
-import { summarizePolar, useMfoil } from '~/composables/useMfoil'
+import { summarizePolar } from '~/composables/useMfoil'
+import { type MfoilSlot, useMfoilRuns } from '~/composables/useMfoilRuns'
 import { smoothAirfoilCST } from '~/composables/useCSTParameters'
 import { sanitizeFilename, triggerDownload } from '~/composables/useAirfoilDownload'
-import { navTabButtonClasses, tabButtonClasses } from '~/layers/ui/utils/buttons'
+import { navTabButtonClasses, tabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -24,60 +25,47 @@ useSeoMeta({
 })
 
 const MAX_ANGLES = 100
+const MAX_AIRFOILS = 3
 
 const route = useRoute()
 const router = useRouter()
 const { fetchAirfoilByName } = useAirfoils()
-const { points: results, status, progress, error: runError, latestAlpha, run, stop, reset } = useMfoil()
+const { slots, latest, sync, runAll, stopAll } = useMfoilRuns(MAX_AIRFOILS, fetchAirfoilByName)
 
-// Airfoil: the ?airfoil= query is the source of truth; the picker writes to it
-const selected = ref<Airfoil | null>(null)
-const airfoil = ref<Airfoil | null>(null)
-const loading = ref(false)
-const loadError = ref<string | null>(null)
+// Airfoils: the repeated ?airfoil= query is the source of truth, in list order; the picker and remove write to it
+const queryNames = computed(() => [route.query.airfoil ?? []].flat().filter((n): n is string => !!n))
+watch(queryNames, names => sync(names))
+onMounted(() => sync(queryNames.value))
 
-async function loadAirfoil(name: string | undefined) {
-  reset() // results belong to the airfoil they were run for
-  loadError.value = null
-  loading.value = !!name
-  if (!name) {
-    airfoil.value = null
-    selected.value = null
-    return
-  }
-  const stale = () => name !== route.query.airfoil // a newer pick superseded this load
-  try {
-    const data = await fetchAirfoilByName(name)
-    if (stale())
-      return
-    if (!data?.upper_x_coordinates?.length || !data.lower_x_coordinates?.length) {
-      airfoil.value = null
-      loadError.value = data ? 'This airfoil has no geometry data' : 'Airfoil not found'
-      return
-    }
-    airfoil.value = data
-    selected.value = data
-  }
-  catch (err: unknown) {
-    if (stale())
-      return
-    airfoil.value = null
-    loadError.value = err instanceof Error ? err.message : 'Failed to load airfoil'
-  }
-  finally {
-    if (!stale())
-      loading.value = false
-  }
+function setNames(names: string[]) {
+  const { airfoil: _drop, ...rest } = route.query
+  router.replace({ query: names.length ? { ...rest, airfoil: names } : rest })
 }
 
-watch(selected, (a) => {
-  if ((a?.name ?? undefined) === (route.query.airfoil || undefined))
+const picked = ref<Airfoil | null>(null)
+const adding = ref(false)
+watch(picked, (a) => {
+  if (!a)
     return
-  const { airfoil: _drop, ...rest } = route.query
-  router.replace({ query: a ? { ...rest, airfoil: a.name } : rest })
+  picked.value = null
+  adding.value = false
+  const names = slots.value.map(s => s.name)
+  if (!names.includes(a.name))
+    setNames([...names, a.name])
 })
-watch(() => route.query.airfoil as string | undefined, name => loadAirfoil(name))
-onMounted(() => loadAirfoil(route.query.airfoil as string | undefined))
+const removeSlot = (s: MfoilSlot) => setNames(slots.value.filter(x => x.id !== s.id).map(x => x.name))
+
+const label = (s: MfoilSlot) => s.airfoil?.display_name || s.airfoil?.name || s.name
+const color = (s: MfoilSlot) => seriesColor(s.colorIndex)
+const loaded = computed(() => slots.value.filter(s => s.airfoil))
+const geometries = computed(() => loaded.value.map(s => ({
+  name: label(s),
+  color: color(s),
+  upperX: s.airfoil!.upper_x_coordinates ?? [],
+  upperY: s.airfoil!.upper_y_coordinates ?? [],
+  lowerX: s.airfoil!.lower_x_coordinates ?? [],
+  lowerY: s.airfoil!.lower_y_coordinates ?? [],
+})))
 
 // Flow conditions
 const reynolds = ref(1e6)
@@ -113,80 +101,126 @@ const inputError = computed(() => {
   return null
 })
 
-const isRunning = computed(() => status.value === 'running')
+const isRunning = computed(() => slots.value.some(s => s.mfoil.status.value === 'running'))
 const tab = ref<'polars' | 'op'>('polars')
 const followLatest = ref(true) // selected angle follows the latest finished point until the user picks one
+// A slot already finished for this key is not rerun
+const runKey = computed(() => JSON.stringify([reynolds.value, mach.value, ncrit.value, alphas.value, npanel.value, smooth.value]))
 
-function startRun() {
-  const a = airfoil.value
-  if (!a || inputError.value)
-    return
-  followLatest.value = true
-  let geom = { upperX: a.upper_x_coordinates!, upperY: a.upper_y_coordinates ?? [], lowerX: a.lower_x_coordinates!, lowerY: a.lower_y_coordinates ?? [] }
+function geometryFor(a: Airfoil) {
+  const geom = { upperX: a.upper_x_coordinates!, upperY: a.upper_y_coordinates ?? [], lowerX: a.lower_x_coordinates!, lowerY: a.lower_y_coordinates ?? [] }
   if (smooth.value) {
     try {
       const s = smoothAirfoilCST(geom.upperX, geom.upperY, geom.lowerX, geom.lowerY)
-      geom = { upperX: s.upperX, upperY: s.upperY, lowerX: s.lowerX, lowerY: s.lowerY }
+      return { upperX: s.upperX, upperY: s.upperY, lowerX: s.lowerX, lowerY: s.lowerY }
     }
     catch {} // fit failed: run the raw coordinates
   }
-  run({
-    ...geom,
+  return geom
+}
+
+function startRun() {
+  if (!loaded.value.length || inputError.value)
+    return
+  followLatest.value = true
+  runAll(runKey.value, a => ({
+    ...geometryFor(a),
     reynolds: reynolds.value,
     mach: mach.value,
     ncrit: ncrit.value,
     alphas: alphas.value,
     npanel: npanel.value,
-  })
+  }))
 }
 
-const converged = computed(() => results.value.filter(p => p.converged))
-const lastPoint = computed(() => results.value.find(p => p.alpha === latestAlpha.value))
-const airfoilLabel = computed(() => airfoil.value?.display_name || airfoil.value?.name || '')
+const points = (s: MfoilSlot) => s.mfoil.points.value
+const pointAt = (s: MfoilSlot, alpha: number | undefined) => points(s).find(p => p.alpha === alpha)
+const hasResults = computed(() => slots.value.some(s => points(s).length))
+const visibleSlots = computed(() => slots.value.filter(s => s.visible))
+const firstError = computed(() => slots.value.map(s => s.mfoil.error.value).find(e => e) ?? undefined)
 
-const polarData = computed(() => [{
-  name: airfoilLabel.value,
-  alpha: converged.value.map(p => p.alpha),
-  CL: converged.value.map(p => p.cl),
-  CD: converged.value.map(p => p.cd),
-  CM: converged.value.map(p => p.cm),
-}])
+const polarData = computed(() => visibleSlots.value.map((s) => {
+  const c = points(s).filter(p => p.converged)
+  return { name: label(s), color: color(s), alpha: c.map(p => p.alpha), CL: c.map(p => p.cl), CD: c.map(p => p.cd), CM: c.map(p => p.cm) }
+}).filter(d => d.alpha.length))
 
-const summary = computed(() => summarizePolar(results.value))
-
+// One angle selector over every angle any slot has a result for
+const angles = computed(() => [...new Set(slots.value.flatMap(s => points(s).map(p => p.alpha)))].sort((x, y) => x - y))
 const pickedAlpha = ref<number | null>(null)
 const selectedIndex = computed({
   get: () => {
-    const target = followLatest.value ? latestAlpha.value : pickedAlpha.value
-    const i = results.value.findIndex(p => p.alpha === target)
-    return i >= 0 ? i : results.value.length - 1
+    const i = angles.value.indexOf((followLatest.value ? latest.value?.alpha : pickedAlpha.value) ?? Number.NaN)
+    return i >= 0 ? i : angles.value.length - 1
   },
   set: (i: number) => {
     followLatest.value = false
-    pickedAlpha.value = results.value[i]?.alpha ?? null
+    pickedAlpha.value = angles.value[i] ?? null
   },
 })
-const selectedPoint = computed(() => results.value[selectedIndex.value] ?? null)
+const selectedAlpha = computed(() => angles.value[selectedIndex.value])
+const opSeries = computed(() => visibleSlots.value.flatMap((s) => {
+  const point = pointAt(s, selectedAlpha.value)
+  return point ? [{ id: s.id, name: label(s), color: color(s), point }] : []
+}))
+function showAngle(alpha: number) {
+  followLatest.value = false
+  pickedAlpha.value = alpha
+  tab.value = 'op'
+}
 
-const fmt = (v: number | null | undefined, d: number) => ((v == null || !Number.isFinite(v)) ? '—' : v.toFixed(d))
-const ld = (p: { cl: number; cd: number }) => (p.cd > 0 ? p.cl / p.cd : NaN)
-
-const progressText = computed(() => {
-  const { done, total } = progress.value
-  if (status.value === 'running')
-    return `${done} of ${total} angles`
-  if (status.value === 'done')
-    return `Finished: ${converged.value.length} of ${total} angles converged`
-  if (status.value === 'stopped')
-    return `Stopped after ${done} of ${total} angles`
-  return null
+const lastPoint = computed(() => {
+  const l = latest.value
+  const s = l ? slots.value.find(x => x.id === l.id) : undefined
+  const p = s && l ? pointAt(s, l.alpha) : undefined
+  return s && p ? { name: label(s), p } : null
 })
 
+const fmt = (v: number | null | undefined, d: number) => ((v == null || !Number.isFinite(v)) ? '—' : v.toFixed(d))
+const ld = (p: { cl: number; cd: number }) => (p.cd > 0 ? p.cl / p.cd : Number.NaN)
+
+const summaryRows = computed(() => {
+  const sums = loaded.value.map(s => summarizePolar(points(s)))
+  const at = (x: { alpha: number } | null) => (x ? `at α = ${x.alpha}°` : undefined)
+  return [
+    { label: 'CL max', hint: undefined, cells: sums.map(x => ({ value: fmt(x.clMax?.value, 3), hint: at(x.clMax) })) },
+    { label: 'Max L/D', hint: undefined, cells: sums.map(x => ({ value: fmt(x.ldMax?.value, 1), hint: at(x.ldMax) })) },
+    { label: 'CD min', hint: undefined, cells: sums.map(x => ({ value: fmt(x.cdMin?.value, 5), hint: at(x.cdMin) })) },
+    { label: 'Lift slope (/deg)', hint: 'Fit over −5° to 5°', cells: sums.map(x => ({ value: fmt(x.liftSlope, 4), hint: undefined })) },
+    { label: 'Zero-lift angle (deg)', hint: undefined, cells: sums.map(x => ({ value: fmt(x.alphaZeroLift, 2), hint: undefined })) },
+  ]
+})
+
+const progressText = computed(() => {
+  const ran = slots.value.map(s => s.mfoil).filter(m => m.status.value !== 'idle')
+  const sum = (f: (m: MfoilSlot['mfoil']) => number) => ran.reduce((n, m) => n + f(m), 0)
+  const done = sum(m => m.progress.value.done)
+  const total = sum(m => m.progress.value.total)
+  const status = ran.map(m => m.status.value)
+  if (status.includes('running'))
+    return `${done} of ${total} angles`
+  if (status.includes('stopped'))
+    return `Stopped after ${done} of ${total} angles`
+  if (status.includes('done'))
+    return `Finished: ${sum(m => m.points.value.filter(p => p.converged).length)} of ${total} angles converged`
+  return null // nothing run, or every run failed: the rows say why
+})
+
+// Results table: its own airfoil filter, separate from the plot show/hide
+const tableHidden = ref<number[]>([])
+const toggleTable = (id: number) => {
+  tableHidden.value = tableHidden.value.includes(id) ? tableHidden.value.filter(x => x !== id) : [...tableHidden.value, id]
+}
+const withResults = computed(() => slots.value.filter(s => points(s).length))
+const tableSlots = computed(() => withResults.value.filter(s => !tableHidden.value.includes(s.id)))
+const tableRows = computed(() => tableSlots.value.flatMap(s => points(s).map(p => ({ s, p }))))
+
+const csvField = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 function downloadCSV() {
-  const head = ['alpha', 'CL', 'CD', 'CDp', 'CDf', 'CM', 'L/D', 'xtr_upper', 'xtr_lower', 'converged']
-  const rows = results.value.map(p => [p.alpha, p.cl, p.cd, p.cdp, p.cdf, p.cm, ld(p), p.xtrUpper, p.xtrLower, p.converged]
-    .map(v => ((typeof v === 'number' && !Number.isFinite(v)) ? '' : String(v))).join(','))
-  triggerDownload([head.join(','), ...rows].join('\n'), `${sanitizeFilename(airfoil.value?.name ?? 'airfoil')}_mfoil_Re${reynolds.value}.csv`)
+  const head = ['airfoil', 'alpha', 'CL', 'CD', 'CDp', 'CDf', 'CM', 'L/D', 'xtr_upper', 'xtr_lower', 'converged']
+  const rows = tableRows.value.map(({ s, p }) => [csvField(label(s)), ...[p.alpha, p.cl, p.cd, p.cdp, p.cdf, p.cm, ld(p), p.xtrUpper, p.xtrLower, p.converged]
+    .map(v => ((typeof v === 'number' && !Number.isFinite(v)) ? '' : String(v)))].join(','))
+  const base = tableSlots.value.length === 1 ? sanitizeFilename(tableSlots.value[0].name) : 'airfoils'
+  triggerDownload([head.join(','), ...rows].join('\n'), `${base}_mfoil_Re${reynolds.value}.csv`)
 }
 </script>
 
@@ -210,7 +244,58 @@ function downloadCSV() {
       <!-- Inputs -->
       <div class="min-w-0 space-y-6">
         <VPanel title="Airfoil">
-          <SparAirfoilSelector v-model="selected" />
+          <ul v-if="slots.length" class="mb-3 space-y-2" aria-label="Loaded airfoils">
+            <li v-for="s in slots" :key="s.id" class="flex items-center gap-2 text-sm">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-medium uppercase text-gray-900">
+                  {{ label(s) }}
+                </div>
+                <p v-if="s.loading" class="flex items-center gap-1 text-xs text-gray-500">
+                  <Icon name="heroicons:arrow-path" class="h-3 w-3 animate-spin" aria-hidden="true" />
+                  Loading airfoil
+                </p>
+                <p v-else-if="s.loadError" class="text-xs text-error-700">
+                  {{ s.loadError }}
+                </p>
+                <p v-else-if="s.mfoil.status.value === 'error'" class="text-xs text-error-700" role="alert">
+                  {{ s.mfoil.error.value || 'The run failed.' }}
+                </p>
+              </div>
+              <button
+                v-if="s.airfoil"
+                type="button"
+                class="rounded p-1 text-gray-500 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                :aria-pressed="s.visible"
+                :aria-label="`Show ${label(s)} on plots`"
+                @click="s.visible = !s.visible"
+              >
+                <Icon :name="s.visible ? 'heroicons:eye' : 'heroicons:eye-slash'" class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                class="rounded p-1 text-gray-500 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                :aria-label="`Remove ${label(s)}`"
+                @click="removeSlot(s)"
+              >
+                <Icon name="heroicons:x-mark-20-solid" class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </li>
+          </ul>
+          <VButton
+            v-if="slots.length"
+            type="button"
+            color="light"
+            size="sm"
+            :disabled="slots.length >= MAX_AIRFOILS"
+            :aria-expanded="adding"
+            @click="adding = !adding"
+          >
+            {{ slots.length >= MAX_AIRFOILS ? `Limit of ${MAX_AIRFOILS} airfoils` : '+ Load another airfoil' }}
+          </VButton>
+          <div v-if="!slots.length || (adding && slots.length < MAX_AIRFOILS)" :class="slots.length && 'mt-3'">
+            <SparAirfoilSelector v-model="picked" :show-selection-summary="false" />
+          </div>
           <div class="mt-3 flex items-center gap-1.5">
             <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
               <input v-model="smooth" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
@@ -235,17 +320,8 @@ function downloadCSV() {
               </div>
             </div>
           </div>
-          <div class="mt-4">
-            <VStateBlock v-if="loading" variant="loading" title="Loading airfoil" />
-            <VStateBlock v-else-if="loadError" variant="error" title="Could not load airfoil" :description="loadError" />
-            <AirfoilGeometry
-              v-else-if="airfoil"
-              :upper-x="airfoil.upper_x_coordinates ?? []"
-              :upper-y="airfoil.upper_y_coordinates ?? []"
-              :lower-x="airfoil.lower_x_coordinates ?? []"
-              :lower-y="airfoil.lower_y_coordinates ?? []"
-              :aspect-ratio="3"
-            />
+          <div v-if="geometries.length" class="mt-4">
+            <AirfoilGeometry :geometries="geometries" :aspect-ratio="3" />
           </div>
         </VPanel>
 
@@ -296,7 +372,7 @@ function downloadCSV() {
           </div>
 
           <div class="mt-5 border-t border-gray-200 pt-4">
-            <VButton v-if="isRunning" type="button" color="light" block @click="stop">
+            <VButton v-if="isRunning" type="button" color="light" block @click="stopAll">
               <Icon name="heroicons:stop" class="h-4 w-4" aria-hidden="true" />
               Stop
             </VButton>
@@ -305,7 +381,7 @@ function downloadCSV() {
               type="button"
               color="primary"
               block
-              :disabled="!airfoil || !!inputError"
+              :disabled="!loaded.length || !!inputError"
               :aria-describedby="inputError ? 'mf-run-reason' : undefined"
               @click="startRun"
             >
@@ -315,7 +391,7 @@ function downloadCSV() {
             <p v-if="inputError" id="mf-run-reason" class="mt-2 text-xs text-error-700">
               {{ inputError }}
             </p>
-            <p v-else-if="!airfoil" class="mt-2 text-xs text-gray-500">
+            <p v-else-if="!loaded.length" class="mt-2 text-xs text-gray-500">
               Pick an airfoil to run.
             </p>
             <p v-else-if="progressText" class="mt-2 flex items-center gap-1.5 text-xs text-gray-600" role="status">
@@ -328,13 +404,10 @@ function downloadCSV() {
             <p
               v-if="isRunning && lastPoint"
               class="mt-1 text-xs"
-              :class="lastPoint.converged ? 'text-gray-600' : 'text-warning-700'"
+              :class="lastPoint.p.converged ? 'text-gray-600' : 'text-warning-700'"
               aria-live="polite"
             >
-              AoA {{ lastPoint.alpha }}° {{ lastPoint.converged ? 'converged' : 'not converged' }}
-            </p>
-            <p v-if="status === 'error'" class="mt-2 text-xs text-error-700" role="alert">
-              {{ runError || 'The run failed.' }}
+              <span class="uppercase">{{ lastPoint.name }}</span> AoA {{ lastPoint.p.alpha }}° {{ lastPoint.p.converged ? 'converged' : 'not converged' }}
             </p>
           </div>
         </VPanel>
@@ -358,24 +431,39 @@ function downloadCSV() {
           </div>
 
           <div class="p-4 sm:p-5">
-            <VStateBlock v-if="!airfoil" icon="heroicons:magnifying-glass" title="Pick an airfoil" description="Search the database on the left, then run the analysis." />
-            <VStateBlock v-else-if="!results.length && isRunning" variant="loading" title="Running mfoil" description="Results fill in as each angle finishes." />
-            <VStateBlock v-else-if="!results.length && status === 'error'" variant="error" title="Analysis failed" :description="runError || undefined" />
-            <VStateBlock v-else-if="!results.length" icon="heroicons:chart-bar" title="No results yet" description="Set the flow conditions, then run the viscous polar." />
+            <div v-if="hasResults" class="mb-4 flex flex-wrap gap-2" aria-label="Show airfoils on plots">
+              <button
+                v-for="s in withResults"
+                :key="s.id"
+                type="button"
+                :class="toggleButtonClasses(s.visible)"
+                :aria-pressed="s.visible"
+                @click="s.visible = !s.visible"
+              >
+                <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
+                <span class="uppercase">{{ label(s) }}</span>
+              </button>
+            </div>
+
+            <VStateBlock v-if="!loaded.length" icon="heroicons:magnifying-glass" title="Pick an airfoil" description="Search the database on the left, then run the analysis." />
+            <VStateBlock v-else-if="!hasResults && isRunning" variant="loading" title="Running mfoil" description="Results fill in as each angle finishes." />
+            <VStateBlock v-else-if="!hasResults && firstError" variant="error" title="Analysis failed" :description="firstError" />
+            <VStateBlock v-else-if="!hasResults" icon="heroicons:chart-bar" title="No results yet" description="Set the flow conditions, then run the viscous polar." />
+            <VStateBlock v-else-if="!withResults.some(s => s.visible)" icon="heroicons:eye-slash" title="All airfoils are hidden" description="Turn an airfoil back on above to plot it." />
             <!-- v-if, not v-show: charts mount when their tab is visible, so canvases never size to zero -->
             <template v-else-if="tab === 'polars'">
-              <AirfoilPolarPlots v-if="converged.length" :performance-data="polarData" :show-explanation="false" />
+              <AirfoilPolarPlots v-if="polarData.length" :performance-data="polarData" :show-explanation="false" :show-legend="false" />
               <VStateBlock v-else icon="heroicons:chart-bar" title="No converged points yet" />
             </template>
-            <div v-else-if="selectedPoint" class="space-y-4">
+            <div v-else-if="selectedAlpha !== undefined" class="space-y-4">
               <div class="flex flex-wrap items-center gap-2">
                 <VButton type="button" color="light" size="sm" :disabled="selectedIndex <= 0" aria-label="Previous angle" @click="selectedIndex--">
                   <Icon name="heroicons:chevron-left" class="h-4 w-4" aria-hidden="true" />
                 </VButton>
                 <span class="num min-w-[4.5rem] text-center text-sm font-medium text-gray-900">
-                  α = {{ selectedPoint.alpha }}°
+                  α = {{ selectedAlpha }}°
                 </span>
-                <VButton type="button" color="light" size="sm" :disabled="selectedIndex >= results.length - 1" aria-label="Next angle" @click="selectedIndex++">
+                <VButton type="button" color="light" size="sm" :disabled="selectedIndex >= angles.length - 1" aria-label="Next angle" @click="selectedIndex++">
                   <Icon name="heroicons:chevron-right" class="h-4 w-4" aria-hidden="true" />
                 </VButton>
                 <VButton v-if="!followLatest && isRunning" type="button" color="light" size="sm" @click="followLatest = true">
@@ -386,46 +474,94 @@ function downloadCSV() {
                 v-model.number="selectedIndex"
                 type="range"
                 min="0"
-                :max="results.length - 1"
+                :max="angles.length - 1"
                 step="1"
                 class="w-full accent-primary-600"
                 aria-label="Angle of attack"
               >
-              <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-gray-600">
-                <VBadge v-if="!selectedPoint.converged" tone="warning">
-                  Not converged
-                </VBadge>
-                <span>CL <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cl : NaN, 4) }}</span></span>
-                <span>CD <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cd : NaN, 5) }}</span></span>
-                <span>CM <span class="num text-gray-900">{{ fmt(selectedPoint.converged ? selectedPoint.cm : NaN, 4) }}</span></span>
-              </div>
-              <MfoilDistributionPlots :point="selectedPoint" />
+              <ul class="space-y-1 text-sm text-gray-600">
+                <li v-for="o in opSeries" :key="o.id" class="flex flex-wrap items-center gap-x-5 gap-y-1">
+                  <span class="flex min-w-0 items-center gap-1.5 font-medium text-gray-900">
+                    <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: o.color }" aria-hidden="true" />
+                    <span class="truncate uppercase">{{ o.name }}</span>
+                  </span>
+                  <VBadge v-if="!o.point.converged" tone="warning">
+                    Not converged
+                  </VBadge>
+                  <span>CL <span class="num text-gray-900">{{ fmt(o.point.converged ? o.point.cl : NaN, 4) }}</span></span>
+                  <span>CD <span class="num text-gray-900">{{ fmt(o.point.converged ? o.point.cd : NaN, 5) }}</span></span>
+                  <span>CM <span class="num text-gray-900">{{ fmt(o.point.converged ? o.point.cm : NaN, 4) }}</span></span>
+                </li>
+              </ul>
+              <MfoilDistributionPlots :series="opSeries" />
             </div>
           </div>
         </VPanel>
 
-        <template v-if="results.length">
-          <VPanel title="Summary" description="From converged points">
-            <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <VStat label="CL max" :value="fmt(summary.clMax?.value, 3)" :hint="summary.clMax ? `at α = ${summary.clMax.alpha}°` : undefined" />
-              <VStat label="Max L/D" :value="fmt(summary.ldMax?.value, 1)" :hint="summary.ldMax ? `at α = ${summary.ldMax.alpha}°` : undefined" />
-              <VStat label="CD min" :value="fmt(summary.cdMin?.value, 5)" :hint="summary.cdMin ? `at α = ${summary.cdMin.alpha}°` : undefined" />
-              <VStat label="Lift slope" :value="fmt(summary.liftSlope, 4)" unit="/deg" hint="Fit over −5° to 5°" />
-              <VStat label="Zero-lift angle" :value="fmt(summary.alphaZeroLift, 2)" unit="deg" />
-            </dl>
+        <template v-if="hasResults">
+          <VPanel title="Summary" description="From converged points" flush>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr class="border-b border-gray-200">
+                    <th scope="col" class="data-label px-3 py-2 text-left" />
+                    <th v-for="s in loaded" :key="s.id" scope="col" class="data-label whitespace-nowrap px-3 py-2 text-right">
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
+                        <span class="uppercase">{{ label(s) }}</span>
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  <tr v-for="r in summaryRows" :key="r.label">
+                    <th scope="row" class="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-700">
+                      {{ r.label }}
+                      <div v-if="r.hint" class="text-xs font-normal text-gray-500">
+                        {{ r.hint }}
+                      </div>
+                    </th>
+                    <td v-for="(c, j) in r.cells" :key="j" class="whitespace-nowrap px-3 py-2 text-right">
+                      <div class="num text-gray-900">
+                        {{ c.value }}
+                      </div>
+                      <div v-if="c.hint" class="text-xs text-gray-500">
+                        {{ c.hint }}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </VPanel>
 
           <VPanel title="Results" flush>
             <template #actions>
-              <VButton type="button" color="light" size="sm" @click="downloadCSV">
+              <VButton type="button" color="light" size="sm" :disabled="!tableRows.length" @click="downloadCSV">
                 <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
                 Download CSV
               </VButton>
             </template>
+            <div class="flex flex-wrap gap-2 border-b border-gray-200 px-3 py-3" aria-label="Show airfoils in the table">
+              <button
+                v-for="s in withResults"
+                :key="s.id"
+                type="button"
+                :class="toggleButtonClasses(!tableHidden.includes(s.id))"
+                :aria-pressed="!tableHidden.includes(s.id)"
+                @click="toggleTable(s.id)"
+              >
+                <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
+                <span class="uppercase">{{ label(s) }}</span>
+              </button>
+            </div>
             <div class="max-h-[28rem] overflow-auto">
               <table class="min-w-full text-sm">
                 <thead class="sticky top-0 z-10 bg-gray-50">
                   <tr class="border-b border-gray-200">
+                    <th scope="col" class="data-label whitespace-nowrap px-3 py-2 text-left">
+                      Airfoil
+                    </th>
                     <th v-for="h in ['Alpha (deg)', 'CL', 'CD', 'CDp', 'CDf', 'CM', 'L/D', 'xtr upper', 'xtr lower']" :key="h" scope="col" class="data-label whitespace-nowrap px-3 py-2 text-right">
                       {{ h }}
                     </th>
@@ -433,13 +569,19 @@ function downloadCSV() {
                 </thead>
                 <tbody class="divide-y divide-gray-100 bg-white">
                   <tr
-                    v-for="(p, i) in results"
-                    :key="p.alpha"
+                    v-for="{ s, p } in tableRows"
+                    :key="`${s.id}-${p.alpha}`"
                     class="cursor-pointer hover:bg-gray-50"
-                    :class="[p.converged ? 'text-gray-700' : 'bg-warning-50 text-gray-400', i === selectedIndex && 'font-semibold']"
+                    :class="[p.converged ? 'text-gray-700' : 'bg-warning-50 text-gray-400', p.alpha === selectedAlpha && 'font-semibold']"
                     :title="p.reason ? `Not converged: ${p.reason}` : undefined"
-                    @click="selectedIndex = i; tab = 'op'"
+                    @click="showAngle(p.alpha)"
                   >
+                    <td class="whitespace-nowrap px-3 py-1.5">
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: color(s) }" aria-hidden="true" />
+                        <span class="uppercase">{{ label(s) }}</span>
+                      </span>
+                    </td>
                     <td class="num whitespace-nowrap px-3 py-1.5 text-right">
                       <Icon v-if="!p.converged" name="heroicons:exclamation-triangle" class="mr-1 h-3.5 w-3.5 text-warning-600" aria-label="Not converged" />
                       {{ p.alpha }}

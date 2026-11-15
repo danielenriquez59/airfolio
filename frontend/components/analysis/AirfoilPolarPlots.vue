@@ -37,17 +37,20 @@ interface PerformanceDataPoint {
   CL: number[]
   CD: number[]
   CM: number[]
+  color?: string // falls back to the palette by position
 }
 
 interface Props {
   performanceData: PerformanceDataPoint[]
   showControls?: boolean // Whether to show reset zoom and tooltip toggle buttons
   showExplanation?: boolean
+  showLegend?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showControls: true,
-  showExplanation: true
+  showExplanation: true,
+  showLegend: true,
 })
 
 /**
@@ -81,8 +84,8 @@ const generateChartData = (
         x: data.alpha[i],
         y: value,
       })),
-      borderColor: seriesColor(idx),
-      backgroundColor: seriesColor(idx),
+      borderColor: data.color ?? seriesColor(idx),
+      backgroundColor: data.color ?? seriesColor(idx),
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -233,9 +236,9 @@ defineExpose({
 
   <div v-else class="space-y-5">
     <!-- Legend: one swatch per run, colours match the series in every plot -->
-    <ul class="flex max-h-32 flex-wrap gap-x-5 gap-y-1.5 overflow-y-auto text-xs text-gray-700" aria-label="Legend">
+    <ul v-if="showLegend" class="flex max-h-32 flex-wrap gap-x-5 gap-y-1.5 overflow-y-auto text-xs text-gray-700" aria-label="Legend">
       <li v-for="(data, idx) in performanceData" :key="`${idx}-${data.name}`" class="flex items-center gap-1.5">
-        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: seriesColor(idx) }" aria-hidden="true" />
+        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: data.color ?? seriesColor(idx) }" aria-hidden="true" />
         {{ data.name }}
       </li>
     </ul>

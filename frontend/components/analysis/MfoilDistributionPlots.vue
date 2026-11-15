@@ -10,21 +10,20 @@ import {
 } from 'chart.js'
 import type { MfoilPoint, MfoilSurface } from '~/utils/mfoil/index'
 
-const props = defineProps<{ point: MfoilPoint }>()
+const props = defineProps<{ series: { name: string; color: string; point: MfoilPoint }[] }>()
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend)
 applyChartDefaults(ChartJS)
 
-const UPPER = seriesColor(0)
-const LOWER = seriesColor(1)
+const DASH = [5, 4]
 
-function line(label: string, x: number[], y: number[], color: string, dashed = false) {
+function line(label: string, x: number[], y: number[], color: string, dash: number[] = [], width = 2) {
   return {
     label,
     data: x.map((v, i) => ({ x: v, y: y[i] })),
     borderColor: color,
     backgroundColor: color,
-    borderWidth: dashed ? 1.5 : 2,
-    borderDash: dashed ? [5, 4] : [],
+    borderWidth: width,
+    borderDash: dash,
     showLine: true,
     pointRadius: 0,
     pointHoverRadius: 3,
@@ -50,13 +49,13 @@ function marker(label: string, s: MfoilSurface, y: number[], xtr: number, color:
   }
 }
 
-function options(yLabel: string, reverse = false, legend = false): any {
+function options(yLabel: string, reverse = false): any {
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
     plugins: {
-      legend: { ...themedLegend, display: legend },
+      legend: { display: false },
       tooltip: {
         ...themedTooltip,
         callbacks: {
@@ -72,28 +71,27 @@ function options(yLabel: string, reverse = false, legend = false): any {
 }
 
 function blChart(key: 'cf' | 'ds' | 'hk') {
-  const { upper, lower, xtrUpper, xtrLower } = props.point
   return {
-    datasets: [
-      line('Upper', upper.x, upper[key], UPPER),
-      line('Lower', lower.x, lower[key], LOWER),
-      marker('Transition (upper)', upper, upper[key], xtrUpper, UPPER),
-      marker('Transition (lower)', lower, lower[key], xtrLower, LOWER),
-    ],
+    datasets: props.series.flatMap(({ name, color, point: { upper, lower, xtrUpper, xtrLower } }) => [
+      line(`${name} upper`, upper.x, upper[key], color),
+      line(`${name} lower`, lower.x, lower[key], color, DASH),
+      marker(`${name} transition (upper)`, upper, upper[key], xtrUpper, color),
+      marker(`${name} transition (lower)`, lower, lower[key], xtrLower, color),
+    ]),
   }
 }
 
 const cpData = computed(() => ({
-  datasets: [
-    line('Viscous', props.point.x, props.point.cp, chartColors.primary),
-    line('Inviscid', props.point.x, props.point.cpi, chartColors.tick, true),
-  ],
+  datasets: props.series.flatMap(({ name, color, point }) => [
+    line(`${name} viscous`, point.x, point.cp, color),
+    line(`${name} inviscid`, point.x, point.cpi, color, [4, 3], 1),
+  ]),
 }))
 const cfData = computed(() => blChart('cf'))
 const dsData = computed(() => blChart('ds'))
 const hkData = computed(() => blChart('hk'))
 
-const cpOptions = options('Cp', true, true)
+const cpOptions = options('Cp', true)
 const cfOptions = options('Cf')
 const dsOptions = options('δ*/c')
 // Separated flow drives Hk far up; cap the axis so one spike does not flatten the attached-flow values
@@ -101,8 +99,7 @@ const HK_MAX = 8
 const fmtXtr = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : '—') // NaN when the solve failed
 const hkOptions = computed(() => {
   const o = options('Hk')
-  const { upper, lower } = props.point
-  if ([...upper.hk, ...lower.hk].some(h => h > HK_MAX))
+  if (props.series.some(({ point: { upper, lower } }) => [...upper.hk, ...lower.hk].some(h => h > HK_MAX)))
     o.scales.y.max = HK_MAX
   return o
 })
@@ -110,18 +107,33 @@ const hkOptions = computed(() => {
 
 <template>
   <div class="space-y-3">
-    <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-700" aria-label="Boundary-layer legend">
+    <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-700" aria-label="Line style key">
       <li class="flex items-center gap-1.5">
-        <span class="h-2.5 w-2.5 rounded-sm" :style="{ backgroundColor: UPPER }" aria-hidden="true" />
+        <span class="w-5 border-t-2 border-gray-600" aria-hidden="true" />
         Upper surface
       </li>
       <li class="flex items-center gap-1.5">
-        <span class="h-2.5 w-2.5 rounded-sm" :style="{ backgroundColor: LOWER }" aria-hidden="true" />
+        <span class="w-5 border-t-2 border-dashed border-gray-600" aria-hidden="true" />
         Lower surface
       </li>
       <li class="flex items-center gap-1.5">
         <span aria-hidden="true">▲</span>
-        Transition (upper {{ fmtXtr(point.xtrUpper) }}, lower {{ fmtXtr(point.xtrLower) }})
+        Transition
+      </li>
+      <li class="flex items-center gap-1.5">
+        Cp:
+        <span class="w-5 border-t-2 border-gray-600" aria-hidden="true" />
+        viscous
+        <span class="w-5 border-t border-dashed border-gray-600" aria-hidden="true" />
+        inviscid
+      </li>
+    </ul>
+    <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-700" aria-label="Transition locations">
+      <li v-for="s in series" :key="s.name" class="flex items-center gap-1.5">
+        <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: s.color }" aria-hidden="true" />
+        <span class="uppercase">{{ s.name }}</span>
+        xtr upper <span class="num text-gray-900">{{ fmtXtr(s.point.xtrUpper) }}</span>,
+        lower <span class="num text-gray-900">{{ fmtXtr(s.point.xtrLower) }}</span>
       </li>
     </ul>
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
