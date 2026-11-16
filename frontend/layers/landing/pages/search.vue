@@ -27,41 +27,37 @@ const thicknessMin = computed(() => {
   const val = route.query.thicknessMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const thicknessMax = computed(() => {
   const val = route.query.thicknessMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const camberMin = computed(() => {
   const val = route.query.camberMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const camberMax = computed(() => {
   const val = route.query.camberMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  // Convert percentage to decimal (10 -> 0.1, but if already decimal like 0.1, keep it)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const areaMin = computed(() => {
   const val = route.query.areaMin
   if (!val) return undefined
   const num = parseFloat(val as string)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 const areaMax = computed(() => {
   const val = route.query.areaMax
   if (!val) return undefined
   const num = parseFloat(val as string)
-  return num >= 1 ? num / 100 : num
+  return num / 100
 })
 
 const categoryIds = computed(() => {
@@ -178,8 +174,8 @@ useInfiniteScroll(
 )
 
 useHead({
-  title: searchQuery.value 
-    ? `${searchQuery.value} - Search Airfoils | Airfolio` 
+  title: () => searchQuery.value
+    ? `${searchQuery.value} - Search Airfoils | Airfolio`
     : 'Search Airfoils - Airfolio',
   meta: [
     {
@@ -192,123 +188,134 @@ useHead({
 
 <template>
   <div>
-      <!-- Header with Results Count and Sort Controls -->
-      <div class="mb-6 flex items-start justify-between">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Search Results</h1>
-          <p v-if="!isLoading" class="text-sm text-gray-600 mt-1">
-            Airfoils Found: <span class="font-semibold">{{ totalCount }}</span>
+    <PageHeader title="Airfoil search" />
+
+    <LandingSearchBar>
+      <template #toolbar>
+        <!-- Results toolbar: count + sort -->
+        <div class="mb-3 mt-4 flex items-center justify-between gap-3">
+          <p class="text-sm text-gray-600" aria-live="polite">
+            <template v-if="isLoading">
+              Searching…
+            </template>
+            <template v-else>
+              <span class="num font-medium text-gray-900">{{ totalCount }}</span>
+              {{ totalCount === 1 ? 'airfoil' : 'airfoils' }}
+            </template>
           </p>
-        </div>
 
-        <!-- Sort Controls -->
-        <div class="flex">
-          <!-- Sort By Dropdown -->
-          <Menu as="div" class="relative">
-            <MenuButton
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
-            >
-              <span class="text-gray-500">Sort:</span>
-              {{ currentSortLabel }}
-              <Icon name="heroicons:chevron-down" class="w-4 h-4 text-gray-400" />
-            </MenuButton>
-
-            <transition
-              enter-active-class="transition duration-100 ease-out"
-              enter-from-class="transform scale-95 opacity-0"
-              enter-to-class="transform scale-100 opacity-100"
-              leave-active-class="transition duration-75 ease-in"
-              leave-from-class="transform scale-100 opacity-100"
-              leave-to-class="transform scale-95 opacity-0"
-            >
-              <MenuItems
-                class="absolute right-0 z-10 mt-1 w-36 origin-top-right bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+          <div class="flex">
+            <Menu as="div" class="relative">
+              <MenuButton
+                class="inline-flex h-9 items-center gap-1.5 rounded-l-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary-500"
               >
-                <div class="py-1">
+                <span class="text-gray-500">Sort:</span>
+                {{ currentSortLabel }}
+                <Icon name="heroicons:chevron-down" class="h-4 w-4 text-gray-400" />
+              </MenuButton>
+
+              <transition
+                enter-active-class="transition duration-100 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-75 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+              >
+                <MenuItems
+                  class="absolute right-0 z-20 mt-1 w-44 origin-top-right rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none"
+                >
                   <MenuItem
                     v-for="option in sortOptions"
                     :key="option.value"
                     v-slot="{ active }"
                   >
                     <button
-                      class="w-full text-left px-4 py-2 text-sm"
+                      class="flex w-full items-center justify-between px-3 py-2 text-left text-sm"
                       :class="[
-                        active ? 'bg-gray-100' : '',
-                        sortBy === option.value ? 'text-indigo-600 font-medium' : 'text-gray-700'
+                        active ? 'bg-gray-50' : '',
+                        sortBy === option.value ? 'font-medium text-primary-700' : 'text-gray-700',
                       ]"
                       @click="updateSort(option.value)"
                     >
                       {{ option.label }}
+                      <Icon v-if="sortBy === option.value" name="heroicons:check" class="h-4 w-4" />
                     </button>
                   </MenuItem>
-                </div>
-              </MenuItems>
-            </transition>
-          </Menu>
+                </MenuItems>
+              </transition>
+            </Menu>
 
-          <!-- Sort Direction Toggle -->
-          <button
-            class="inline-flex items-center px-2.5 py-1.5 text-gray-700 bg-white border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
-            :title="sortDir === 'asc' ? 'Ascending' : 'Descending'"
-            @click="toggleSortDirection"
+            <button
+              class="-ml-px inline-flex h-9 items-center rounded-r-lg border border-gray-300 bg-white px-2.5 text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary-500"
+              :title="sortDir === 'asc' ? 'Ascending' : 'Descending'"
+              :aria-label="sortDir === 'asc' ? 'Sort ascending (click for descending)' : 'Sort descending (click for ascending)'"
+              @click="toggleSortDirection"
+            >
+              <Icon
+                :name="sortDir === 'asc' ? 'heroicons:bars-arrow-up' : 'heroicons:bars-arrow-down'"
+                class="h-4 w-4"
+              />
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <template #default="{ clearFilters }">
+        <!-- Loading State (Initial Load) -->
+        <div v-if="isLoading" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <AirfoilCardSkeleton
+            v-for="i in 12"
+            :key="`skeleton-${i}`"
+            thumbnail
+          />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="searchResults.length === 0" class="rounded-xl border border-gray-200 bg-white">
+          <VStateBlock
+            title="No airfoils match these filters"
+            description="Try widening the ranges or removing a category."
+            icon="heroicons:magnifying-glass"
           >
-            <Icon
-              :name="sortDir === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-              class="w-4 h-4"
-            />
-          </button>
+            <VButton color="primary" @click="clearFilters">
+              Clear filters
+            </VButton>
+            <VButton to="/">
+              Return to Home
+            </VButton>
+          </VStateBlock>
         </div>
-      </div>
 
-      <!-- Loading State (Initial Load) -->
-      <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <AirfoilCardSkeleton
-          v-for="i in 20"
-          :key="`skeleton-${i}`"
-          thumbnail
-        />
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="!isLoading && searchResults.length === 0" class="text-center py-12">
-        <p class="text-gray-500 text-lg mb-4">No airfoils found matching your criteria.</p>
-        <NuxtLink
-          to="/"
-          class="text-indigo-600 hover:text-indigo-800 underline"
-        >
-          Return to Home
-        </NuxtLink>
-      </div>
-
-      <!-- Results Grid -->
-      <div
-        v-else
-        class="grid grid-cols-1 md:grid-cols-3 gap-3"
-      >
-        <AirfoilCard
-          v-for="airfoil in searchResults"
-          :key="airfoil.id"
-          :airfoil="airfoil"
-          thumbnail
-        />
-
-        <!-- Loading More Indicator -->
+        <!-- Results Grid -->
         <div
-          v-if="isLoadingMore"
-          class="col-span-full flex items-center justify-center py-8"
+          v-else
+          class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          <span class="ml-3 text-gray-600">Loading more...</span>
-        </div>
+          <AirfoilCard
+            v-for="airfoil in searchResults"
+            :key="airfoil.id"
+            :airfoil="airfoil"
+            thumbnail
+          />
 
-        <!-- End of Results Message -->
-        <div
-          v-if="!hasMore && searchResults.length > 0"
-          class="col-span-full text-center py-8 text-gray-500"
-        >
-          No more results to load
+          <!-- Loading More Indicator -->
+          <VStateBlock
+            v-if="isLoadingMore"
+            variant="loading"
+            description="Loading more…"
+            class="col-span-full"
+          />
+
+          <!-- End of Results Message -->
+          <p
+            v-if="!hasMore && searchResults.length > 0"
+            class="col-span-full py-6 text-center text-sm text-gray-500"
+          >
+            End of results · <span class="num">{{ totalCount }}</span> shown
+          </p>
         </div>
-      </div>
+      </template>
+    </LandingSearchBar>
   </div>
 </template>
-

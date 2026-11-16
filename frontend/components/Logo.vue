@@ -1,19 +1,3 @@
-<template>
-  <div class="relative inline-flex items-center">
-    <!-- Paper plane icon positioned behind the text -->
-    <img
-      src="/paper-plane.svg"
-      alt="Paper plane"
-      class="absolute z-0 opacity-60 transform -translate-x-1/2 -translate-y-1/4"
-      :class="iconClass"
-    />
-    <!-- Airfolio text -->
-    <span class="relative z-10 font-bold tracking-tight text-gray-900" :class="textClass">
-      Airfolio
-    </span>
-  </div>
-</template>
-
 <script setup lang="ts">
 interface Props {
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -46,3 +30,19 @@ const textClass = computed(() => sizeClasses[props.size].text)
 const iconClass = computed(() => sizeClasses[props.size].icon)
 </script>
 
+<template>
+  <div class="relative inline-flex items-center">
+    <!-- Paper plane icon positioned behind the text -->
+    <img
+      src="/paper-plane.svg"
+      alt=""
+      aria-hidden="true"
+      class="absolute z-0 opacity-60 transform -translate-x-1/2 -translate-y-1/4"
+      :class="iconClass"
+    >
+    <!-- Airfolio text -->
+    <span class="relative z-10 font-bold tracking-tight text-gray-900" :class="textClass">
+      Airfolio
+    </span>
+  </div>
+</template>

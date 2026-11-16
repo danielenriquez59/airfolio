@@ -79,8 +79,6 @@ pip install -r requirements.txt
 
 **Nuxt 3 Layers System:**
 The frontend uses Nuxt's layer system for modular organization:
-- `frontend/layers/admin/` - Admin panel layer
-- `frontend/layers/auth/` - Authentication layer
 - `frontend/layers/landing/` - Landing page layer
 - `frontend/layers/ui/` - UI component library layer
 

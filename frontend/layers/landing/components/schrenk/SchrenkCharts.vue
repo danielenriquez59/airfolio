@@ -13,7 +13,7 @@ import {
   Filler,
 } from 'chart.js'
 import type { CalculationResult } from '~/types/schrenk.types'
-import { inlineTabButtonClasses, copiedButtonClasses } from '~/layers/ui/utils/buttons'
+import { inlineTabButtonClasses, copiedButtonClasses, tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 // Register Chart.js components
 ChartJS.register(
@@ -26,6 +26,7 @@ ChartJS.register(
   Legend,
   Filler
 )
+applyChartDefaults(ChartJS)
 
 // Register zoom plugin only on client side
 if (process.client) {
@@ -65,7 +66,7 @@ const createRootStationLine = (yMin: number, yMax: number) => ({
     { x: rootStation.value, y: yMin },
     { x: rootStation.value, y: yMax },
   ],
-  borderColor: '#94a3b8',
+  borderColor: chartColors.tick,
   backgroundColor: 'transparent',
   borderWidth: 1,
   borderDash: [3, 3],
@@ -96,8 +97,8 @@ const liftDistChartData = computed(() => {
       {
         label: 'Chord',
         data: props.data.schrenkData.map(d => ({ x: d.station_in, y: d.chord_ft })),
-        borderColor: '#3b82f6',
-        backgroundColor: '#3b82f620',
+        borderColor: seriesPalette[0],
+        backgroundColor: `${seriesPalette[0]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -106,8 +107,8 @@ const liftDistChartData = computed(() => {
       {
         label: 'Ellipse',
         data: props.data.schrenkData.map(d => ({ x: d.station_in, y: d.ellipse })),
-        borderColor: '#ef4444',
-        backgroundColor: '#ef444420',
+        borderColor: seriesPalette[3],
+        backgroundColor: `${seriesPalette[3]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -116,8 +117,8 @@ const liftDistChartData = computed(() => {
       {
         label: 'Schrenk cCla',
         data: props.data.schrenkData.map(d => ({ x: d.station_in, y: d.screnk_cCla })),
-        borderColor: '#10b981',
-        backgroundColor: '#10b98120',
+        borderColor: seriesPalette[2],
+        backgroundColor: `${seriesPalette[2]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -142,8 +143,8 @@ const localClaChartData = computed(() => {
       {
         label: 'Local Cla',
         data: props.data.schrenkData.map(d => ({ x: d.station_in, y: d.unit_Cla })),
-        borderColor: '#8b5cf6',
-        backgroundColor: '#8b5cf620',
+        borderColor: seriesPalette[4],
+        backgroundColor: `${seriesPalette[4]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -176,8 +177,8 @@ const shearChartData = computed(() => {
       {
         label: 'Total',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[shearKey] })),
-        borderColor: '#22c55e',
-        backgroundColor: '#22c55e20',
+        borderColor: seriesPalette[2],
+        backgroundColor: `${seriesPalette[2]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -186,8 +187,8 @@ const shearChartData = computed(() => {
       {
         label: 'Aero',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[aeroKey] })),
-        borderColor: '#3b82f6',
-        backgroundColor: '#3b82f620',
+        borderColor: seriesPalette[0],
+        backgroundColor: `${seriesPalette[0]}20`,
         borderWidth: 1,
         borderDash: [5, 5],
         pointRadius: 0,
@@ -196,8 +197,8 @@ const shearChartData = computed(() => {
       {
         label: 'Inertia',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[inertiaKey] })),
-        borderColor: '#ef4444',
-        backgroundColor: '#ef444420',
+        borderColor: seriesPalette[3],
+        backgroundColor: `${seriesPalette[3]}20`,
         borderWidth: 1,
         borderDash: [5, 5],
         pointRadius: 0,
@@ -230,8 +231,8 @@ const momentChartData = computed(() => {
       {
         label: 'Total',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[momentKey] })),
-        borderColor: '#f59e0b',
-        backgroundColor: '#f59e0b20',
+        borderColor: seriesPalette[1],
+        backgroundColor: `${seriesPalette[1]}20`,
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -240,8 +241,8 @@ const momentChartData = computed(() => {
       {
         label: 'Aero',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[aeroKey] })),
-        borderColor: '#3b82f6',
-        backgroundColor: '#3b82f620',
+        borderColor: seriesPalette[0],
+        backgroundColor: `${seriesPalette[0]}20`,
         borderWidth: 1,
         borderDash: [5, 5],
         pointRadius: 0,
@@ -250,8 +251,8 @@ const momentChartData = computed(() => {
       {
         label: 'Inertia',
         data: props.data.loadData.map(d => ({ x: d.station_in, y: d[inertiaKey] })),
-        borderColor: '#ef4444',
-        backgroundColor: '#ef444420',
+        borderColor: seriesPalette[3],
+        backgroundColor: `${seriesPalette[3]}20`,
         borderWidth: 1,
         borderDash: [5, 5],
         pointRadius: 0,
@@ -267,11 +268,13 @@ const getChartOptions = (yLabel: string, showLegend: boolean) => ({
   maintainAspectRatio: false,
   plugins: {
     legend: {
+      ...themedLegend,
       display: showLegend,
       position: 'top' as const,
       filter: (legendItem: any) => legendItem.text !== 'Root Station',
     },
     tooltip: {
+      ...themedTooltip,
       mode: 'index' as const,
       intersect: false,
       callbacks: {
@@ -298,37 +301,14 @@ const getChartOptions = (yLabel: string, showLegend: boolean) => ({
   },
   scales: {
     x: {
+      ...themedAxis('Station (in)'),
       type: 'linear' as const,
       position: 'bottom' as const,
-      title: {
-        display: true,
-        text: 'Station (in)',
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
       min: 0,
     },
     y: {
+      ...themedAxis(yLabel),
       type: 'linear' as const,
-      title: {
-        display: true,
-        text: yLabel,
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-        drawBorder: false,
-      },
     },
   },
   elements: {
@@ -408,30 +388,33 @@ const copyDataToClipboard = async () => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex flex-col h-full">
-    <div class="border-b border-gray-200 bg-gray-50 px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-2">
-      <nav class="flex space-x-4" aria-label="Tabs">
+  <div class="flex h-full flex-col rounded-xl border border-gray-200 bg-white">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-2">
+      <nav class="flex flex-wrap gap-1" aria-label="Charts">
         <button
           v-for="tab in tabs"
           :key="tab.id"
           type="button"
           :class="inlineTabButtonClasses(activeTab === tab.id)"
+          :aria-pressed="activeTab === tab.id"
           @click="activeTab = tab.id"
         >
           {{ tab.label }}
         </button>
       </nav>
 
-      <div class="flex items-center gap-2">
-        <div v-if="showLoadToggle" class="flex items-center space-x-2 bg-white rounded-md border border-gray-300 px-2 py-1">
-          <span class="text-xs font-semibold text-gray-500 uppercase">Loads:</span>
-          <select
-            v-model="loadType"
-            class="text-sm border-none py-1 pl-2 pr-6 focus:ring-0 text-gray-700 font-medium bg-transparent cursor-pointer"
+      <div class="flex flex-wrap items-center gap-2">
+        <div v-if="showLoadToggle" class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Load case">
+          <button
+            v-for="opt in (['limit', 'ultimate'] as const)"
+            :key="opt"
+            type="button"
+            :class="tabButtonClasses(loadType === opt)"
+            :aria-pressed="loadType === opt"
+            @click="loadType = opt"
           >
-            <option value="limit">Limit</option>
-            <option value="ultimate">Ultimate</option>
-          </select>
+            {{ opt === 'limit' ? 'Limit' : 'Ultimate' }}
+          </button>
         </div>
 
         <button
@@ -440,18 +423,13 @@ const copyDataToClipboard = async () => {
           title="Copy chart data to clipboard"
           @click="copyDataToClipboard"
         >
-          <svg v-if="!isCopied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg>
+          <Icon :name="isCopied ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" aria-hidden="true" />
           {{ isCopied ? 'Copied!' : 'Copy Data' }}
         </button>
       </div>
     </div>
 
-    <div class="p-4 flex-1 min-h-[400px]">
+    <div class="min-h-[360px] flex-1 p-4">
       <Line
         v-if="activeTab === 'dist'"
         :data="liftDistChartData"
@@ -475,4 +453,3 @@ const copyDataToClipboard = async () => {
     </div>
   </div>
 </template>
-

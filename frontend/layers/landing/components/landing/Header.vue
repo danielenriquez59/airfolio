@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { NavigationItem } from '~~/types'
 
+// hideBg is still accepted so existing layouts keep working; the background blob is gone.
 defineProps<{
   hideHero?: boolean
   hideBg?: boolean
@@ -9,67 +10,45 @@ defineProps<{
 const navigation: NavigationItem[] = [
   { title: 'Home', to: '/' },
   { title: 'Airfoils', to: '/search' },
-    {
-      title: 'Tools',
-      to: '#',
-      children: [
-        { title: 'Performance Compare', to: '/performance' },
-        { title: 'Geometry Compare', to: '/geometry-compare' },
-        { title: 'Upload', to: '/upload' },
-        { title: 'CST Generator', to: '/cst-visualizer' },
-        { title: 'NACA Generator', to: '/tools/naca-generator' },
-        { title: 'Bezier Fit', to: '/tools/bezier-fit' },
-        { title: 'Structural Loading Calculator', to: '/tools/schrenk-calculator' },
-        { title: 'Spar Inertia Calculator', to: '/tools/spar-inertia-calculator' },
-        { title: 'Airfoil Manager', to: '/airfoils-manager' },
+  {
+    title: 'Tools',
+    to: '#',
+    children: [
+      { header: 'Compare' },
+      { title: 'Performance Compare', to: '/performance' },
+      { title: 'Geometry Compare', to: '/geometry-compare' },
+      { divider: true },
+      { header: 'Analyze' },
+      { title: 'Numerical Analysis 2D', to: '/tools/numerical-analysis-2d' },
+      { divider: true },
+      { header: 'Generate' },
+      { title: 'Upload', to: '/upload' },
+      { title: 'Airfoil Generator', to: '/tools/airfoil-generator' },
+      { title: 'Bezier Fit', to: '/tools/bezier-fit' },
+      { divider: true },
+      { header: 'Structures' },
+      { title: 'Structural Loading Calculator', to: '/tools/schrenk-calculator' },
+      { title: 'Spar Inertia Calculator', to: '/tools/spar-inertia-calculator' },
+      { divider: true },
+      { header: 'Admin' },
+      { title: 'Airfoil Manager', to: '/airfoils-manager' },
+      { title: 'Categories Manager', to: '/categories-manager' },
     ],
-    },
+  },
   { title: 'About', to: '/about' },
 ]
 </script>
 
 <template>
-  <div
-    class="bg-white" :class="{
-      isolate: $route.path === '/',
-    }"
+  <a
+    href="#main"
+    class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-700 focus:ring-2 focus:ring-primary-500"
   >
-    <div v-if="!hideBg" class="absolute inset-x-0 top-[-10rem] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[-20rem]">
-      <svg class="blob-top relative left-[calc(50%-11rem)] -z-10 h-[21.1875rem] max-w-none -translate-x-1/2 rotate-[30deg] sm:left-[calc(50%-30rem)] sm:h-[42.375rem]" viewBox="0 0 1155 678" xmlns="http://www.w3.org/2000/svg">
-        <path fill="url(#45de2b6b-92d5-4d68-a6a0-9b9b2abad533)" fill-opacity=".3" d="M317.219 518.975L203.852 678 0 438.341l317.219 80.634 204.172-286.402c1.307 132.337 45.083 346.658 209.733 145.248C936.936 126.058 882.053-94.234 1031.02 41.331c119.18 108.451 130.68 295.337 121.53 375.223L855 299l21.173 362.054-558.954-142.079z" />
-        <defs>
-          <linearGradient id="45de2b6b-92d5-4d68-a6a0-9b9b2abad533" x1="1155.49" x2="-78.208" y1=".177" y2="474.645" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#3B82F6" />
-            <stop offset="1" stop-color="#60A5FA" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-    <div class="px-6 py-6 lg:px-8">
-      <LandingNav :navigation="navigation" />
-      <LandingMobileNav :navigation="navigation" />
-    </div>
-    <LandingHero v-if="!hideHero" />
-  </div>
+    Skip to content
+  </a>
+  <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur">
+    <LandingNav :navigation="navigation" />
+  </header>
+  <LandingMobileNav :navigation="navigation" />
+  <LandingHero v-if="!hideHero" />
 </template>
-
-<style scoped>
-@keyframes blob-float-top {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(10px, -15px) rotate(5deg);
-  }
-  50% {
-    transform: translate(20px, 10px) rotate(10deg);
-  }
-  75% {
-    transform: translate(-15px, 5px) rotate(5deg);
-  }
-}
-
-.blob-top {
-  animation: blob-float-top 8s ease-in-out infinite;
-}
-</style>

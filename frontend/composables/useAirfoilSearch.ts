@@ -39,8 +39,9 @@ export const useAirfoilSearch = () => {
   /**
    * Search airfoils with filters
    * Uses fuzzy name search with pg_trgm for query matching
+   * `columns` narrows the download; rows then hold only those columns despite the Airfoil type
    */
-  const searchAirfoils = async (params: SearchParams = {}): Promise<SearchResult> => {
+  const searchAirfoils = async (params: SearchParams = {}, columns = '*'): Promise<SearchResult> => {
     const {
       query,
       includeName,
@@ -63,7 +64,7 @@ export const useAirfoilSearch = () => {
     // Build query
     let supabaseQuery = supabase
       .from('airfoils')
-      .select('*', { count: 'exact' })
+      .select(columns as '*', { count: 'exact' })
 
     // Fuzzy name search - use ilike for partial matching
     // For full pg_trgm fuzzy search, you may need a database function or RPC call
@@ -76,6 +77,12 @@ export const useAirfoilSearch = () => {
     if (includeName && includeName.trim()) {
       const includeTerm = `%${includeName.trim()}%`
       supabaseQuery = supabaseQuery.ilike('name', includeTerm)
+    }
+
+    // Exclude name filter
+    if (excludeName && excludeName.trim()) {
+      const excludeTerm = `%${excludeName.trim()}%`
+      supabaseQuery = supabaseQuery.not('name', 'ilike', excludeTerm)
     }
 
     // Thickness filter
@@ -107,52 +114,26 @@ export const useAirfoilSearch = () => {
       supabaseQuery = supabaseQuery.in('category', categoryIds)
     }
 
-    // For exclude filter, we need to fetch all matching results first, then filter client-side
-    // because Supabase PostgREST doesn't directly support NOT ILIKE
-    const needsExcludeFilter = excludeName && excludeName.trim()
-
     // Map sort field to database column
     const sortColumn =
       sortBy === 'thickness' ? 'thickness_pct'
         : sortBy === 'camber' ? 'camber_pct'
           : sortBy === 'uploadDate' ? 'created_at'
             : 'name'
-    let orderedQuery = supabaseQuery.order(sortColumn, { ascending: sortDir === 'asc' })
-    
-    if (!needsExcludeFilter) {
-      // Normal pagination when no exclude filter
-      orderedQuery = orderedQuery.range(offset, offset + limit - 1)
-    }
-    // If exclude filter needed, fetch all results (no range limit)
-
-    const { data, error, count: rawCount } = await orderedQuery
+    const { data, error, count } = await supabaseQuery
+      .order(sortColumn, { ascending: sortDir === 'asc' })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('Error searching airfoils:', error)
       throw error
     }
 
-    let filteredData = data || []
-    let finalCount = rawCount || 0
-
-    // Apply exclude filter client-side if needed
-    if (needsExcludeFilter && filteredData.length > 0) {
-      const excludeTerm = excludeName.trim().toLowerCase()
-      filteredData = filteredData.filter(airfoil => 
-        !airfoil.name.toLowerCase().includes(excludeTerm)
-      )
-      finalCount = filteredData.length
-      
-      // Apply pagination after filtering
-      const startIdx = offset
-      const endIdx = offset + limit
-      filteredData = filteredData.slice(startIdx, endIdx)
-    }
-
+    const finalCount = count || 0
     const totalPages = finalCount ? Math.ceil(finalCount / limit) : 0
 
     return {
-      data: filteredData,
+      data: data || [],
       count: finalCount,
       page,
       limit,

@@ -81,114 +81,98 @@ const handleSubmit = async (e: Event) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
-    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <div class="flex items-center justify-center gap-3 mb-4">
-          <BugIcon 
-            v-if="formType?.value === 'bug'" 
-            size="32" 
-            class="text-gray-600" 
-          />
-          <h1 class="text-3xl font-bold text-gray-900">Contact Us</h1>
-        </div>
-        <p class="text-xl text-gray-600">
-          Report bugs or request features. We'd love to hear from you!
-        </p>
-      </div>
+  <div class="page-container py-8">
+    <div class="max-w-2xl">
+      <PageHeader
+        title="Contact Us"
+        subtitle="Report bugs or request features. We'd love to hear from you!"
+      />
 
-      <!-- Form Card -->
-      <VCard class="shadow-lg">
-        <VCardBody>
-          <form
-            name="contact"
-            method="POST"
-            data-netlify="true"
-            @submit="handleSubmit"
+      <VPanel title="Send a message" description="All fields are required.">
+        <form
+          name="contact"
+          method="POST"
+          data-netlify="true"
+          class="space-y-5"
+          @submit="handleSubmit"
+        >
+          <!-- Hidden input for Netlify form detection -->
+          <input type="hidden" name="form-name" value="contact" />
+
+          <div
+            v-if="submitStatus === 'success'"
+            class="flex items-start gap-2 rounded-lg border border-success-200 bg-success-50 p-3 text-sm text-success-800"
+            role="status"
           >
+            <Icon name="heroicons:check-circle" class="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <p>Thank you! Your message has been submitted successfully. We'll get back to you soon.</p>
+          </div>
+
+          <div
+            v-if="submitStatus === 'error' && errorMessage"
+            class="flex items-start gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-800"
+            role="alert"
+          >
+            <Icon name="heroicons:exclamation-triangle" class="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <p>{{ errorMessage }}</p>
+          </div>
+
+          <VInput
+            v-model="email"
+            type="email"
+            name="email"
+            label="Email"
+            aria-label="Email"
+            autocomplete="email"
+            placeholder="your.email@example.com"
+            required
+          />
+
+          <div>
+            <span id="contact-type-label" class="mb-1.5 flex items-center gap-2 text-sm font-medium text-gray-700">
+              Type
+              <BugIcon
+                v-if="formType?.value === 'bug'"
+                size="16"
+                class="text-gray-500"
+              />
+            </span>
+            <VSelect
+              v-model="formType"
+              :items="typeOptions"
+              placeholder="Select type..."
+              aria-labelledby="contact-type-label"
+            />
             <!-- Hidden input for Netlify form detection -->
-            <input type="hidden" name="form-name" value="contact" />
-
-            <!-- Success Message -->
-            <div
-              v-if="submitStatus === 'success'"
-              class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
-            >
-              <p class="text-green-800 font-medium">
-                Thank you! Your message has been submitted successfully. We'll get back to you soon.
-              </p>
-            </div>
-
-            <!-- Error Message -->
-            <div
-              v-if="submitStatus === 'error' && errorMessage"
-              class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
-            >
-              <p class="text-red-800 font-medium">
-                {{ errorMessage }}
-              </p>
-            </div>
-
-            <!-- Email Input -->
-            <VInput
-              v-model="email"
-              type="email"
-              name="email"
-              label="Email"
-              placeholder="your.email@example.com"
-              wrapper-class="mb-6"
-              required
+            <input
+              type="hidden"
+              name="type"
+              :value="formType?.value || ''"
             />
+          </div>
 
-            <!-- Type Selector -->
-            <div class="mb-6">
-              <label class="flex items-center gap-2 text-gray-800 font-medioum tracking-wide text-sm mb-1">
-                Type
-                <BugIcon 
-                  v-if="formType?.value === 'bug'" 
-                  size="16" 
-                  class="text-gray-600" 
-                />
-              </label>
-              <VSelect
-                v-model="formType"
-                :items="typeOptions"
-                placeholder="Select type..."
-              />
-              <!-- Hidden input for Netlify form detection -->
-              <input
-                type="hidden"
-                name="type"
-                :value="formType?.value || ''"
-              />
-            </div>
+          <VTextarea
+            v-model="description"
+            name="description"
+            label="Description"
+            aria-label="Description"
+            :placeholder="placeholderText"
+            :rows="8"
+            required
+          />
 
-            <!-- Description Textarea -->
-            <VTextarea
-              v-model="description"
-              name="description"
-              label="Description"
-              :placeholder="placeholderText"
-              wrapper-class="mb-6"
-              :rows="8"
-              required
-            />
-
-            <!-- Submit Button -->
+          <div class="flex justify-end border-t border-gray-200 pt-4">
             <VButton
               type="submit"
               color="primary"
-              block
+              class="w-full sm:w-auto"
               :disabled="isSubmitting"
             >
-              <span v-if="isSubmitting">Submitting...</span>
-              <span v-else>Submit</span>
+              {{ isSubmitting ? 'Submitting...' : 'Submit' }}
             </VButton>
-          </form>
-        </VCardBody>
-      </VCard>
+          </div>
+        </form>
+      </VPanel>
     </div>
   </div>
 </template>
-

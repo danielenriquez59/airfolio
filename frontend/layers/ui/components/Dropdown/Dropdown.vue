@@ -55,9 +55,9 @@ withDefaults(
           mt-2
           origin-top-right
           bg-white
-          rounded-md
+          rounded-lg
+          border border-gray-200
           shadow-lg
-          ring-1 ring-black ring-opacity-5
           focus:outline-none
         "
         :class="right ? 'right-0' : 'left-0'"

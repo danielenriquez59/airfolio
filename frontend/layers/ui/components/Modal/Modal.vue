@@ -73,7 +73,7 @@ provide('modal', api)
           leave-from="opacity-100"
           leave-to="opacity-0"
         >
-          <div class="fixed inset-0 bg-black bg-opacity-25" />
+          <div class="fixed inset-0 bg-gray-900/40" />
         </TransitionChild>
 
         <div class="fixed inset-0 overflow-y-auto">
@@ -96,7 +96,7 @@ provide('modal', api)
                 class="w-full transform overflow-hidden bg-white text-left align-middle shadow-xl transition-all"
                 :class="{
                   'h-screen': fullscreen,
-                  'max-w-md rounded-lg': !fullscreen,
+                  'max-w-md rounded-xl border border-gray-200': !fullscreen,
                 }"
               >
                 <slot />

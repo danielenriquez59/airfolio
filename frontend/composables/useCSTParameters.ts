@@ -37,13 +37,45 @@ const comb = (n: number, k: number): number => {
 }
 
 /**
+ * Upper and lower CST y at normalised chord station psi in [0, 1]
+ */
+function cstY(
+  upperWeights: number[],
+  lowerWeights: number[],
+  leWeight: number,
+  teThickness: number,
+  order: number,
+  psi: number,
+): [number, number] {
+  // Class function: C(ψ) = √ψ × (1-ψ)
+  const C = Math.sqrt(psi) * (1 - psi)
+
+  // Shape function: S(ψ) = Σ Aᵢ × Kᵢ × ψⁱ × (1-ψ)^(n-i)
+  let S_upper = 0
+  let S_lower = 0
+  for (let j = 0; j <= order; j++) {
+    const basis = comb(order, j) * psi ** j * (1 - psi) ** (order - j)
+    S_upper += upperWeights[j] * basis
+    S_lower += lowerWeights[j] * basis
+  }
+
+  // Leading edge modification term; exponent (weights + 0.5) matches the fit's LE column and AeroSandbox
+  const leTerm = leWeight * psi * (1 - psi) ** (order + 1.5)
+
+  // Trailing edge thickness offset
+  const teHalf = teThickness / 2
+
+  return [C * S_upper + leTerm + psi * teHalf, C * S_lower + leTerm - psi * teHalf]
+}
+
+/**
  * Generate CST coordinates from parameters
  * @param upperWeights Upper surface CST weights
  * @param lowerWeights Lower surface CST weights
  * @param leWeight Leading edge weight modifier
  * @param teThickness Trailing edge thickness
  * @param order Polynomial order (number of weights - 1)
- * @param numPoints Number of points to generate
+ * @param numPoints Number of intervals per surface (each surface gets numPoints + 1 points, LE to TE)
  * @returns Generated coordinates
  */
 export const generateCSTCoordinates = (
@@ -59,40 +91,14 @@ export const generateCSTCoordinates = (
   const lowerX: number[] = []
   const lowerY: number[] = []
 
-  const K_LE = order + 0.5 // Leading edge exponent
-
   for (let i = 0; i <= numPoints; i++) {
     const beta = (i / numPoints) * Math.PI
     const psi = 0.5 * (1.0 - Math.cos(beta)) // Cosine spacing
+    const [yUpper, yLower] = cstY(upperWeights, lowerWeights, leWeight, teThickness, order, psi)
 
-    // Class function: C(ψ) = √ψ × (1-ψ)
-    const C = Math.sqrt(psi) * (1 - psi)
-
-    // Shape function: S(ψ) = Σ Aᵢ × Kᵢ × ψⁱ × (1-ψ)^(n-i)
-    let S_upper = 0
-    let S_lower = 0
-
-    for (let j = 0; j <= order; j++) {
-      const K = comb(order, j)
-      const basis = K * Math.pow(psi, j) * Math.pow(1 - psi, order - j)
-      S_upper += upperWeights[j] * basis
-      S_lower += lowerWeights[j] * basis
-    }
-
-    // Leading edge modification term
-    const leTerm = leWeight * psi * Math.pow(1 - psi, K_LE)
-
-    // Trailing edge thickness offset
-    const teHalf = teThickness / 2
-
-    // Generate coordinates
-    const x = psi
-    const yUpper = C * S_upper + leTerm + psi * teHalf
-    const yLower = C * S_lower + leTerm - psi * teHalf
-
-    upperX.push(x)
+    upperX.push(psi)
     upperY.push(yUpper)
-    lowerX.push(x)
+    lowerX.push(psi)
     lowerY.push(yLower)
   }
 
@@ -286,12 +292,140 @@ export const fitCSTParameters = (
 }
 
 /**
+ * Fit CST with `weights` weights per surface in the standard frame: true LE at the origin, TE midpoint on +x,
+ * unit chord. Input in database ordering (upper TE→LE, lower LE→TE). Returns the parameters in that frame,
+ * toInput mapping a point of that frame back to the input frame, and the RMS y error at the input points
+ * (in input units).
+ */
+export function fitCSTNormalised(
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[],
+  weights: number,
+): { params: CSTParameters; toInput: (x: number, y: number) => [number, number]; rms: number } {
+  // One loop TE→LE→TE, without the lower LE point when it repeats the upper one
+  const dup = lowerX[0] === upperX.at(-1) && lowerY[0] === upperY.at(-1)
+  const X = [...upperX, ...lowerX.slice(dup ? 1 : 0)]
+  const Y = [...upperY, ...lowerY.slice(dup ? 1 : 0)]
+
+  // True LE: the point farthest from the TE midpoint (stored LE can be off for cambered noses)
+  const tx = (X[0] + X[X.length - 1]) / 2
+  const ty = (Y[0] + Y[Y.length - 1]) / 2
+  const dist = (i: number) => Math.hypot(X[i] - tx, Y[i] - ty)
+  let le = 0
+  for (let i = 1; i < X.length; i++) {
+    if (dist(i) > dist(le))
+      le = i
+  }
+
+  // The true LE usually falls between samples: take the farthest point on the parabola through le-1, le, le+1
+  let [lx, ly] = [X[le], Y[le]]
+  if (le > 0 && le < X.length - 1) {
+    for (let t = -1; t <= 1; t += 0.005) {
+      const qx = X[le] + t * (X[le + 1] - X[le - 1]) / 2 + t * t * (X[le + 1] - 2 * X[le] + X[le - 1]) / 2
+      const qy = Y[le] + t * (Y[le + 1] - Y[le - 1]) / 2 + t * t * (Y[le + 1] - 2 * Y[le] + Y[le - 1]) / 2
+      if (Math.hypot(qx - tx, qy - ty) > Math.hypot(lx - tx, ly - ty))
+        [lx, ly] = [qx, qy]
+    }
+  }
+
+  // Translate LE to the origin, rotate TE midpoint onto +x, scale chord to 1 (so every x >= 0)
+  const [cx, cy] = [tx - lx, ty - ly]
+  const c2 = cx * cx + cy * cy
+  const xn = X.map((x, i) => ((x - lx) * cx + (Y[i] - ly) * cy) / c2)
+  const yn = X.map((x, i) => ((Y[i] - ly) * cx - (x - lx) * cy) / c2)
+
+  // Re-split at the true LE, which goes in both surfaces (CST passes through it, so it adds no error)
+  const s = yn[le] > 0 ? le + 1 : le
+  const p = fitCSTParameters(
+    [...xn.slice(0, s), 0],
+    [...yn.slice(0, s), 0],
+    [0, ...xn.slice(s)],
+    [0, ...yn.slice(s)],
+    weights - 1,
+  )
+  const k = Math.max(...xn) // fitCSTParameters rescales x by its range [0, k]
+  const ev = (x: number, side: number) =>
+    cstY(p.upperWeights, p.lowerWeights, p.leWeight, p.teThickness, p.order, x / k)[side] * k
+  const sq = xn.reduce((sum, x, i) => sum + (ev(x, i < s ? 0 : 1) - yn[i]) ** 2, 0)
+  return {
+    params: p,
+    toInput: (x, y) => [lx + k * (x * cx - y * cy), ly + k * (x * cy + y * cx)],
+    rms: Math.sqrt(sq / X.length * c2),
+  }
+}
+
+/**
+ * fitCSTNormalised, regenerated with `panels` panels per surface and mapped back to where the input airfoil sits.
+ * Input and output use the database ordering: upper TE→LE, lower LE→TE, LE point in both surfaces;
+ * each output surface has panels + 1 cosine-spaced points. rms as in fitCSTNormalised.
+ */
+export function fitCSTAirfoil(
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[],
+  weights: number,
+  panels: number,
+): CSTCoordinates & { rms: number } {
+  const { params: p, toInput, rms } = fitCSTNormalised(upperX, upperY, lowerX, lowerY, weights)
+  const g = generateCSTCoordinates(p.upperWeights, p.lowerWeights, p.leWeight, p.teThickness, p.order, panels)
+  const up = g.upperX.map((x, i) => toInput(x, g.upperY[i])).reverse()
+  const lo = g.lowerX.map((x, i) => toInput(x, g.lowerY[i]))
+  return {
+    upperX: up.map(q => q[0]),
+    upperY: up.map(q => q[1]),
+    lowerX: lo.map(q => q[0]),
+    lowerY: lo.map(q => q[1]),
+    rms,
+  }
+}
+
+/**
+ * Smooth an airfoil: fitCSTAirfoil with 6, 7 and 8 weights per surface, keeping the lowest RMS error,
+ * regenerated with 200 panels (101 points per surface, database ordering).
+ * Throws if no order gives a finite fit, so the caller can fall back to the raw points.
+ */
+export function smoothAirfoilCST(
+  upperX: number[],
+  upperY: number[],
+  lowerX: number[],
+  lowerY: number[],
+): CSTCoordinates & { weights: number; rms: number[] } {
+  const rms: number[] = []
+  let best: (CSTCoordinates & { weights: number }) | null = null
+  let bestErr = Infinity
+  for (const weights of [6, 7, 8]) {
+    let err = NaN
+    try {
+      const fit = fitCSTAirfoil(upperX, upperY, lowerX, lowerY, weights, 100)
+      err = fit.rms
+      if (err < bestErr) { // NaN never wins
+        best = { ...fit, weights }
+        bestErr = err
+      }
+    }
+    catch {
+      // skip this order
+    }
+    rms.push(err)
+  }
+  if (!best)
+    throw new Error('CST smoothing failed for 6, 7 and 8 weights per surface')
+  return { ...best, rms }
+}
+
+/**
  * Composable function
  */
 export const useCSTParameters = () => {
   return {
     generateCSTCoordinates,
     fitCSTParameters,
+    fitCSTNormalised,
+    fitCSTAirfoil,
+    smoothAirfoilCST,
   }
 }
 

@@ -6,7 +6,8 @@ import { useCompare, type AirfoilPolarData } from '~/composables/useCompare'
 import SummaryScatterPlot from '~/layers/landing/components/compare/SummaryScatterPlot.vue'
 import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab.vue'
 import CompareCalculator from '~/layers/landing/components/compare/CompareCalculator.vue'
-import { navTabButtonClasses } from '~/layers/ui/utils/buttons'
+import CompareAirfoilList from '~/layers/landing/components/compare/CompareAirfoilList.vue'
+import { navTabButtonClasses, tabButtonClasses } from '~/layers/ui/utils/buttons'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -47,6 +48,7 @@ const performanceMode = ref<'performance' | 'detail'>('performance')
 
 // Loading and error states
 const isLoading = ref(false)
+const progressMessage = ref('')
 const error = ref<string | null>(null)
 
 // Data context (from analysis conditions)
@@ -431,14 +433,17 @@ const loadAnalysisData = async () => {
         areaMax: areaEnabled.value && areaMax.value !== undefined
           ? percentageToDecimal(areaMax.value)
           : undefined,
-        page: 1,
-        limit: 10000, // Get all matching airfoils
       }
 
-      // Query airfoils with geometry filters
-      const searchResult = await searchAirfoils(searchParams)
-      airfoilIds = searchResult.data.map(a => a.id)
-      airfoilNames = searchResult.data.map(a => a.name)
+      // Supabase returns at most 1000 rows per request, so page through all matching airfoils
+      airfoilIds = []
+      airfoilNames = []
+      for (let page = 1; ; page++) {
+        const { data } = await searchAirfoils({ ...searchParams, page, limit: 1000 }, 'id, name')
+        airfoilIds.push(...data.map(a => a.id))
+        airfoilNames.push(...data.map(a => a.name))
+        if (data.length < 1000) break
+      }
     }
 
     if (airfoilIds.length === 0) {
@@ -467,7 +472,7 @@ const loadAnalysisData = async () => {
     }
 
     // Run analysis (checks cache and runs if needed)
-    const performanceData = await runAnalysisIfNeeded(airfoilIds, airfoilNames, conditions)
+    const performanceData = await runAnalysisIfNeeded(airfoilIds, airfoilNames, conditions, m => { progressMessage.value = m })
 
     if (performanceData.length === 0) {
       error.value = 'No performance data available.'
@@ -490,6 +495,7 @@ const loadAnalysisData = async () => {
     error.value = err.message || 'Failed to load analysis data'
   } finally {
     isLoading.value = false
+    progressMessage.value = ''
   }
 }
 
@@ -498,7 +504,7 @@ const updateAirfoilCount = useDebounceFn(async () => {
   isLoadingCount.value = true
   try {
     const params = buildSearchParams(1, 1)
-    const result = await searchAirfoils(params)
+    const result = await searchAirfoils(params, 'id')
     matchedCount.value = result.count
   } catch (error) {
     console.error('Error fetching airfoil count:', error)
@@ -784,7 +790,11 @@ onMounted(async () => {
   
   loadParamsFromURL()
   loadPerformanceFiltersFromURL()
-  
+  // The filter watcher clears the selection on the restored filters; let it run, then put the URL ids back
+  const restoredIds = preAnalysisSelectedAirfoils.value
+  await nextTick()
+  preAnalysisSelectedAirfoils.value = restoredIds
+
   // If selection mode is 'specific', fetch filtered list
   if (selectionMode.value === 'specific') {
     await fetchFilteredAirfoilsList()
@@ -798,332 +808,333 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="!hasURLParams || state.allAirfoils.size === 0" class="max-w-6xl mx-auto">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Compare</h1>
-      <p class="text-lg text-gray-600">
+  <div v-if="!hasURLParams || state.allAirfoils.size === 0">
+    <PageHeader title="Performance Compare">
+      <template #subtitle>
         Configure geometry filters and flow conditions to run a
         <a
           href="https://github.com/peterdsharpe/NeuralFoil"
           target="_blank"
           rel="noopener"
-          class="text-indigo-600 underline hover:text-indigo-800"
+          class="font-medium text-primary-600 underline hover:text-primary-700"
         >NeuralFoil</a>
         powered aerodynamic airfoil comparison!
-      </p>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- Airfoil Comparison Selection Section -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Airfoil Comparison Selection</h2>
-      
-      <!-- Toggle Switch Row -->
-      <div class="mb-4 pb-4 border-b border-gray-200">
-        <VToggle
-          :model-value="selectionMode === 'specific'"
-          left-label="All matching airfoils"
-          right-label="Selected airfoils only"
-          @update:model-value="(val: boolean) => { selectionMode = val ? 'specific' : 'all' }"
-        />
-      </div>
+    <!-- Mobile: left panel, right panel, run bar stacked. lg+: airfoils left (2 rows), flow conditions + run block right -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
+      <!-- Airfoil Comparison Selection Section -->
+      <VPanel title="Airfoils" description="Choose which airfoils to compare." class="lg:row-span-2 lg:self-start">
+        <template #actions>
+          <div class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" role="radiogroup" aria-label="Airfoil selection mode">
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="selectionMode === 'all'"
+              :class="tabButtonClasses(selectionMode === 'all')"
+              @click="selectionMode = 'all'"
+            >
+              All matching
+            </button>
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="selectionMode === 'specific'"
+              :class="tabButtonClasses(selectionMode === 'specific')"
+              @click="selectionMode = 'specific'"
+            >
+              Selected only
+            </button>
+          </div>
+        </template>
 
-      <!-- Matching Airfoils Count (only visible in "All matching airfoils" mode) -->
-      <div v-if="selectionMode === 'all'" class="mb-4">
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-600">Matching airfoils:</span>
-          <span v-if="isLoadingCount" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></span>
-          <span v-else class="text-sm font-semibold text-gray-900">{{ matchedCount }} airfoil{{ matchedCount !== 1 ? 's' : '' }}</span>
-        </div>
-      </div>
-
-      <!-- Conditional Content -->
-      <!-- Show filters when "All matching airfoils" mode -->
-      <div v-if="selectionMode === 'all'" class="space-y-4">
-        <!-- Geometry Filters (Thickness, Camber, and Area) -->
-        <div class="space-y-4">
-          <!-- Thickness Filter -->
-          <div class="flex items-start gap-4 flex-wrap">
-            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
-              <input
-                v-model="thicknessEnabled"
-                type="checkbox"
-                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <span class="text-sm font-medium text-gray-700">Thickness</span>
-            </label>
-            <div v-if="thicknessEnabled" class="flex items-center gap-3 flex-1">
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-                <VInput
-                  v-model.number="thicknessMin"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="0"
-                  size="sm"
-                  wrapper-class="w-24"
-                />
-              </div>
-              <span class="text-gray-400">%</span>
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-                <VInput
-                  v-model.number="thicknessMax"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="100"
-                  size="sm"
-                  wrapper-class="w-24"
-                />
-              </div>
-              <span class="text-gray-400">%</span>
-            </div>
+        <!-- Show filters when "All matching airfoils" mode -->
+        <div v-if="selectionMode === 'all'" class="space-y-5">
+          <!-- Matching Airfoils Count -->
+          <div class="flex items-baseline justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3">
+            <span class="data-label">Matching airfoils</span>
+            <span v-if="isLoadingCount" class="inline-flex items-center gap-2 text-sm text-gray-500" role="status">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-primary-600" aria-hidden="true" />
+              Counting...
+            </span>
+            <span v-else class="text-sm text-gray-600">
+              <span class="num text-2xl font-semibold text-gray-900">{{ matchedCount }}</span>
+              airfoil{{ matchedCount !== 1 ? 's' : '' }}
+            </span>
           </div>
 
-          <!-- Camber Filter -->
-          <div class="flex items-start gap-4 flex-wrap">
-            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
-              <input
-                v-model="camberEnabled"
-                type="checkbox"
-                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <span class="text-sm font-medium text-gray-700">Camber</span>
-            </label>
-            <div v-if="camberEnabled" class="flex items-center gap-3 flex-1">
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-                <VInput
-                  v-model.number="camberMin"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="0"
-                  size="sm"
-                  wrapper-class="w-24"
-                />
-              </div>
-              <span class="text-gray-400">%</span>
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-                <VInput
-                  v-model.number="camberMax"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="100"
-                  size="sm"
-                  wrapper-class="w-24"
-                />
-              </div>
-              <span class="text-gray-400">%</span>
-            </div>
-          </div>
+          <!-- Geometry Filters (Thickness, Camber, and Area) -->
+          <fieldset>
+            <legend class="data-label mb-2">Geometry filters</legend>
+            <div class="grid grid-cols-[minmax(0,7rem)_1fr_1fr] items-center gap-x-3 gap-y-2">
+              <span />
+              <span class="text-xs text-gray-500">Min (%)</span>
+              <span class="text-xs text-gray-500">Max (%)</span>
 
-          <!-- Area Coefficient Filter -->
-          <div class="flex items-start gap-4 flex-wrap">
-            <label class="flex items-center gap-2 cursor-pointer min-w-[120px]">
-              <input
-                v-model="areaEnabled"
-                type="checkbox"
-                class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <span class="text-sm font-medium text-gray-700">Area</span>
-            </label>
-            <div v-if="areaEnabled" class="flex items-center gap-3 flex-1">
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Min</label>
-                <VInput
-                  v-model.number="areaMin"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="0"
-                  size="sm"
-                  wrapper-class="w-24"
+              <!-- Thickness Filter -->
+              <label class="flex h-9 cursor-pointer items-center gap-2">
+                <input
+                  v-model="thicknessEnabled"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-              </div>
-              <span class="text-gray-400">%</span>
-              <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-600 whitespace-nowrap">Max</label>
-                <VInput
-                  v-model.number="areaMax"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  placeholder="100"
-                  size="sm"
-                  wrapper-class="w-24"
-                />
-              </div>
-              <span class="text-gray-400">%</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Name Filters (Include and Exclude) -->
-        <div class="pt-4 border-t border-gray-200 space-y-4">
-          <!-- Include Name Filter -->
-          <div class="flex items-center gap-4 flex-wrap">
-            <label class="text-sm font-medium text-gray-700 min-w-[140px]">
-              Include Foils with
-            </label>
-            <div class="flex items-center gap-2 flex-1">
+                <span class="text-sm font-medium text-gray-700">Thickness</span>
+              </label>
               <VInput
-                :model-value="includeName"
-                type="text"
-                maxlength="8"
-                placeholder="e.g., NACA"
-                size="sm"
-                wrapper-class="max-w-[120px]"
-                :class="{ 'border-red-500': includeName && !includeNameValid }"
-                @update:model-value="(val: string | number | undefined) => { includeName = sanitizeNameInput(String(val || '')) }"
+                v-model.number="thicknessMin"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="0"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Thickness min (%)"
+                :disabled="!thicknessEnabled"
               />
-              <span class="text-sm text-gray-600">in the name</span>
-            </div>
-            <p v-if="includeName && !includeNameValid" class="text-xs text-red-600 mt-1">
-              Only alphanumeric characters allowed (max 8)
-            </p>
-          </div>
-
-          <!-- Exclude Name Filter -->
-          <div class="flex items-center gap-4 flex-wrap">
-            <label class="text-sm font-medium text-gray-700 min-w-[140px]">
-              Exclude Foils with
-            </label>
-            <div class="flex items-center gap-2 flex-1">
               <VInput
-                :model-value="excludeName"
-                type="text"
-                maxlength="8"
-                placeholder="e.g., TEST"
-                size="sm"
-                wrapper-class="max-w-[120px]"
-                :class="{ 'border-red-500': excludeName && !excludeNameValid }"
-                @update:model-value="(val: string | number | undefined) => { excludeName = sanitizeNameInput(String(val || '')) }"
+                v-model.number="thicknessMax"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="100"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Thickness max (%)"
+                :disabled="!thicknessEnabled"
               />
-              <span class="text-sm text-gray-600">in the name</span>
+
+              <!-- Camber Filter -->
+              <label class="flex h-9 cursor-pointer items-center gap-2">
+                <input
+                  v-model="camberEnabled"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span class="text-sm font-medium text-gray-700">Camber</span>
+              </label>
+              <VInput
+                v-model.number="camberMin"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="0"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Camber min (%)"
+                :disabled="!camberEnabled"
+              />
+              <VInput
+                v-model.number="camberMax"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="100"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Camber max (%)"
+                :disabled="!camberEnabled"
+              />
+
+              <!-- Area Coefficient Filter -->
+              <label class="flex h-9 cursor-pointer items-center gap-2">
+                <input
+                  v-model="areaEnabled"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span class="text-sm font-medium text-gray-700">Area</span>
+              </label>
+              <VInput
+                v-model.number="areaMin"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="0"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Area min (%)"
+                :disabled="!areaEnabled"
+              />
+              <VInput
+                v-model.number="areaMax"
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                placeholder="100"
+                class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                aria-label="Area max (%)"
+                :disabled="!areaEnabled"
+              />
             </div>
-            <p v-if="excludeName && !excludeNameValid" class="text-xs text-red-600 mt-1">
-              Only alphanumeric characters allowed (max 8)
-            </p>
-          </div>
+          </fieldset>
+
+          <!-- Name Filters (Include and Exclude) -->
+          <fieldset class="border-t border-gray-200 pt-5">
+            <legend class="sr-only">Name filters</legend>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label for="perf-include-name" class="mb-1 block text-sm font-medium text-gray-700">
+                  Include names containing
+                </label>
+                <VInput
+                  id="perf-include-name"
+                  :model-value="includeName"
+                  type="text"
+                  maxlength="8"
+                  placeholder="e.g., NACA"
+                  :error="!!includeName && !includeNameValid"
+                  @update:model-value="(val: string | number | undefined) => { includeName = sanitizeNameInput(String(val || '')) }"
+                />
+                <p v-if="includeName && !includeNameValid" class="mt-1 text-xs text-error-600">
+                  Only alphanumeric characters allowed (max 8)
+                </p>
+              </div>
+
+              <div>
+                <label for="perf-exclude-name" class="mb-1 block text-sm font-medium text-gray-700">
+                  Exclude names containing
+                </label>
+                <VInput
+                  id="perf-exclude-name"
+                  :model-value="excludeName"
+                  type="text"
+                  maxlength="8"
+                  placeholder="e.g., TEST"
+                  :error="!!excludeName && !excludeNameValid"
+                  @update:model-value="(val: string | number | undefined) => { excludeName = sanitizeNameInput(String(val || '')) }"
+                />
+                <p v-if="excludeName && !excludeNameValid" class="mt-1 text-xs text-error-600">
+                  Only alphanumeric characters allowed (max 8)
+                </p>
+              </div>
+            </div>
+          </fieldset>
         </div>
-      </div>
 
-      <!-- Show selection panel when "Selected airfoils only" mode -->
-      <div v-else-if="selectionMode === 'specific'">
-        <CompareAirfoilSelectionPanel
-          v-model="preAnalysisSelectedAirfoils"
-          :airfoils="displayedAirfoils"
-          :max-selection="300"
-          :is-loading="isLoadingFilteredList"
+        <!-- Show selection panel when "Selected airfoils only" mode -->
+        <div v-else-if="selectionMode === 'specific'">
+          <CompareAirfoilSelectionPanel
+            v-model="preAnalysisSelectedAirfoils"
+            :airfoils="displayedAirfoils"
+            :max-selection="300"
+            :is-loading="isLoadingFilteredList"
+          />
+        </div>
+      </VPanel>
+
+      <!-- Analysis Parameters Section -->
+      <VPanel title="Flow conditions" description="Configure the flow conditions for the performance analysis." class="lg:self-start">
+        <AnalysisParametersForm
+          ref="paramsFormRef"
+          :initial-reynolds="reynoldsNumber"
+          :initial-mach="machNumber"
+          :initial-alpha-min="alphaMin"
+          :initial-alpha-max="alphaMax"
+          :initial-ncrit="nCrit"
+          @submit="(params) => {
+            reynoldsNumber = params.reynoldsNumber
+            machNumber = params.machNumber
+            alphaMin = params.alphaMin
+            alphaMax = params.alphaMax
+            nCrit = params.nCrit
+            handleRunAnalysis()
+          }"
+          @valid-change="(isValid) => { paramsValid = isValid }"
         />
+      </VPanel>
+
+      <!-- Run block: sticky bottom bar on mobile, under the flow conditions on lg+ -->
+      <div class="sticky bottom-0 z-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:self-start lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <VButton
+          type="button"
+          color="primary"
+          size="lg"
+          block
+          :disabled="!canRunAnalysis"
+          :aria-label="isLoading ? 'Running Analysis...' : 'Run NN Analysis'"
+          :aria-describedby="!canRunAnalysis && !isLoading ? 'perf-run-reason' : undefined"
+          @click="paramsFormRef?.submit()"
+        >
+          <span v-if="isLoading" class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+          <span>{{ isLoading ? 'Running Analysis...' : 'Run NN Analysis' }}</span>
+        </VButton>
+        <p v-if="isLoading && progressMessage" class="mt-2 text-sm text-gray-500" role="status">{{ progressMessage }}</p>
+        <p
+          v-if="!canRunAnalysis && !isLoading"
+          id="perf-run-reason"
+          class="mt-2 flex items-start gap-1.5 text-sm text-warning-800"
+          role="status"
+        >
+          <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+          <span v-if="selectionMode === 'specific'">
+            <span v-if="preAnalysisSelectedAirfoils.length === 0">Please select at least one airfoil to analyze.</span>
+            <span v-else-if="preAnalysisSelectedAirfoils.length > 300">Maximum 300 airfoils allowed. Please select fewer airfoils.</span>
+            <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+          </span>
+          <span v-else>
+            <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
+            <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
+          </span>
+        </p>
       </div>
-    </div>
-
-    <!-- Analysis Parameters Section -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Analysis Parameters</h2>
-      <p class="text-sm text-gray-600 mb-4">
-        Configure the flow conditions for the performance analysis.
-      </p>
-
-      <AnalysisParametersForm
-        ref="paramsFormRef"
-        :initial-reynolds="reynoldsNumber"
-        :initial-mach="machNumber"
-        :initial-alpha-min="alphaMin"
-        :initial-alpha-max="alphaMax"
-        :initial-ncrit="nCrit"
-        @submit="(params) => {
-          reynoldsNumber = params.reynoldsNumber
-          machNumber = params.machNumber
-          alphaMin = params.alphaMin
-          alphaMax = params.alphaMax
-          nCrit = params.nCrit
-          handleRunAnalysis()
-        }"
-        @valid-change="(isValid) => { paramsValid = isValid }"
-      />
-    </div>
-
-    <!-- Run Button -->
-    <div>
-      <VButton
-        type="button"
-        color="primary"
-        block
-        :disabled="!canRunAnalysis"
-        @click="paramsFormRef?.submit()"
-      >
-        <span v-if="isLoading" class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-        <span>{{ isLoading ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
-      </VButton>
-      <p v-if="!canRunAnalysis" class="mt-2 text-xs text-gray-500 text-center">
-        <span v-if="selectionMode === 'specific'">
-          <span v-if="preAnalysisSelectedAirfoils.length === 0">Please select at least one airfoil to analyze.</span>
-          <span v-else-if="preAnalysisSelectedAirfoils.length > 300">Maximum 300 airfoils allowed. Please select fewer airfoils.</span>
-          <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
-        </span>
-        <span v-else>
-          <span v-if="matchedCount === 0">No airfoils match the selected filters.</span>
-          <span v-else-if="!paramsValid">Please fill in all analysis parameters with valid values.</span>
-        </span>
-      </p>
     </div>
   </div>
 
   <!-- Loading State -->
-  <div v-if="isLoading && hasURLParams" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="text-center">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      <p class="mt-4 text-gray-600">Loading analysis data...</p>
-    </div>
-  </div>
+  <VStateBlock v-if="isLoading && hasURLParams" variant="loading" description="Loading analysis data..." />
 
   <!-- Error State -->
-  <div v-else-if="error" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
-      <h2 class="text-lg font-semibold text-red-900 mb-2">Error Loading Data</h2>
-      <p class="text-red-800">{{ error }}</p>
-      <NuxtLink
-        to="/performance"
-        class="mt-4 inline-block text-sm font-medium text-red-700 hover:text-red-900"
-      >
-        ← Go Back to Setup
-      </NuxtLink>
-    </div>
-  </div>
+  <VPanel v-else-if="error">
+    <VStateBlock variant="error" title="Error Loading Data" :description="error">
+      <VButton to="/performance" color="light">
+        <Icon name="heroicons:arrow-left" class="h-4 w-4" />
+        Go Back to Setup
+      </VButton>
+    </VStateBlock>
+  </VPanel>
 
   <!-- Main Content: Plots & Table -->
-  <div v-else-if="state.allAirfoils.size > 0" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <!-- xl: widen past the page container (up to 100rem) so the plots keep their size next to two side columns -->
+  <div v-else-if="state.allAirfoils.size > 0" class="xl:mx-[calc((100%_-_min(100vw_-_4rem,100rem))/2)]">
     <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Performance Compare</h1>
-      <p class="text-lg text-gray-600">
-        Configure geometry filters and flow conditions to run a
+    <PageHeader title="Performance Compare">
+      <template #subtitle>
+        <span class="num">{{ state.allAirfoils.size }}</span> airfoil{{ state.allAirfoils.size !== 1 ? 's' : '' }} analyzed with
         <a
           href="https://github.com/peterdsharpe/NeuralFoil"
           target="_blank"
           rel="noopener"
-          class="text-indigo-600 underline hover:text-indigo-800"
+          class="font-medium text-primary-600 underline hover:text-primary-700"
         >NeuralFoil</a>
-        powered aerodynamic airfoil comparison!
-      </p>
-    </div>
+        at the flow conditions shown. Filter and select airfoils in the sidebar to compare them.
+      </template>
+      <template #actions>
+        <VBadge v-if="dataContext.Re">
+          Re <span class="num">{{ dataContext.Re.toLocaleString() }}</span>
+        </VBadge>
+        <VBadge v-if="dataContext.Mach !== undefined">
+          M <span class="num">{{ dataContext.Mach }}</span>
+        </VBadge>
+        <VBadge v-if="dataContext.nCrit !== undefined">
+          N<sub>crit</sub> <span class="num">{{ dataContext.nCrit }}</span>
+        </VBadge>
+        <VBadge v-if="dataContext.alphaMin !== undefined || dataContext.alphaMax !== undefined">
+          α <span class="num">{{ dataContext.alphaMin ?? '—' }}° to {{ dataContext.alphaMax ?? '—' }}°</span>
+        </VBadge>
+        <VBadge tone="primary">
+          <span class="num">{{ state.allAirfoils.size }}</span> airfoils
+        </VBadge>
+      </template>
+    </PageHeader>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-      <!-- Sidebar: Filters & Selection -->
-      <div class="lg:col-span-1">
+    <!-- lg: sidebar (summary, filters, airfoil list) | results. xl: summary + filters | results | airfoil list -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4 xl:grid-cols-[17rem_minmax(0,1fr)_14rem]">
+      <!-- Sidebar; at xl it dissolves (contents) so its two children become the outer columns -->
+      <div class="flex flex-col gap-4 lg:sticky lg:top-[4.5rem] lg:col-span-1 lg:max-h-[calc(100vh-5.5rem)] lg:self-start lg:overflow-y-auto xl:contents">
         <CompareSidebar
+          class="xl:sticky xl:top-[4.5rem] xl:col-start-1 xl:row-start-1 xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto"
           :filters="state.filters"
           :filtered-airfoils="[...state.filteredAirfoils]"
           :selected-airfoils="[...state.selectedAirfoils]"
@@ -1132,120 +1143,115 @@ onMounted(async () => {
           :filter-ranges="getFilterRanges"
           :performance-mode="performanceMode"
           @update-filter="updateFilter"
+          @reset-filters="resetFilters"
+          @update-performance-mode="performanceMode = $event"
+        />
+        <CompareAirfoilList
+          class="xl:sticky xl:top-[4.5rem] xl:col-start-3 xl:row-start-1 xl:max-h-[calc(100vh-5.5rem)] xl:self-start xl:overflow-y-auto"
+          :filtered-airfoils="[...state.filteredAirfoils]"
+          :selected-airfoils="[...state.selectedAirfoils]"
           @set-selected="setSelectedAirfoils"
           @toggle-selection="toggleAirfoilSelection"
           @select-all="selectAllFiltered"
           @deselect-all="deselectAll"
-          @reset-filters="resetFilters"
           @reset-analysis="() => { resetAnalysis(); router.push('/performance') }"
-          @update-performance-mode="performanceMode = $event"
         />
       </div>
 
       <!-- Main Content: Plots & Table -->
-      <div class="lg:col-span-3">
-        <!-- Tabs -->
-        <div class="bg-white rounded-lg shadow mb-6">
-          <div class="border-b border-gray-200">
-            <nav class="flex -mb-px">
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'plots')"
-                @click="activeTab = 'plots'"
-              >
-                Polar Plots
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'table')"
-                @click="activeTab = 'table'"
-              >
-                Summary Table
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'scatter')"
-                @click="activeTab = 'scatter'"
-              >
-                Scatter Plot
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'notes')"
-                @click="activeTab = 'notes'"
-              >
-                Notes
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'calculator')"
-                @click="activeTab = 'calculator'"
-              >
-                Calculator
-              </button>
-            </nav>
+      <section class="min-w-0 rounded-xl border border-gray-200 bg-white lg:col-span-3 xl:col-span-1 xl:col-start-2 xl:row-start-1" aria-label="Comparison results">
+        <!-- Tabs; overflow-y-hidden: overflow-x-auto makes y auto too, and the tabs' -mb-px adds 1px of vertical scroll -->
+        <div class="flex gap-2 overflow-x-auto overflow-y-hidden border-b border-gray-200 px-2 sm:px-3" role="tablist">
+          <button
+            v-for="tab in ([
+              { id: 'plots', label: 'Polar Plots' },
+              { id: 'table', label: 'Summary Table' },
+              { id: 'scatter', label: 'Scatter Plot' },
+              { id: 'notes', label: 'Notes' },
+              { id: 'calculator', label: 'Calculator' },
+            ] as const)"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.id"
+            class="shrink-0 whitespace-nowrap"
+            :class="navTabButtonClasses(activeTab === tab.id)"
+            @click="activeTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-4 sm:p-5" role="tabpanel">
+          <!-- Polar Plots Tab -->
+          <div v-if="activeTab === 'plots'">
+            <ComparePlots
+              v-if="getSelectedAirfoilsData.length > 0"
+              :airfoils="getSelectedAirfoilsData"
+              :performance-mode="performanceMode"
+            />
+            <VStateBlock
+              v-else
+              icon="heroicons:chart-bar"
+              title="No airfoils selected"
+              description="Please select airfoils from the sidebar to compare."
+            />
           </div>
 
-          <!-- Tab Content -->
-          <div class="p-4">
-            <!-- Polar Plots Tab -->
-            <div v-if="activeTab === 'plots'">
-              <ComparePlots
-                v-if="getSelectedAirfoilsData.length > 0"
-                :airfoils="getSelectedAirfoilsData"
-                :performance-mode="performanceMode"
-              />
-              <div v-else class="text-center py-12 text-gray-500">
-                <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>
-              </div>
-            </div>
+          <!-- Summary Table Tab -->
+          <div v-if="activeTab === 'table'">
+            <CompareSummaryTable
+              v-if="getSummaryData.length > 0"
+              :summary-data="getSummaryData"
+              :design-alpha="state.filters.targetAOA"
+            />
+            <VStateBlock
+              v-else
+              icon="heroicons:table-cells"
+              title="No airfoils selected"
+              description="Please select airfoils from the sidebar to compare."
+            />
+          </div>
 
-            <!-- Summary Table Tab -->
-            <div v-if="activeTab === 'table'" class="space-y-6">
-              <CompareSummaryTable
-                v-if="getSummaryData.length > 0"
-                :summary-data="getSummaryData"
-                :design-alpha="state.filters.targetAOA"
-              />
-              <div v-if="getSummaryData.length === 0" class="text-center py-12 text-gray-500">
-                <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>
-              </div>
-            </div>
+          <!-- Scatter Plot Tab -->
+          <div v-if="activeTab === 'scatter'">
+            <SummaryScatterPlot
+              v-if="getSummaryData.length > 0"
+              v-model:x-axis="scatterXAxis"
+              v-model:y-axis="scatterYAxis"
+              :summary-data="getSummaryData"
+              :design-alpha="state.filters.targetAOA"
+            />
+            <VStateBlock
+              v-else
+              icon="heroicons:chart-bar"
+              title="No airfoils selected"
+              description="Please select airfoils from the sidebar to compare."
+            />
+          </div>
 
-            <!-- Scatter Plot Tab -->
-            <div v-if="activeTab === 'scatter'">
-              <SummaryScatterPlot
-                v-if="getSummaryData.length > 0"
-                :summary-data="getSummaryData"
-                :design-alpha="state.filters.targetAOA"
-                v-model:x-axis="scatterXAxis"
-                v-model:y-axis="scatterYAxis"
-              />
-              <div v-else class="text-center py-12 text-gray-500">
-                <p>No airfoils selected. Please select airfoils from the sidebar to compare.</p>
-              </div>
-            </div>
+          <!-- Notes Tab -->
+          <div v-if="activeTab === 'notes'">
+            <CompareNotesTab storage-key="notes" />
+          </div>
 
-            <!-- Notes Tab -->
-            <div v-if="activeTab === 'notes'">
-              <CompareNotesTab storage-key="notes" />
-            </div>
-
-            <!-- Calculator Tab -->
-            <div v-if="activeTab === 'calculator'">
-              <CompareCalculator
-                v-if="getSummaryData.length > 0"
-                :summary-data="getSummaryData"
-                :design-alpha="state.filters.targetAOA"
-              />
-              <div v-else class="text-center py-12 text-gray-500">
-                <p>No airfoils selected. Please select airfoils from the sidebar to use the calculator.</p>
-              </div>
-            </div>
+          <!-- Calculator Tab -->
+          <div v-if="activeTab === 'calculator'">
+            <CompareCalculator
+              v-if="getSummaryData.length > 0"
+              :summary-data="getSummaryData"
+              :design-alpha="state.filters.targetAOA"
+            />
+            <VStateBlock
+              v-else
+              icon="heroicons:calculator"
+              title="No airfoils selected"
+              description="Please select airfoils from the sidebar to use the calculator."
+            />
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
-

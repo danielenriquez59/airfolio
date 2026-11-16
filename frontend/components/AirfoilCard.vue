@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
-import { useBreakpoints } from '@vueuse/core'
+import { formatCategoryName } from '~/utils/categoryUtils'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
@@ -30,15 +29,8 @@ const loading = ref(!props.airfoil)
 const error = ref<string | null>(null)
 const categoryMap = ref<Map<string, Category>>(new Map())
 
-// Detect mobile breakpoint (below md: 768px)
-const breakpoints = useBreakpoints({
-  mobile: 0,
-  desktop: 768, // md breakpoint
-})
-const isMobile = breakpoints.smaller('desktop')
-
-// Dynamic aspect ratio: 2.5 for mobile, 4 for desktop
-const aspectRatio = computed(() => 5)
+// Width / height of the shape plot; AirfoilCardSkeleton uses the same value
+const aspectRatio = 5
 
 /**
  * Resolve category badge from the category map for the given airfoil.
@@ -92,142 +84,115 @@ const formatPercent = (value: number | null | undefined): string => {
 // Helper function to get display name (display_name if available, otherwise name)
 const getDisplayName = (airfoil: Airfoil | null): string => {
   if (!airfoil) return ''
-  return airfoil.display_name || airfoil.name
+  return (airfoil.display_name || airfoil.name).toUpperCase()
 }
 
-const handleClick = () => {
-  if (props.onClick) {
-    props.onClick()
-  } else if (airfoil.value?.name) {
-    const slug = encodeURIComponent(airfoil.value.name)
-    navigateTo(`/airfoils/${slug}`)
-  }
-}
+const href = computed(() => airfoil.value?.name ? `/airfoils/${encodeURIComponent(airfoil.value.name)}` : undefined)
 </script>
 
 <template>
-  <VCard
-    :class="[
-      'hover:shadow-lg transition-shadow cursor-pointer',
-      { 'hover:scale-[1.02] transition-transform': onClick || true }
-    ]"
-    header-class="pt-6 px-3 md:px-7"
-    body-class="!py-2 !px-2 md:!px-4"
-    @click="handleClick"
-  >
-    <template #header>
-      <div>
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex-1">
-            <div class="font-bold text-lg text-gray-900 uppercase tracking-wide leading-tight">
-              {{ airfoil ? getDisplayName(airfoil).toUpperCase() : 'Loading...' }}
-            </div>
-            <p v-if="airfoil?.description" class="text-sm text-gray-600 mt-1 line-clamp-2">
-              {{ airfoil.description }}
-            </p>
-          </div>
-          <div v-if="category" class="ml-2">
-            <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full whitespace-nowrap">
-              {{ formatCategoryName(category.name) }}
-            </span>
-          </div>
-        </div>
+  <article class="relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-primary-300 hover:shadow-sm focus-within:border-primary-300">
+    <!-- Shape (hero) -->
+    <div class="border-b border-gray-100 px-3 py-2">
+      <AirfoilGeometry
+        v-if="airfoil?.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+        :upper-x="airfoil.upper_x_coordinates"
+        :upper-y="airfoil.upper_y_coordinates"
+        :lower-x="airfoil.lower_x_coordinates"
+        :lower-y="airfoil.lower_y_coordinates"
+        :name="thumbnail ? undefined : getDisplayName(airfoil)"
+        :aspect-ratio="aspectRatio"
+        :show-grid="!thumbnail"
+        :show-legend="false"
+      />
+      <div
+        v-else
+        class="flex items-center justify-center text-xs"
+        :class="error ? 'text-error-600' : 'text-gray-400'"
+        :style="{ aspectRatio: `${aspectRatio} / 1` }"
+      >
+        {{ error || (loading ? '' : 'Geometry data not available') }}
       </div>
-    </template>
+    </div>
 
-    <VCardBody>
-      <!-- Error State -->
-      <div v-if="error" class="text-center py-8 text-red-600">
-        <p>{{ error }}</p>
+    <div class="flex flex-1 flex-col gap-2 p-3">
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="line-clamp-2 min-w-0 text-sm font-semibold leading-snug text-gray-900" :title="airfoil ? getDisplayName(airfoil) : undefined">
+          <!-- The title link/button stretches over the whole card (after:inset-0) so the card is one target without nesting links -->
+          <button
+            v-if="onClick"
+            type="button"
+            class="text-left after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
+            @click="onClick()"
+          >
+            {{ airfoil ? getDisplayName(airfoil) : 'Loading...' }}
+          </button>
+          <NuxtLink
+            v-else-if="href"
+            :to="href"
+            class="after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary-500"
+          >
+            {{ getDisplayName(airfoil) }}
+          </NuxtLink>
+          <template v-else>
+            {{ airfoil ? getDisplayName(airfoil) : 'Loading...' }}
+          </template>
+        </h3>
+        <VBadge v-if="category" class="shrink-0">
+          {{ formatCategoryName(category.name) }}
+        </VBadge>
       </div>
 
-      <!-- Airfoil Data -->
-      <div v-else-if="airfoil" class="space-y-2">
-        <!-- Metadata Grid -->
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-          <div>
-            <span class="text-gray-500 block mb-0.5">Thickness</span>
-            <div class="flex flex-row">
-              <span class="font-semibold text-gray-900">
-                {{ formatPercent(airfoil.thickness_pct) }}
-              </span>
-              <span v-if="airfoil.thickness_loc_pct" class="text-gray-500 text-xs block mt-0.5 ml-1">
-                @ {{ formatPercent(airfoil.thickness_loc_pct) }} x/c
-              </span>
-            </div>
-          </div>
+      <p v-if="airfoil?.description" class="truncate text-xs text-gray-500" :title="airfoil.description">
+        {{ airfoil.description }}
+      </p>
 
-          <div>
-            <span class="text-gray-500 block mb-0.5">Camber</span>
-            <div class="flex flex-row">
-              <span class="font-semibold text-gray-900">
-                {{ formatPercent(airfoil.camber_pct) }}
-              </span>
-            <span v-if="airfoil.camber_loc_pct" class="text-gray-500 text-xs block mt-0.5 ml-1">
-                @ {{ formatPercent(airfoil.camber_loc_pct) }} x/c
-              </span>
-            </div>
-          </div>
-
-          <div v-if="airfoil.le_radius">
-            <span class="text-gray-500 block mb-0.5">LE Radius</span>
-            <span class="font-semibold text-gray-900">
-              {{ airfoil.le_radius.toFixed(2) }}
-            </span>
-          </div>
-
-          <div v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined">
-            <span class="text-gray-500 block mb-0.5">Area</span>
-            <span class="font-semibold text-gray-900">
-              {{ (airfoil.area_coefficient * 100).toFixed(1) }}%
-            </span>
-          </div>
+      <dl v-if="airfoil" class="mt-auto grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-gray-100 pt-2">
+        <div class="min-w-0">
+          <dt class="data-label">
+            Thickness
+          </dt>
+          <dd class="num truncate text-sm text-gray-900">
+            {{ formatPercent(airfoil.thickness_pct) }}<span v-if="airfoil.thickness_loc_pct" class="text-xs text-gray-500"> @ {{ formatPercent(airfoil.thickness_loc_pct) }}</span>
+          </dd>
         </div>
-
-        <!-- Geometry Visualization -->
-        <div class="-mx-2 md:mx-0">
-          <AirfoilGeometry
-            v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-            :upper-x="airfoil.upper_x_coordinates"
-            :upper-y="airfoil.upper_y_coordinates"
-            :lower-x="airfoil.lower_x_coordinates"
-            :lower-y="airfoil.lower_y_coordinates"
-            :name="thumbnail ? undefined : getDisplayName(airfoil)"
-            :aspect-ratio="aspectRatio"
-            :show-grid="!thumbnail"
-            :show-legend="false"
-          />
-          <div v-else class="text-center py-8 text-gray-400 text-sm">
-            Geometry data not available
-          </div>
+        <div class="min-w-0">
+          <dt class="data-label">
+            Camber
+          </dt>
+          <dd class="num truncate text-sm text-gray-900">
+            {{ formatPercent(airfoil.camber_pct) }}<span v-if="airfoil.camber_loc_pct" class="text-xs text-gray-500"> @ {{ formatPercent(airfoil.camber_loc_pct) }}</span>
+          </dd>
         </div>
-      </div>
-    </VCardBody>
+        <div class="min-w-0">
+          <dt class="data-label">
+            LE radius
+          </dt>
+          <dd class="num text-sm text-gray-900">
+            {{ airfoil.le_radius ? airfoil.le_radius.toFixed(2) : '—' }}
+          </dd>
+        </div>
+        <div class="min-w-0">
+          <dt class="data-label">
+            Area
+          </dt>
+          <dd class="num text-sm text-gray-900">
+            {{ airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined ? `${(airfoil.area_coefficient * 100).toFixed(1)}%` : '—' }}
+          </dd>
+        </div>
+      </dl>
 
-    <!-- Footer with source link if available -->
-    <VCardFooter v-if="airfoil?.source_url" class="!pt-0 !pb-2 !px-2 md:!px-4">
       <a
+        v-if="airfoil?.source_url"
         :href="airfoil.source_url"
         target="_blank"
         rel="noopener noreferrer"
-        class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+        class="relative z-10 inline-flex items-center gap-1 self-start rounded text-xs text-primary-600 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         @click.stop
       >
-        <span>Source</span>
+        Source
         <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
       </a>
-    </VCardFooter>
-  </VCard>
+    </div>
+  </article>
 </template>
-
-<style scoped>
-.line-clamp-2 {
-  display: -webkit-box;
-  display: box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-</style>
-

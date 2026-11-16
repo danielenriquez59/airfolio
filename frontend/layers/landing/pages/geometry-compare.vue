@@ -31,20 +31,6 @@ const plotHeight = ref(200)
 const PLOT_HEIGHT_MIN = 100
 const PLOT_HEIGHT_MAX = 500
 
-// Color palette for geometry overlays
-const COLORS = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#84CC16', // Lime
-  '#F97316', // Orange
-  '#6366F1', // Indigo
-]
-
 // Transform selected airfoils to geometry format for the chart
 const geometries = computed(() =>
   selectedAirfoils.value.map((airfoil, idx) => ({
@@ -53,7 +39,7 @@ const geometries = computed(() =>
     upperY: airfoil.upper_y_coordinates ?? [],
     lowerX: airfoil.lower_x_coordinates ?? [],
     lowerY: airfoil.lower_y_coordinates ?? [],
-    color: COLORS[idx % COLORS.length],
+    color: seriesColor(idx),
   })),
 )
 
@@ -120,33 +106,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">Geometry Compare</h1>
-      <p class="text-lg text-gray-600">
-        Select up to 10 airfoils to overlay and compare their geometry profiles.
-      </p>
-    </div>
+  <div>
+    <PageHeader
+      eyebrow="Tools"
+      title="Geometry Compare"
+      subtitle="Overlay up to 10 airfoil profiles and compare their geometric properties."
+    />
 
-    <!-- Error State -->
-    <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-800">{{ error }}</p>
+    <div v-if="error" class="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-error-200 bg-error-50 px-4 py-3" role="alert">
+      <p class="text-sm text-error-800">{{ error }}</p>
       <VButton
         type="button"
-        variant="ghost"
-        color="error"
-        size="xs"
-        class="mt-2 underline"
+        color="light"
+        size="sm"
         @click="fetchAirfoilsList"
       >
         Try again
       </VButton>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <!-- Selection Panel (Sidebar) -->
-      <div class="lg:col-span-1">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <!-- Selection Panel -->
+      <div class="lg:sticky lg:top-20 lg:self-start">
         <CompareAirfoilSelectionPanel
           v-model="selectedAirfoilIds"
           :airfoils="airfoilsList"
@@ -155,59 +136,58 @@ onMounted(() => {
         />
       </div>
 
-      <!-- Main Content -->
-      <div class="lg:col-span-3">
-        <!-- Tabs -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="border-b border-gray-200">
-            <nav class="flex -mb-px">
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'chart')"
-                @click="activeTab = 'chart'"
-              >
-                Geometry Overlay
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'table')"
-                @click="activeTab = 'table'"
-              >
-                Summary Table
-              </button>
-              <button
-                type="button"
-                :class="navTabButtonClasses(activeTab === 'notes')"
-                @click="activeTab = 'notes'"
-              >
-                Notes
-              </button>
-            </nav>
-          </div>
+      <!-- Results -->
+      <VPanel flush class="min-w-0 lg:col-span-2">
+        <div class="flex gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap border-b border-gray-200 px-2 sm:px-3" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'chart'"
+            :class="navTabButtonClasses(activeTab === 'chart')"
+            @click="activeTab = 'chart'"
+          >
+            Geometry Overlay
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'table'"
+            :class="navTabButtonClasses(activeTab === 'table')"
+            @click="activeTab = 'table'"
+          >
+            Summary Table
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'notes'"
+            :class="navTabButtonClasses(activeTab === 'notes')"
+            @click="activeTab = 'notes'"
+          >
+            Notes
+          </button>
+        </div>
 
-          <!-- Tab Content -->
-          <div class="p-6">
-            <!-- Notes Tab -->
-            <div v-if="activeTab === 'notes'">
-              <CompareNotesTab storage-key="notes" />
-            </div>
+        <div class="p-4 sm:p-5">
+          <CompareNotesTab v-if="activeTab === 'notes'" storage-key="notes" />
 
-            <!-- Loading State -->
-            <div v-else-if="isLoadingSelected" class="text-center py-12">
-              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <p class="mt-2 text-sm text-gray-600">Loading airfoil data...</p>
-            </div>
+          <VStateBlock
+            v-else-if="isLoadingSelected"
+            variant="loading"
+            title="Loading airfoil data"
+          />
 
-            <!-- Empty State -->
-            <div v-else-if="selectedAirfoils.length === 0" class="text-center py-12 text-gray-500">
-              <Icon name="heroicons:chart-bar" class="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>Select airfoils from the panel to compare their geometry.</p>
-            </div>
+          <VStateBlock
+            v-else-if="selectedAirfoils.length === 0"
+            icon="heroicons:chart-bar"
+            title="No airfoils selected"
+            description="Select airfoils from the panel to compare their geometry."
+          />
 
-            <!-- Chart Tab -->
-            <div v-else-if="activeTab === 'chart'" class="space-y-4">
+          <div v-else-if="activeTab === 'chart'" class="space-y-4">
+            <div>
               <div class="flex flex-wrap items-center gap-3">
-                <label for="plot-y-height" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                <label for="plot-y-height" class="data-label whitespace-nowrap">
                   Y plot height
                 </label>
                 <input
@@ -217,35 +197,29 @@ onMounted(() => {
                   :min="PLOT_HEIGHT_MIN"
                   :max="PLOT_HEIGHT_MAX"
                   step="10"
-                  class="flex-1 min-w-[12rem] h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  class="min-w-[10rem] flex-1 cursor-pointer accent-primary-600"
                 >
-                <span class="text-sm font-mono text-gray-600 w-14 text-right">
+                <span class="num w-14 text-right text-sm text-gray-600">
                   {{ plotHeight }}px
                 </span>
               </div>
-              <p class="text-xs text-gray-500">
+              <p class="mt-1 text-xs text-gray-500">
                 Increase height to stretch the vertical scale and make thickness differences easier to see.
               </p>
-              <AirfoilGeometry
-                :geometries="geometries"
-                :show-legend="true"
-                :height="plotHeight"
-                :zoomable="true"
-                :show-ticks="true"
-                :tick-step="0.1"
-              />
             </div>
-
-            <!-- Table Tab -->
-            <div v-else-if="activeTab === 'table'">
-              <GeometryCompareGeometrySummaryTable :airfoils="selectedAirfoils" />
-            </div>
+            <AirfoilGeometry
+              :geometries="geometries"
+              :show-legend="true"
+              :height="plotHeight"
+              :zoomable="true"
+              :show-ticks="true"
+              :tick-step="0.1"
+            />
           </div>
+
+          <GeometryCompareGeometrySummaryTable v-else-if="activeTab === 'table'" :airfoils="selectedAirfoils" />
         </div>
-      </div>
+      </VPanel>
     </div>
   </div>
 </template>
-
-
-

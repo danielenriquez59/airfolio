@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, useAttrs, useId } from 'vue'
 import { tv } from 'tailwind-variants'
 
 const {
@@ -38,16 +39,21 @@ defineOptions({
   inheritAttrs: false,
 })
 
+// Associate the visible label with the control: caller's id wins, else a generated one
+const attrs = useAttrs()
+const generatedId = useId()
+const controlId = computed(() => (attrs.id as string | undefined) || generatedId)
+
 const input = tv({
   slots: {
     outer: '',
     label:
-      'empty:hidden text-gray-800 font-medioum tracking-wide text-sm mb-1 block focus-within:text-primary-600',
+      'empty:hidden text-gray-700 font-medium text-sm mb-1.5 block',
     inner: 'flex items-center',
     prepend: 'empty:hidden h-full flex items-center pl-3',
     append: 'empty:hidden h-full flex items-center pr-3',
-    icon: 'text-gray-500',
-    input: 'w-full px-3 py-2 placeholder-gray-500 h-full',
+    icon: 'text-gray-400',
+    input: 'w-full px-3 py-0 text-gray-900 placeholder-gray-500 h-full',
     hint: 'text-gray-500 text-sm mt-1',
     error: 'text-error-600 text-sm mt-1',
     wrapper: '',
@@ -56,19 +62,19 @@ const input = tv({
     variant: {
       filled: {
         inner:
-          'bg-white border rounded-lg focus-within:border-primary-600 focus-within:ring-1 focus-within:ring-primary-600 transition duration-200',
+          'bg-white border border-gray-300 rounded-lg focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-colors duration-150',
         input:
           'px-3 bg-transparent border-none focus:border-none focus:outline-none focus:ring-0 rounded-lg',
       },
       underline: {
         label: 'mb-0',
-        inner: 'border-b-2 focus-within:border-primary-600 transition duration-200',
+        inner: 'border-b-2 border-gray-300 focus-within:border-primary-500 transition-colors duration-150',
         input:
           'px-0 bg-transparent px-0 border-none focus:border-none focus:outline-none focus:ring-0',
       },
       outlined: {
-        outer: `border rounded-lg relative
-        focus-within:border-primary-600 focus-within:ring-1 focus-within:ring-primary-600
+        outer: `border border-gray-300 rounded-lg relative
+        focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500
         [&:has(input:placeholder-shown)_label]:-translate-y-6 [&:has(input:placeholder-shown)_label]:bg-white [&:has(input:placeholder-shown)_label]:scale-95 [&:has(input:placeholder-shown)_label]:text-gray-800
         [&:has(input:not(:placeholder-shown))_label]:-translate-y-6 [&:has(input:not(:placeholder-shown))_label]:bg-white [&:has(input:not(:placeholder-shown))_label]:scale-95 [&:has(input:not(:placeholder-shown))_label]:text-black
         [&:has(:focus-visible)_label]:-translate-y-6 [&:has(:focus-visible)_label]:bg-white [&:has(:focus-visible)_label]:scale-95 [&:has(:focus-visible)_label]:text-black`,
@@ -80,14 +86,15 @@ const input = tv({
       },
     },
     size: {
+      // Outer heights (incl. 1px border) match VButton: sm 32px, md 36px, lg 44px
       sm: {
-        input: 'text-sm h-[36px]',
+        input: 'text-sm h-[30px]',
       },
       md: {
-        input: 'text-sm h-[40px]',
+        input: 'text-sm h-[34px]',
       },
       lg: {
-        input: 'text-base h-[48px]',
+        input: 'text-base h-[42px]',
       },
       auto: {
         input: 'h-auto',
@@ -153,7 +160,7 @@ const modelValue = defineModel<string | number>({
 <template>
   <div :class="[wrapper(), wrapperClass]">
     <div :class="[outer(), outerClass]">
-      <label :class="labelClass()">
+      <label v-if="label" :for="controlId" :class="labelClass()">
         {{ label }}
       </label>
       <div :class="inner()">
@@ -169,11 +176,12 @@ const modelValue = defineModel<string | number>({
           </slot>
         </div>
         <input
+          v-bind="$attrs"
+          :id="controlId"
           v-model="modelValue"
           :type="type"
           :placeholder="placeholder"
           :class="[inputClassVariant()]"
-          v-bind="$attrs"
         >
         <div :class="appendClass()" @click="emit('click:append')">
           <slot name="append">
@@ -195,7 +203,7 @@ const modelValue = defineModel<string | number>({
         </div>
       </slot>
       <slot name="error" v-bind="{ error, errorMessage }">
-        <div v-if="error" :class="[errorClass()]">
+        <div v-if="error && errorMessage" :class="[errorClass()]">
           {{ errorMessage }}
         </div>
       </slot>

@@ -21,27 +21,20 @@ interface Props {
 
 defineProps<Props>()
 
-const formatNumber = (value: number | undefined): string => {
-  if (value === undefined || value === null) return 'N/A'
-  return value.toFixed(4)
+function fixed(value: number | undefined, digits: number): string | null {
+  if (value === undefined || value === null || !Number.isFinite(value))
+    return null
+  return value.toFixed(digits)
 }
 
-const formatPercent = (value: number | undefined): string => {
-  if (value === undefined || value === null) return 'N/A'
-  return `${(value * 100).toFixed(2)}%`
-}
-
-const formatArea = (value: number | undefined): string => {
-  if (value === undefined || value === null || !Number.isFinite(value)) return 'N/A'
-  return `${(value * 100).toFixed(2)}% c²`
+function pct(value: number | undefined): string | null {
+  return typeof value === 'number' ? fixed(value * 100, 2) : null
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Geometry Visualization -->
-    <div class="bg-white rounded-lg shadow p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Airfoil Shape</h3>
+  <div class="grid gap-6 lg:grid-cols-3">
+    <VPanel title="Airfoil shape" class="lg:col-span-2">
       <AirfoilGeometry
         :upper-x="upperX"
         :upper-y="upperY"
@@ -52,92 +45,26 @@ const formatArea = (value: number | undefined): string => {
         :show-grid="true"
         :show-points-on-hover="true"
       />
-    </div>
+    </VPanel>
 
-    <!-- Properties Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Thickness -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Thickness</h4>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Max Thickness:</span>
-            <span class="font-medium text-gray-900">{{ formatPercent(properties.thickness_pct) }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-gray-600">Location:</span>
-            <span class="font-medium text-gray-900">{{ formatPercent(properties.thickness_loc_pct) }}</span>
-          </div>
-        </div>
-      </div>
+    <VPanel title="Summary">
+      <!-- Page-provided details (name, description, source, category) -->
+      <slot />
 
-      <!-- Camber -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Camber</h4>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Max Camber:</span>
-            <span class="font-medium text-gray-900">{{ formatPercent(properties.camber_pct) }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-gray-600">Location:</span>
-            <span class="font-medium text-gray-900">{{ formatPercent(properties.camber_loc_pct) }}</span>
-          </div>
-        </div>
-      </div>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-5" :class="{ 'mt-5 border-t border-gray-200 pt-5': $slots.default }">
+        <VStat label="Max thickness" :value="pct(properties.thickness_pct)" unit="%" :hint="pct(properties.thickness_loc_pct) ? `at ${pct(properties.thickness_loc_pct)}% c` : undefined" />
+        <VStat label="Max camber" :value="pct(properties.camber_pct)" unit="%" :hint="pct(properties.camber_loc_pct) ? `at ${pct(properties.camber_loc_pct)}% c` : undefined" />
+        <VStat label="LE radius" :value="fixed(properties.le_radius, 4)" />
+        <VStat label="TE thickness" :value="fixed(properties.te_thickness, 4)" />
+        <VStat label="TE angle" :value="fixed(properties.te_angle, 2)" unit="°" />
+        <VStat label="Area A/c²" :value="pct(properties.area_coefficient)" unit="% c²" />
+        <VStat label="Upper points" :value="properties.upper_surface_nodes" />
+        <VStat label="Lower points" :value="properties.lower_surface_nodes" />
+      </dl>
 
-      <!-- Leading Edge -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Leading Edge</h4>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Radius:</span>
-            <span class="font-medium text-gray-900">{{ formatNumber(properties.le_radius) }}</span>
-          </div>
-        </div>
+      <div v-if="$slots.actions" class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+        <slot name="actions" />
       </div>
-
-      <!-- Trailing Edge -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Trailing Edge</h4>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Thickness:</span>
-            <span class="font-medium text-gray-900">{{ formatNumber(properties.te_thickness) }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-gray-600">Angle:</span>
-            <span class="font-medium text-gray-900">{{ properties.te_angle?.toFixed(2) }}°</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Area -->
-      <div class="bg-white rounded-lg shadow p-4 md:col-span-2">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Area</h4>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">A/c²:</span>
-            <span class="font-medium text-gray-900">{{ formatArea(properties.area_coefficient) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Point Counts -->
-      <div class="bg-white rounded-lg shadow p-4 md:col-span-2">
-        <h4 class="text-sm font-semibold text-gray-900 mb-3">Coordinate Points</h4>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Upper Surface Points:</span>
-            <span class="font-medium text-gray-900">{{ properties.upper_surface_nodes }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-gray-600">Lower Surface Points:</span>
-            <span class="font-medium text-gray-900">{{ properties.lower_surface_nodes }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    </VPanel>
   </div>
 </template>
-

@@ -1,5 +1,5 @@
 <template>
-  <a class="bmc-button" target="_blank" href="https://buymeacoffee.com/vspairshow">
+  <a class="bmc-button" target="_blank" rel="noopener noreferrer" href="https://buymeacoffee.com/vspairshow">
     <img src="https://www.buymeacoffee.com/assets/img/BMC-btn-logo.svg" alt="Buy MomoCow a coffee">
     <span style="margin-left:5px">Buy me a coffee</span>
   </a>

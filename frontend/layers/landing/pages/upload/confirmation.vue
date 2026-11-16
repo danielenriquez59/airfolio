@@ -13,9 +13,9 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'Review calculated airfoil properties before submitting to the database.'
-    }
-  ]
+      content: 'Review calculated airfoil properties before submitting to the database.',
+    },
+  ],
 })
 
 const route = useRoute()
@@ -46,7 +46,7 @@ onMounted(async () => {
 
     // Fetch categories map
     const categories = await fetchCategories()
-    categories.forEach(cat => {
+    categories.forEach((cat) => {
       categoryMap.value.set(cat.id, cat)
     })
 
@@ -76,16 +76,19 @@ onMounted(async () => {
     }
 
     calculatedProperties.value = response.calculated_properties
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Confirmation error:', err)
     error.value = err instanceof Error ? err.message : 'Failed to load confirmation page'
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 })
 
-const handleConfirm = async () => {
-  if (!uploadData.value || !calculatedProperties.value) return
+async function handleConfirm() {
+  if (!uploadData.value || !calculatedProperties.value)
+    return
 
   isConfirming.value = true
   error.value = ''
@@ -100,12 +103,11 @@ const handleConfirm = async () => {
       lower_surface: uploadData.value.lowerSurface,
       source_url: uploadData.value.sourceUrl,
     }
-    
+
     // Include category if selected
-    if (uploadData.value.categoryId) {
+    if (uploadData.value.categoryId)
       body.category = uploadData.value.categoryId
-    }
-    
+
     const response = await $fetch(`${config.public.backendUrl}/api/airfoils/create`, {
       method: 'POST',
       body,
@@ -117,18 +119,21 @@ const handleConfirm = async () => {
 
       // Redirect to airfoil detail page
       await router.push(`/airfoils/${encodeURIComponent(response.slug)}`)
-    } else {
+    }
+    else {
       error.value = 'Failed to create airfoil. Please try again.'
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error('Confirmation error:', err)
     error.value = err instanceof Error ? err.message : 'Failed to create airfoil'
-  } finally {
+  }
+  finally {
     isConfirming.value = false
   }
 }
 
-const handleBack = async () => {
+async function handleBack() {
   if (hash)
     await router.push(`/upload?hash=${encodeURIComponent(hash)}`)
   else
@@ -137,94 +142,65 @@ const handleBack = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-12">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Confirm Airfoil</h1>
-        <p class="text-lg text-gray-600">
-          Review the calculated properties before submitting
+  <div>
+    <PageHeader title="Review Airfoil" subtitle="Check the shape and calculated properties before submitting." />
+
+    <UploadSteps :current="2" />
+
+    <VPanel v-if="isLoading">
+      <VStateBlock variant="loading" title="Calculating airfoil properties..." />
+    </VPanel>
+
+    <VPanel v-else-if="error">
+      <VStateBlock variant="error" title="Something went wrong" :description="error">
+        <VButton type="button" color="light" @click="handleBack">
+          <Icon name="heroicons:arrow-left-20-solid" class="h-4 w-4" aria-hidden="true" />
+          Back to edit
+        </VButton>
+      </VStateBlock>
+    </VPanel>
+
+    <UploadGeometryPreview
+      v-else-if="uploadData && calculatedProperties"
+      :name="uploadData.name"
+      :upper-x="calculatedProperties.upper_x_coordinates"
+      :upper-y="calculatedProperties.upper_y_coordinates"
+      :lower-x="calculatedProperties.lower_x_coordinates"
+      :lower-y="calculatedProperties.lower_y_coordinates"
+      :properties="calculatedProperties"
+    >
+      <div class="space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <h2 class="text-lg font-semibold text-gray-900">
+            {{ uploadData.displayName.toUpperCase() || uploadData.name.toUpperCase() }}
+          </h2>
+          <VBadge v-if="uploadData.categoryId && categoryMap.has(uploadData.categoryId)" tone="primary">
+            {{ formatCategoryName(categoryMap.get(uploadData.categoryId)?.name || '') }}
+          </VBadge>
+        </div>
+        <p v-if="uploadData.description" class="text-sm text-gray-600">
+          {{ uploadData.description }}
+        </p>
+        <p v-if="uploadData.sourceUrl" class="text-sm text-gray-500">
+          Source:
+          <a :href="uploadData.sourceUrl" target="_blank" rel="noopener noreferrer" class="break-all text-primary-600 hover:text-primary-700 hover:underline">
+            {{ uploadData.sourceUrl }}
+          </a>
         </p>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="isLoading" class="flex items-center justify-center py-12">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
-          <p class="text-gray-600">Calculating airfoil properties...</p>
-        </div>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <Icon name="heroicons:exclamation-triangle" class="h-12 w-12 text-red-600 mx-auto mb-4" />
-        <h2 class="text-lg font-semibold text-red-900 mb-2">Error</h2>
-        <p class="text-red-800 mb-6">{{ error }}</p>
-        <VButton
-          type="button"
-          color="primary"
-          @click="handleBack"
-        >
-          Go Back
+      <template #actions>
+        <p class="w-full text-sm font-medium text-error-600">
+          You will not be able to delete this airfoil once uploaded.
+        </p>
+        <VButton type="button" color="light" :disabled="isConfirming" @click="handleBack">
+          <Icon name="heroicons:arrow-left-20-solid" class="h-4 w-4" aria-hidden="true" />
+          Back to edit
         </VButton>
-      </div>
-
-      <!-- Confirmation Content -->
-      <div v-else-if="uploadData && calculatedProperties" class="space-y-6">
-        <!-- Airfoil Info Card -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ uploadData.displayName.toUpperCase() || uploadData.name.toUpperCase() }}</h2> 
-              <p v-if="uploadData.description" class="text-gray-600 mb-4">{{ uploadData.description }}</p>
-              <p v-if="uploadData.sourceUrl" class="text-sm text-gray-500">
-                Source: <a :href="uploadData.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-800">
-                  {{ uploadData.sourceUrl }}
-                </a>
-              </p>
-            </div>
-            <div v-if="uploadData.categoryId && categoryMap.has(uploadData.categoryId)">
-              <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full whitespace-nowrap">
-                {{ formatCategoryName(categoryMap.get(uploadData.categoryId)?.name || '') }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Geometry Preview -->
-        <UploadGeometryPreview
-          :name="uploadData.name"
-          :upper-x="calculatedProperties.upper_x_coordinates"
-          :upper-y="calculatedProperties.upper_y_coordinates"
-          :lower-x="calculatedProperties.lower_x_coordinates"
-          :lower-y="calculatedProperties.lower_y_coordinates"
-          :properties="calculatedProperties"
-        />
-
-        <!-- Actions -->
-        <div class="flex gap-3 pt-6">
-          <VButton
-            type="button"
-            color="primary"
-            class="flex-1"
-            :disabled="isConfirming"
-            @click="handleConfirm"
-          >
-            <span v-if="!isConfirming">Submit Airfoil</span>
-            <span v-else>Submitting...</span>
-          </VButton>
-          <VButton
-            type="button"
-            color="neutral"
-            class="flex-1"
-            :disabled="isConfirming"
-            @click="handleBack"
-          >
-            Go Back
-          </VButton>
-        </div>
-      </div>
-    </div>
+        <VButton type="button" color="primary" :disabled="isConfirming" @click="handleConfirm">
+          {{ isConfirming ? 'Submitting...' : 'Submit Airfoil' }}
+        </VButton>
+      </template>
+    </UploadGeometryPreview>
   </div>
 </template>
-

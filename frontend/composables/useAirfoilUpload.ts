@@ -66,15 +66,20 @@ function generateNormalizedName(displayName: string): string {
 }
 
 /**
- * Validate airfoil display name format (any characters allowed, but must not be empty)
+ * Validate airfoil display name format (ASCII letters, digits, spaces, hyphens, underscores and periods)
  */
-function validateNameFormat(name: string): { valid: boolean; message?: string } {
+export function validateNameFormat(name: string): { valid: boolean; message?: string } {
   if (!name || name.trim().length === 0) {
     return { valid: false, message: 'Airfoil name is required' }
   }
 
   const trimmedName = name.trim()
-  
+
+  // Same rule as display_name in backend/main.py AirfoilCreateRequest
+  if (!/^[A-Za-z0-9 ._-]+$/.test(trimmedName)) {
+    return { valid: false, message: 'Use only letters, numbers, spaces, hyphens, underscores and periods.' }
+  }
+
   // Check if normalized name would be empty
   const normalizedName = generateNormalizedName(trimmedName)
   if (normalizedName.length === 0) {

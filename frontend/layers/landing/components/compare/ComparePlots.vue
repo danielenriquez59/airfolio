@@ -29,6 +29,7 @@ ChartJS.register(
   Legend,
   Filler
 )
+applyChartDefaults(ChartJS)
 
 // Register zoom plugin only on client side
 if (process.client) {
@@ -45,18 +46,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   performanceMode: 'performance'
 })
-
-// Color palette for multiple airfoils
-const colors = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#F97316', // Orange
-]
 
 // Computed properties for downsampling
 const downsampleThreshold = computed(() => 
@@ -105,8 +94,8 @@ const generateChartData = (
     return {
       label: airfoil.name,
       data: chartData,
-      borderColor: colors[idx % colors.length],
-      backgroundColor: colors[idx % colors.length] + '20',
+      borderColor: seriesColor(idx),
+      backgroundColor: seriesColor(idx) + '20',
       borderWidth: 2,
       pointRadius: 0,
       pointHoverRadius: 4,
@@ -160,14 +149,13 @@ const getChartOptions = (
       display: showLegend,
       position: 'top' as const,
       labels: {
+        ...themedLegend.labels,
         usePointStyle: true,
         padding: 15,
-        font: {
-          size: 12,
-        },
       },
     },
     tooltip: {
+      ...themedTooltip,
       enabled: currentHoverMode !== 'disabled',
       mode: currentHoverMode === 'one' ? 'nearest' as const : 'index' as const,
       axis: interactionAxis,
@@ -184,12 +172,6 @@ const getChartOptions = (
           return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
         },
       },
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: 'white',
-      bodyColor: 'white',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderWidth: 1,
-      padding: 12,
     },
     zoom: {
       zoom: {
@@ -209,35 +191,13 @@ const getChartOptions = (
   },
   scales: {
     x: {
+      ...themedAxis(isCLPlot ? 'Angle of Attack α (degrees)' : getXAxisLabel()),
       type: 'linear' as const,
       position: 'bottom' as const,
-      title: {
-        display: true,
-        text: isCLPlot ? 'Angle of Attack α (degrees)' : getXAxisLabel(),
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
     y: {
+      ...themedAxis(yLabel),
       type: 'linear' as const,
-      title: {
-        display: true,
-        text: yLabel,
-        font: {
-          size: 12,
-          weight: 'bold' as const,
-        },
-      },
-      grid: {
-        display: true,
-        color: 'rgba(0, 0, 0, 0.1)',
-      },
     },
   },
   elements: {
@@ -263,8 +223,8 @@ const legendChartData = computed(() => {
   const datasets = props.airfoils.map((airfoil, idx) => ({
     label: airfoil.name.toUpperCase(),
     data: [], // Empty data array - we only want the legend
-    borderColor: colors[idx % colors.length],
-    backgroundColor: colors[idx % colors.length] + '20',
+    borderColor: seriesColor(idx),
+    backgroundColor: seriesColor(idx) + '20',
     borderWidth: 2,
   }))
 
@@ -282,10 +242,12 @@ const legendChartOptions = computed((): any => ({
       position: 'top' as const,
       maxHeight: 200,
       labels: {
+        ...themedLegend.labels,
         usePointStyle: true,
         padding: props.airfoils.length > 100 ? 8 : 15,
         font: {
-          size: props.airfoils.length > 100 ? 10 : 13,
+          ...chartFonts.sans,
+          size: props.airfoils.length > 100 ? 10 : 12,
         },
         boxWidth: props.airfoils.length > 100 ? 8 : 12,
       },
@@ -368,10 +330,10 @@ const toggleXAxisMode = () => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Performance Info Banner -->
-    <div v-if="airfoils.length > 50" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-      <p class="text-sm text-blue-800">
+    <div v-if="airfoils.length > 50" class="rounded-lg border border-info-200 bg-info-50 px-3 py-2">
+      <p class="text-sm text-info-800">
         <Icon name="heroicons:information-circle" class="inline h-4 w-4 mr-1" />
         Rendering {{ airfoils.length }} airfoils
         <span v-if="shouldDownsample">
@@ -381,7 +343,7 @@ const toggleXAxisMode = () => {
     </div>
 
     <!-- Reset Zoom, Export, and Tooltip Toggle Buttons -->
-    <div class="flex justify-end gap-2">
+    <div class="flex flex-wrap justify-end gap-2">
       <button
         type="button"
         :class="toggleButtonClasses(hoverMode !== 'disabled')"
@@ -390,8 +352,8 @@ const toggleXAxisMode = () => {
         <Icon name="heroicons:information-circle" class="h-4 w-4" />
         {{ hoverMode === 'all' ? 'Hover: All Curves' : hoverMode === 'one' ? 'Hover: One Curve' : 'Hover: Disabled' }}
         <span class="inline-flex gap-1 ml-1">
-          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'all' ? 'bg-indigo-500' : 'bg-gray-300']" />
-          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'one' ? 'bg-indigo-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'all' ? 'bg-primary-500' : 'bg-gray-300']" />
+          <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'one' ? 'bg-primary-500' : 'bg-gray-300']" />
           <span :class="['w-1.5 h-1.5 rounded-full', hoverMode === 'disabled' ? 'bg-gray-500' : 'bg-gray-300']" />
         </span>
       </button>
@@ -432,7 +394,7 @@ const toggleXAxisMode = () => {
 
     <!-- Legend Panel (spans 2 columns) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="lg:col-span-2 bg-white rounded-lg">
+      <div class="lg:col-span-2">
         <div :class="airfoils.length > 100 ? 'h-16' : 'h-8'">
           <Line :data="legendChartData" :options="legendChartOptions" />
         </div>
@@ -440,30 +402,30 @@ const toggleXAxisMode = () => {
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens, 1 column when expanded -->
-    <div :class="['grid gap-6', plotsExpanded ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2']">
+    <div class="grid gap-3" :class="plotsExpanded ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'">
       <!-- CL vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="clChartRef" :data="clChartData" :options="clChartOptions" />
         </div>
       </div>
 
       <!-- CD vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="cdChartRef" :data="cdChartData" :options="cdChartOptions" />
         </div>
       </div>
 
       <!-- CM vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="cmChartRef" :data="cmChartData" :options="cmChartOptions" />
         </div>
       </div>
 
       <!-- L/D vs α -->
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
+      <div class="rounded-lg border border-gray-200 p-2">
         <div class="h-64">
           <Line ref="ldChartRef" :data="ldChartData" :options="ldChartOptions" />
         </div>
@@ -471,10 +433,10 @@ const toggleXAxisMode = () => {
     </div>
 
     <!-- Plot Explanation (Collapsible) -->
-    <div class="bg-gray-50 rounded-lg border border-gray-200">
+    <div class="rounded-lg border border-gray-200">
       <details class="group">
         <summary
-          class="cursor-pointer p-4 flex items-center justify-between hover:bg-gray-100 transition-colors"
+          class="flex cursor-pointer items-center justify-between rounded-lg px-4 py-3 text-sm transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
           <span class="font-medium text-gray-900">Plot Explanation</span>
           <Icon
@@ -482,7 +444,7 @@ const toggleXAxisMode = () => {
             class="h-5 w-5 text-gray-500 group-open:rotate-180 transition-transform"
           />
         </summary>
-        <div class="px-4 pb-4 space-y-3 text-sm text-gray-700">
+        <div class="space-y-3 px-4 pb-4 text-sm text-gray-600">
           <div>
             <strong class="text-gray-900">CL (Lift Coefficient):</strong> Measures the lift
             generated by the airfoil. Higher CL values indicate more lift at a given angle of

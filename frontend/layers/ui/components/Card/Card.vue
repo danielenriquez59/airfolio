@@ -21,7 +21,7 @@ withDefaults(
   {
     bordered: false,
     classes: () => ({
-      wrapper: 'border border-gray-200 rounded-lg bg-white shadow',
+      wrapper: 'border border-gray-200 rounded-xl bg-white',
       header: '',
       body: '',
       footer: '',
@@ -67,5 +67,3 @@ withDefaults(
     </slot>
   </div>
 </template>
-
-

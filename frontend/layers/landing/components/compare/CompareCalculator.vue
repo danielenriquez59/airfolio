@@ -177,15 +177,15 @@ const formatNumber = (value: number, decimals = 6): string => {
 <template>
   <div class="space-y-6">
     <!-- Formula Input Section -->
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
-      <h3 class="text-lg font-semibold text-gray-900 mb-2">Objective Function Calculator</h3>
-      <p class="text-sm text-gray-600 mb-4">Use the calculator below to define an objective function to understand the trade space</p>
-      
+    <div>
+      <h3 class="text-base font-semibold text-gray-900">Objective Function Calculator</h3>
+      <p class="mb-4 mt-0.5 text-sm text-gray-500">Use the calculator below to define an objective function to understand the trade space</p>
+
       <div class="space-y-4">
         <!-- Formula Input -->
         <div class="relative">
-          <label for="formula-input" class="block text-sm font-medium text-gray-700 mb-2">
-            Enter formula (e.g., <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">CLmax * 10 + maxLD / 10</code>)
+          <label for="formula-input" class="mb-1 block text-sm font-medium text-gray-700">
+            Enter formula (e.g., <code class="rounded bg-gray-100 px-1 py-0.5 text-xs">CLmax * 10 + maxLD / 10</code>)
           </label>
           <div class="relative">
             <input
@@ -193,48 +193,46 @@ const formatNumber = (value: number, decimals = 6): string => {
               ref="inputRef"
               v-model="formula"
               type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+              class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 font-mono text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="Enter formula..."
               @input="handleInput"
               @focus="handleInputFocus"
               @blur="handleInputBlur"
               @keydown="handleKeydown"
             />
-            
+
             <!-- Autocomplete Dropdown -->
             <div
               v-if="showAutocomplete && autocompleteSuggestions.length > 0"
-              class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+              class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
             >
               <div
                 v-for="suggestion in autocompleteSuggestions"
                 :key="suggestion.value"
-                class="px-4 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                class="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-primary-50"
                 @mousedown.prevent="insertVariable(suggestion.value)"
               >
-                <div class="flex items-center justify-between">
-                  <span class="font-mono text-sm text-gray-900">{{ suggestion.value }}</span>
-                  <span class="text-xs text-gray-500 ml-2">{{ suggestion.label }}</span>
-                </div>
+                <span class="font-mono text-sm text-gray-900">{{ suggestion.value }}</span>
+                <span class="ml-2 text-xs text-gray-500">{{ suggestion.label }}</span>
               </div>
             </div>
           </div>
-          
+
           <!-- Error Message -->
-          <p v-if="error" class="mt-2 text-sm text-red-600">
+          <p v-if="error" class="mt-1 text-sm text-error-600">
             {{ error }}
           </p>
         </div>
 
         <!-- Available Variables -->
         <div>
-          <p class="text-sm font-medium text-gray-700 mb-2">Available Variables:</p>
-          <div class="flex flex-wrap gap-2">
+          <p class="data-label mb-2">Available variables</p>
+          <div class="flex flex-wrap gap-1.5">
             <button
               v-for="variable in availableVariables"
               :key="variable.value"
               type="button"
-              class="inline-flex items-center px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               @click="insertVariable(variable.value)"
             >
               <span class="font-mono">{{ variable.value }}</span>
@@ -247,74 +245,86 @@ const formatNumber = (value: number, decimals = 6): string => {
 
     <!-- Results Table -->
     <div v-if="results.length > 0">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Results</h3>
-      
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 bg-white rounded-lg border border-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  :class="{ 'bg-gray-100': sortColumn === 'name' }"
+      <h3 class="mb-3 text-base font-semibold text-gray-900">Results</h3>
+
+      <div class="max-h-[60vh] overflow-auto rounded-lg border border-gray-200">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr>
+              <th
+                scope="col"
+                :aria-sort="sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
+                class="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 p-0 text-left"
+              >
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-1 px-3 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                  :class="{ 'text-gray-900': sortColumn === 'name' }"
                   @click="handleSort('name')"
                 >
-                  <div class="flex items-center justify-between">
-                    <span>Airfoil Name</span>
-                    <Icon
-                      v-if="sortColumn === 'name'"
-                      :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                      class="h-4 w-4 ml-2"
-                    />
-                  </div>
-                </th>
-                <th
-                  scope="col"
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                  :class="{ 'bg-gray-100': sortColumn === 'value' }"
+                  Airfoil Name
+                  <Icon
+                    :name="sortColumn === 'name' ? (sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down') : 'heroicons:chevron-up-down'"
+                    class="h-3.5 w-3.5 shrink-0"
+                    :class="sortColumn === 'name' ? 'text-primary-600' : 'text-gray-400'"
+                    aria-hidden="true"
+                  />
+                </button>
+              </th>
+              <th
+                scope="col"
+                :aria-sort="sortColumn === 'value' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'"
+                class="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 p-0 text-right"
+              >
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-end gap-1 px-3 py-2.5 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                  :class="{ 'text-gray-900': sortColumn === 'value' }"
                   @click="handleSort('value')"
                 >
-                  <div class="flex items-center justify-between">
-                    <span>Calculated Value</span>
-                    <Icon
-                      v-if="sortColumn === 'value'"
-                      :name="sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down'"
-                      class="h-4 w-4 ml-2"
-                    />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr
-                v-for="result in sortedResults"
-                :key="result.name"
-                class="hover:bg-gray-50 transition-colors"
-              >
-                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {{ result.name }}
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                  <span v-if="result.error" class="text-red-600">{{ result.error }}</span>
-                  <span v-else>{{ formatNumber(result.value) }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  Calculated Value
+                  <Icon
+                    :name="sortColumn === 'value' ? (sortDirection === 'asc' ? 'heroicons:arrow-up' : 'heroicons:arrow-down') : 'heroicons:chevron-up-down'"
+                    class="h-3.5 w-3.5 shrink-0"
+                    :class="sortColumn === 'value' ? 'text-primary-600' : 'text-gray-400'"
+                    aria-hidden="true"
+                  />
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr
+              v-for="result in sortedResults"
+              :key="result.name"
+              class="hover:bg-gray-50"
+            >
+              <td class="whitespace-nowrap px-3 py-2 font-medium text-gray-900">
+                {{ result.name }}
+              </td>
+              <td class="whitespace-nowrap px-3 py-2 text-right text-gray-700">
+                <span v-if="result.error" class="text-error-600">{{ result.error }}</span>
+                <span v-else class="num">{{ formatNumber(result.value) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!formula.trim()" class="bg-white rounded-lg border border-gray-200 p-12 text-center">
-      <Icon name="heroicons:calculator" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <p class="text-gray-500">Enter a formula above to see calculated results for each airfoil.</p>
-    </div>
+    <VStateBlock
+      v-else-if="!formula.trim()"
+      icon="heroicons:calculator"
+      description="Enter a formula above to see calculated results for each airfoil."
+      class="rounded-lg border border-dashed border-gray-300"
+    />
 
     <!-- No Results State -->
-    <div v-else-if="formula.trim() && results.length === 0 && !error" class="bg-white rounded-lg border border-gray-200 p-12 text-center">
-      <p class="text-gray-500">No results to display. Please select airfoils from the sidebar.</p>
-    </div>
+    <VStateBlock
+      v-else-if="formula.trim() && results.length === 0 && !error"
+      description="No results to display. Please select airfoils from the sidebar."
+      class="rounded-lg border border-dashed border-gray-300"
+    />
   </div>
 </template>
-
-

@@ -11,59 +11,21 @@ const fmt = (n: number, d = 2) => n.toLocaleString(undefined, { minimumFractionD
 </script>
 
 <template>
-  <div class="bg-blue-900 text-white rounded-lg shadow-lg p-6">
-    <h3 class="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-4">Calculated Values</h3>
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <div class="text-xs text-blue-300">Wing Lift</div>
-        <div class="text-xl font-bold">
-          {{ fmt(summary.lift_lb, 0) }} <span class="text-xs font-normal opacity-70">lb</span>
-        </div>
-      </div>
-      <div>
-        <div class="text-xs text-blue-300">qCL (L/S)</div>
-        <div class="text-xl font-bold">
-          {{ fmt(summary.qCL) }} <span class="text-xs font-normal opacity-70">psf</span>
-        </div>
-      </div>
-      <div>
-        <div class="text-xs text-blue-300">Root Chord</div>
-        <div class="text-lg font-semibold">
-          {{ fmt(summary.root_chord) }} <span class="text-xs font-normal opacity-70">ft</span>
-        </div>
-      </div>
-      <div>
-        <div class="text-xs text-blue-300">Tip Chord</div>
-        <div class="text-lg font-semibold">
-          {{ fmt(summary.tip_chord) }} <span class="text-xs font-normal opacity-70">ft</span>
-        </div>
-      </div>
-    </div>
-    <div class="mt-4 pt-4 border-t border-blue-800">
-      <div class="text-xs text-blue-300 mb-2">Loads at Root</div>
-      <div class="mb-3">
-        <div class="text-xs text-blue-400 mb-1">Limit</div>
-        <div class="flex justify-between items-end mb-1">
-          <span class="text-sm">Shear:</span>
-          <span class="font-bold">{{ fmt(summary.limit_shear_root, 0) }} lb</span>
-        </div>
-        <div class="flex justify-between items-end">
-          <span class="text-sm">Moment:</span>
-          <span class="font-bold">{{ fmt(summary.limit_moment_root, 0) }} lb-in</span>
-        </div>
-      </div>
-      <div>
-        <div class="text-xs text-blue-400 mb-1">Ultimate</div>
-        <div class="flex justify-between items-end mb-1">
-          <span class="text-sm">Shear:</span>
-          <span class="font-bold">{{ fmt(summary.max_shear_root, 0) }} lb</span>
-        </div>
-        <div class="flex justify-between items-end">
-          <span class="text-sm">Moment:</span>
-          <span class="font-bold">{{ fmt(summary.max_moment_root, 0) }} lb-in</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <VPanel title="Calculated values">
+    <dl class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <VStat label="Wing lift" :value="fmt(summary.lift_lb, 0)" unit="lb" />
+      <VStat label="qCL (L/S)" :value="fmt(summary.qCL)" unit="psf" />
+      <VStat label="Root chord" :value="fmt(summary.root_chord)" unit="ft" />
+      <VStat label="Tip chord" :value="fmt(summary.tip_chord)" unit="ft" />
+    </dl>
+    <h3 class="mt-5 border-t border-gray-200 pt-4 text-sm font-semibold text-gray-900">
+      Loads at root
+    </h3>
+    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <VStat label="Limit shear" :value="fmt(summary.limit_shear_root, 0)" unit="lb" />
+      <VStat label="Limit moment" :value="fmt(summary.limit_moment_root, 0)" unit="lb-in" />
+      <VStat label="Ultimate shear" :value="fmt(summary.max_shear_root, 0)" unit="lb" />
+      <VStat label="Ultimate moment" :value="fmt(summary.max_moment_root, 0)" unit="lb-in" />
+    </dl>
+  </VPanel>
 </template>
-

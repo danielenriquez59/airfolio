@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PropType } from 'vue'
-import { computed } from 'vue'
+import { computed, resolveComponent, useAttrs } from 'vue'
 import { buttonVariants } from '../../utils/buttons'
 
 const props = defineProps({
@@ -45,15 +45,19 @@ const props = defineProps({
   },
 })
 
-const tag = computed(() => (props.to ? 'nuxt-link' : props.href ? 'a' : 'button'))
+const attrs = useAttrs()
+const NuxtLink = resolveComponent('NuxtLink')
+// A disabled link renders as a disabled <button> so it can't be followed
+const isLink = computed(() => !!(props.to || props.href) && (attrs.disabled == null || attrs.disabled === false))
+const tag = computed(() => (!isLink.value ? 'button' : props.to ? NuxtLink : 'a'))
 </script>
 
 <template>
   <component
     :is="tag"
-    :to="to"
-    :href="href"
-    :type="type"
+    :to="isLink ? to : undefined"
+    :href="isLink && !to ? href : undefined"
+    :type="isLink ? undefined : type"
     :class="buttonVariants({
       size,
       color,

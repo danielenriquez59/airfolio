@@ -20,14 +20,15 @@ const NuxtLink = resolveComponent('NuxtLink')
 </script>
 
 <template>
-  <div v-if="divider" class="border-b my-1"></div>
+  <div v-if="divider" class="border-b border-gray-200 my-1" />
   <component
-      v-else
-    :is="to ? NuxtLink : 'button'" :to="to"
+    :is="to ? NuxtLink : 'button'"
+    v-else :to="to"
     :type="to ? undefined : 'button'"
-    class="flex items-center no-underline gap-2 text-left px-3 text-gray-600 text-sm rounded py-2 w-full hover:bg-gray-100"
+    class="flex items-center no-underline gap-2 text-left px-3 text-gray-700 text-sm rounded-md py-2 w-full hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+    active-class="!text-primary-700 bg-primary-50"
   >
-    <Icon v-if="icon" :name="icon" class="w-5 h-5" />
+    <Icon v-if="icon" :name="icon" class="w-5 h-5 text-gray-400" aria-hidden="true" />
     <span class="flex-1">
       <slot>
         {{ title }}

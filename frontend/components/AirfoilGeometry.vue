@@ -24,7 +24,7 @@ const zeroLinePlugin = {
     const xMax = chart.chartArea.right
 
     ctx.save()
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+    ctx.strokeStyle = chartColors.border
     ctx.lineWidth = 1
     ctx.setLineDash([5, 5])
     ctx.beginPath()
@@ -46,6 +46,7 @@ ChartJS.register(
   Filler,
   zeroLinePlugin
 )
+applyChartDefaults(ChartJS)
 
 // Register zoom plugin only on client side
 if (process.client) {
@@ -61,6 +62,7 @@ interface GeometryData {
   lowerX: number[]
   lowerY: number[]
   color?: string
+  dashed?: boolean
 }
 
 interface Props {
@@ -96,6 +98,8 @@ interface Props {
   showTicks?: boolean
   /** Tick step for both axes when showTicks is true (e.g. 0.1 over 0–1) */
   tickStep?: number
+  /** With a numeric aspectRatio and no ticks, widen the y range so one x unit equals one y unit on screen */
+  equalScale?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -108,17 +112,8 @@ const props = withDefaults(defineProps<Props>(), {
   showTitle: false,
   showTicks: false,
   tickStep: 0.1,
+  equalScale: false,
 })
-
-// Color palette for multiple geometries
-const defaultColors = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-]
 
 // Chart instance reference for zoom reset
 const chartRef = ref<InstanceType<typeof Scatter> | null>(null)
@@ -149,7 +144,7 @@ const chartData = computed(() => {
       }
 
       const allCoords = [...upperCoords, ...lowerCoords]
-      const color = geom.color || defaultColors[index % defaultColors.length]
+      const color = geom.color || seriesColor(index)
 
       datasets.push({
         label: geom.name,
@@ -163,6 +158,7 @@ const chartData = computed(() => {
         pointHoverBorderColor: color,
         pointHoverBackgroundColor: 'rgb(255, 255, 255)',
         borderWidth: 2,
+        borderDash: geom.dashed ? [5, 4] : undefined,
         tension: 0.1,
         fill: false, // Don't fill when overlaying multiple geometries
       })
@@ -188,13 +184,13 @@ const chartData = computed(() => {
     datasets.push({
       label: props.name || 'Airfoil Profile',
       data: allCoords.map(([x, y]) => ({ x, y })),
-      borderColor: 'rgb(59, 130, 246)', // Blue
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      borderColor: chartColors.primary,
+      backgroundColor: `${chartColors.primary}1a`, // 10% opacity
       showLine: true,
       pointRadius: showMarkers.value ? 2 : 0,
       pointHoverRadius: showMarkers.value ? 4 : 0,
       pointHoverBorderWidth: 2,
-      pointHoverBorderColor: 'rgb(59, 130, 246)',
+      pointHoverBorderColor: chartColors.primary,
       pointHoverBackgroundColor: 'rgb(255, 255, 255)',
       borderWidth: 2,
       tension: 0.1,
@@ -258,6 +254,9 @@ const calculatedAspectRatio = computed(() => {
 
 const chartOptions = computed(() => {
   const ranges = axisRanges.value
+  const equal = props.equalScale && typeof props.aspectRatio === 'number' && !props.showTicks
+  const ySpan = equal ? Math.max(ranges.yMax - ranges.yMin, (ranges.xMax - ranges.xMin) / (props.aspectRatio as number)) : 0
+  const yMid = (ranges.yMin + ranges.yMax) / 2
 
   return {
     responsive: true,
@@ -267,10 +266,8 @@ const chartOptions = computed(() => {
       title: {
         display: props.showTitle && !!props.name,
         text: props.name ? `Airfoil Profile` : '',
-        font: {
-          size: 16,
-          weight: 'bold' as const,
-        },
+        color: chartColors.title,
+        font: { ...chartFonts.sans, size: 14, weight: 600 },
         padding: {
           top: 10,
           bottom: 20,
@@ -279,8 +276,10 @@ const chartOptions = computed(() => {
       legend: {
         display: props.showLegend,
         position: 'top' as const,
+        ...themedLegend,
       },
       tooltip: {
+        ...themedTooltip,
         enabled: true,
         intersect: false,
         mode: (showMarkers.value ? 'nearest' : 'index') as 'nearest' | 'index',
@@ -290,12 +289,6 @@ const chartOptions = computed(() => {
             return `x: ${point.x.toFixed(6)}, y: ${point.y.toFixed(6)}`
           },
         },
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: 'white',
-        bodyColor: 'white',
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderWidth: 1,
-        padding: 12,
       },
       ...(props.zoomable && {
         zoom: {
@@ -317,7 +310,7 @@ const chartOptions = computed(() => {
               min: props.showTicks ? 0 : ranges.xMin,
               max: props.showTicks ? 1 : ranges.xMax,
             },
-            y: {
+            y: equal ? { min: yMid - ySpan / 2, max: yMid + ySpan / 2 } : {
               min: props.showTicks
                 ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
                 : ranges.yMin,
@@ -335,18 +328,14 @@ const chartOptions = computed(() => {
         position: 'bottom' as const,
         min: props.showTicks ? 0 : ranges.xMin,
         max: props.showTicks ? 1 : ranges.xMax,
-        title: {
-          display: false,
-          text: 'Chord (x/c)',
-          font: {
-            size: 12,
-          },
-        },
+        ...themedAxis(),
         grid: {
           display: props.showGrid,
-          color: 'rgba(0, 0, 0, 0.1)',
+          color: chartColors.grid,
+          ...(equal && { drawTicks: false }), // the 8 px tick gutter would skew the plot area off the canvas ratio
         },
         ticks: {
+          ...themedAxis().ticks,
           display: props.showTicks,
           stepSize: props.showTicks ? props.tickStep : 10,
           callback: function(value: any) {
@@ -358,24 +347,20 @@ const chartOptions = computed(() => {
       },
       y: {
         type: 'linear' as const,
-        min: props.showTicks
+        min: equal ? yMid - ySpan / 2 : props.showTicks
           ? Math.floor(ranges.yMin / props.tickStep) * props.tickStep
           : (props.aspectRatio === null ? ranges.yMin : ranges.yMin - 0.001),
-        max: props.showTicks
+        max: equal ? yMid + ySpan / 2 : props.showTicks
           ? Math.ceil(ranges.yMax / props.tickStep) * props.tickStep
           : (props.aspectRatio === null ? ranges.yMax : ranges.yMax + 0.001),
-        title: {
-          display: false,
-          text: 'Thickness (y/c)',
-          font: {
-            size: 12,
-          },
-        },
+        ...themedAxis(),
         grid: {
           display: props.showGrid,
-          color: 'rgba(0, 0, 0, 0.1)',
+          color: chartColors.grid,
+          ...(equal && { drawTicks: false }), // the 8 px tick gutter would skew the plot area off the canvas ratio
         },
         ticks: {
+          ...themedAxis().ticks,
           display: props.showTicks,
           stepSize: props.showTicks ? props.tickStep : 5,
           callback: function(value: any) {
@@ -419,17 +404,15 @@ watch(() => props.showPointsOnHover, (newVal) => {
   <ClientOnly>
     <div class="w-full">
       <!-- Control Buttons - Above Chart -->
-      <div v-if="zoomable || showMarkerToggle" class="flex gap-2 justify-end mb-2">
+      <div v-if="zoomable || showMarkerToggle" class="hidden sm:flex gap-2 justify-end mb-2">
         <VButton
           v-if="zoomable"
           type="button"
           color="light"
           size="sm"
-          shadow="sm"
-          title="Reset Zoom"
           @click="resetZoom"
         >
-          <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+          <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" aria-hidden="true" />
           <span>Reset Zoom</span>
         </VButton>
         <VButton
@@ -437,11 +420,10 @@ watch(() => props.showPointsOnHover, (newVal) => {
           type="button"
           color="light"
           size="sm"
-          shadow="sm"
-          :title="showMarkers ? 'Hide Markers' : 'Show Markers'"
+          :aria-pressed="showMarkers"
           @click="toggleMarkers"
         >
-          <Icon :name="showMarkers ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
+          <Icon :name="showMarkers ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" aria-hidden="true" />
           <span>{{ showMarkers ? 'Hide Markers' : 'Show Markers' }}</span>
         </VButton>
       </div>

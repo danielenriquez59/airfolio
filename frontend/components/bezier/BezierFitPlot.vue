@@ -20,6 +20,12 @@ ChartJS.register(
   Tooltip,
   Legend
 )
+applyChartDefaults(ChartJS)
+
+// Originals in greys; fitted upper/lower (and their control polygons) in two palette colours
+const FIT_UPPER = seriesPalette[1]
+const FIT_LOWER = seriesPalette[0]
+const REPARAM = seriesPalette[2]
 
 // Register zoom plugin only on client side
 if (process.client) {
@@ -75,8 +81,8 @@ const chartData = computed(() => {
   datasets.push({
     label: 'Upper points',
     data: originalUpper,
-    borderColor: 'rgb(55, 65, 81)',
-    backgroundColor: 'rgb(55, 65, 81)',
+    borderColor: chartColors.title,
+    backgroundColor: chartColors.title,
     showLine: false,
     pointRadius: 2,
     pointHoverRadius: 4,
@@ -85,19 +91,19 @@ const chartData = computed(() => {
   datasets.push({
     label: 'Lower points',
     data: originalLower,
-    borderColor: 'rgb(156, 163, 175)',
-    backgroundColor: 'rgb(156, 163, 175)',
+    borderColor: chartColors.tick,
+    backgroundColor: chartColors.tick,
     showLine: false,
     pointRadius: 2,
     pointHoverRadius: 4,
   })
 
-  // Fitted upper curve (red line)
+  // Fitted curves
   if (hasFit.value) {
     datasets.push({
       label: 'Fitted Upper',
       data: props.fittedUpperX.map((x, i) => ({ x, y: props.fittedUpperY[i] })),
-      borderColor: 'rgb(239, 68, 68)',
+      borderColor: FIT_UPPER,
       backgroundColor: 'transparent',
       showLine: true,
       pointRadius: 0,
@@ -107,7 +113,7 @@ const chartData = computed(() => {
     datasets.push({
       label: 'Fitted Lower',
       data: props.fittedLowerX.map((x, i) => ({ x, y: props.fittedLowerY[i] })),
-      borderColor: 'rgb(59, 130, 246)',
+      borderColor: FIT_LOWER,
       backgroundColor: 'transparent',
       showLine: true,
       pointRadius: 0,
@@ -121,8 +127,8 @@ const chartData = computed(() => {
     datasets.push({
       label: 'Upper Control Polygon',
       data: props.upperControlPoints.x.map((x, i) => ({ x, y: props.upperControlPoints.y[i] })),
-      borderColor: 'rgba(239, 68, 68, 0.4)',
-      backgroundColor: 'rgb(239, 68, 68)',
+      borderColor: `${FIT_UPPER}66`,
+      backgroundColor: FIT_UPPER,
       showLine: true,
       pointRadius: 5,
       pointHoverRadius: 7,
@@ -134,8 +140,8 @@ const chartData = computed(() => {
     datasets.push({
       label: 'Lower Control Polygon',
       data: props.lowerControlPoints.x.map((x, i) => ({ x, y: props.lowerControlPoints.y[i] })),
-      borderColor: 'rgba(59, 130, 246, 0.4)',
-      backgroundColor: 'rgb(59, 130, 246)',
+      borderColor: `${FIT_LOWER}66`,
+      backgroundColor: FIT_LOWER,
       showLine: true,
       pointRadius: 5,
       pointHoverRadius: 7,
@@ -144,15 +150,15 @@ const chartData = computed(() => {
     })
   }
 
-  // Reparametrized points (green scatter)
+  // Reparametrized points
   if (props.reparamUpperX && props.reparamUpperY && props.reparamLowerX && props.reparamLowerY) {
     const reparamUpper = props.reparamUpperX.map((x, i) => ({ x, y: props.reparamUpperY![i] }))
     const reparamLower = props.reparamLowerX.map((x, i) => ({ x, y: props.reparamLowerY![i] }))
     datasets.push({
       label: 'Reparametrized Points',
       data: [...reparamUpper, ...reparamLower],
-      borderColor: 'rgb(34, 197, 94)',
-      backgroundColor: 'rgb(34, 197, 94)',
+      borderColor: REPARAM,
+      backgroundColor: REPARAM,
       showLine: false,
       pointRadius: 3,
       pointHoverRadius: 5,
@@ -202,27 +208,29 @@ const axisRanges = computed(() => {
   }
 })
 
+// Below Tailwind `sm` a 2.5 ratio leaves the airfoil ~40px tall under the legend
+const isSmUp = useMediaQuery('(min-width: 640px)')
+
 const chartOptions = computed(() => {
   const ranges = axisRanges.value
 
   return {
     responsive: true,
     maintainAspectRatio: true,
-    aspectRatio: 2.5,
+    aspectRatio: isSmUp.value ? 2.5 : 1.4,
     plugins: {
       legend: {
         display: true,
         position: 'top' as const,
         labels: {
+          ...themedLegend.labels,
           usePointStyle: true,
           boxWidth: 8,
           padding: 15,
-          font: {
-            size: 11,
-          },
         },
       },
       tooltip: {
+        ...themedTooltip,
         enabled: true,
         callbacks: {
           label: (context: any) => {
@@ -259,33 +267,17 @@ const chartOptions = computed(() => {
     },
     scales: {
       x: {
+        ...themedAxis('x/c'),
         type: 'linear' as const,
         position: 'bottom' as const,
         min: ranges.xMin,
         max: ranges.xMax,
-        title: {
-          display: true,
-          text: 'x/c',
-          font: { size: 12 },
-        },
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-        },
       },
       y: {
+        ...themedAxis('y/c'),
         type: 'linear' as const,
         min: ranges.yMin,
         max: ranges.yMax,
-        title: {
-          display: true,
-          text: 'y/c',
-          font: { size: 12 },
-        },
-        grid: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
-        },
       },
     },
   }
@@ -304,16 +296,15 @@ const resetZoom = () => {
 
 <template>
   <div class="w-full h-full">
-    <div class="flex justify-end mb-2 gap-2">
+    <div class="mb-2 flex flex-wrap justify-end gap-2">
       <VButton
         type="button"
         color="light"
         size="sm"
-        shadow="sm"
         title="Reset Zoom"
         @click="resetZoom"
       >
-        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" />
+        <Icon name="heroicons:arrows-pointing-out" class="h-4 w-4" aria-hidden="true" />
         Reset Zoom
       </VButton>
       <VButton
@@ -321,10 +312,9 @@ const resetZoom = () => {
         type="button"
         color="light"
         size="sm"
-        shadow="sm"
         @click="showControlPolygon = !showControlPolygon"
       >
-        <Icon :name="showControlPolygon ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" />
+        <Icon :name="showControlPolygon ? 'heroicons:eye-slash' : 'heroicons:eye'" class="h-4 w-4" aria-hidden="true" />
         {{ showControlPolygon ? 'Hide' : 'Show' }} Control Polygon
       </VButton>
     </div>

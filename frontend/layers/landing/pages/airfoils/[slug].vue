@@ -2,8 +2,11 @@
 import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
 import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
+import { groupAircraftUsage } from '~/utils/aircraftUsage'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import AirfoilPerformanceCache from '~/layers/landing/components/airfoils/AirfoilPerformanceCache.vue'
+import AirfoilAircraftList from '~/layers/landing/components/airfoils/AirfoilAircraftList.vue'
+import { buttonVariants, navTabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
 type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
@@ -15,17 +18,37 @@ definePageMeta({
 const route = useRoute()
 const config = useRuntimeConfig()
 const supportEmail = config.public.supportEmail
-const { fetchAirfoilByName, deleteAirfoil, updateAirfoil } = useAirfoils()
+const { fetchAirfoilByName, fetchAircraftUsage, deleteAirfoil, updateAirfoil } = useAirfoils()
 const { downloadLednicer, downloadSelig, downloadOpenVSP } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
 const { fetchCategories } = useCategories()
 const router = useRouter()
 
-const airfoil = ref<Airfoil | null>(null)
-const category = ref<Category | null>(null)
-const loading = ref(true)
-const error = ref<string | null>(null)
-const categoryMap = ref<Map<string, Category>>(new Map())
+const airfoilSlug = computed(() => route.params.slug as string)
+
+// Fetched during prerender so the generated HTML carries the data; lazy keeps client-side navigation instant
+const pageData = useAsyncData(`airfoil:${airfoilSlug.value}`, async () => {
+  const [airfoil, categories] = await Promise.all([fetchAirfoilByName(airfoilSlug.value), fetchCategories()])
+  // Optional section: a failed fetch is logged (in the composable) and leaves the list empty instead of failing the page
+  const aircraft = airfoil
+    ? await fetchAircraftUsage(airfoil.id).then(groupAircraftUsage, () => [])
+    : []
+  return { airfoil, category: categories.find(cat => cat.id === airfoil?.category) ?? null, aircraft }
+}, { lazy: true })
+const { data: page, error: loadError, pending: loading } = pageData
+// A failed fetch during prerender must fail the route (not be saved as an error page); the browser then loads it via the SPA fallback
+if (import.meta.server) {
+  await pageData
+  if (loadError.value)
+    throw createError({ statusCode: 500, statusMessage: 'Could not load airfoil', fatal: true })
+}
+const airfoil = computed<Airfoil | null>(() => page.value?.airfoil ?? null)
+const category = computed<Category | null>(() => page.value?.category ?? null)
+const error = computed<string | null>(() => loadError.value
+  ? (loadError.value.message || 'Failed to load airfoil')
+  : (page.value && !page.value.airfoil ? 'Airfoil not found' : null))
+
+// Admin actions (delete, rerun geometry)
 const isDeleting = ref(false)
 const deleteError = ref<string | null>(null)
 const showDeleteModal = ref(false)
@@ -73,20 +96,19 @@ const coordinateTableData = computed(() => {
   return rows
 })
 
-// Download format selection
-const selectedFormat = ref<{ value: string; text: string } | null>(null)
+// Download formats (menu items)
 const downloadFormats = [
-  { value: 'lednicer', text: 'Lednicer Format' },
-  { value: 'selig', text: 'Selig Format' },
-  { value: 'openvsp', text: 'OpenVSP AF Format' },
+  { value: 'lednicer', text: 'Lednicer', description: 'Upper and lower surfaces listed separately with point counts in the header.' },
+  { value: 'selig', text: 'Selig', description: 'Continuous loop from upper TE around LE to lower TE. Most common format for XFOIL.' },
+  { value: 'openvsp', text: 'OpenVSP AF', description: 'Includes header with symmetry flag and point counts. Used by OpenVSP.' },
 ]
 
 // Handle download based on selected format
-const handleDownload = () => {
-  if (!airfoil.value || !selectedFormat.value) return
+const handleDownload = (format: string) => {
+  if (!airfoil.value) return
   
   try {
-    switch (selectedFormat.value.value) {
+    switch (format) {
       case 'lednicer':
         downloadLednicer(airfoil.value)
         break
@@ -177,8 +199,6 @@ watchEffect(() => {
   }
 })
 
-const airfoilSlug = computed(() => route.params.slug as string)
-
 // Helper function to get display name (display_name if available, otherwise name)
 const getDisplayName = (airfoil: Airfoil | null): string => {
   if (!airfoil) return ''
@@ -256,6 +276,7 @@ const handleRerunGeometryParams = async () => {
       thickness_loc_pct: props.thickness_loc_pct as number | null,
       camber_pct: props.camber_pct as number | null,
       camber_loc_pct: props.camber_loc_pct as number | null,
+      area_coefficient: props.area_coefficient as number | null,
       le_radius: props.le_radius as number | null,
       te_thickness: props.te_thickness as number | null,
       te_angle: props.te_angle as number | null,
@@ -267,7 +288,9 @@ const handleRerunGeometryParams = async () => {
       lower_y_coordinates: props.lower_y_coordinates as number[] | null,
     })
 
-    airfoil.value = updated
+    // airfoil is computed over the page data, so patch that in place
+    if (page.value)
+      page.value = { ...page.value, airfoil: updated }
     geometryActionSuccess.value = 'Geometry parameters updated'
   }
   catch (err: unknown) {
@@ -394,554 +417,515 @@ const handleSelectionChange = async (entries: PerformanceCache[]) => {
   })
 }
 
-// Fetch airfoil data by name (slug)
-onMounted(async () => {
-  try {
-    loading.value = true
-    error.value = null
-    
-    // Fetch categories map
-    const categories = await fetchCategories()
-    categories.forEach(cat => {
-      categoryMap.value.set(cat.id, cat)
-    })
-    
-    const data = await fetchAirfoilByName(airfoilSlug.value)
-    
-    if (!data) {
-      error.value = 'Airfoil not found'
-      return
-    }
-    
-    airfoil.value = data
-    
-    // Get category if airfoil has one
-    if (data.category && categoryMap.value.has(data.category)) {
-      category.value = categoryMap.value.get(data.category) || null
-    }
-    
-    // Update URL if slug doesn't match (for proper SEO/redirects)
-    const currentSlug = createSlug(data.name)
-    if (route.params.slug !== currentSlug) {
-      await navigateTo(`/airfoils/${currentSlug}`, { replace: true })
-    }
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load airfoil'
-    console.error('Error loading airfoil:', err)
-  } finally {
-    loading.value = false
-  }
+// Same address as the sitemap entry, whatever spelling of the slug was requested
+const pageUrl = withSiteUrl(computed(() => `/airfoils/${createSlug(airfoil.value?.name ?? airfoilSlug.value)}`))
+const pageTitle = computed(() => {
+  if (airfoil.value) return `${getDisplayName(airfoil.value).toUpperCase()} Airfoil - Coordinates, Geometry and Polars`
+  return error.value === 'Airfoil not found' ? 'Airfoil not found' : 'Airfoil Details'
 })
+const pageDescription = computed(() => airfoil.value
+  ? airfoilMetaDescription(airfoil.value, getDisplayName(airfoil.value).toUpperCase(), category.value ? formatCategoryName(category.value.name) : undefined)
+  : 'View detailed airfoil geometry, performance data, and analysis results.')
 
 useHead({
-  title: airfoil.value 
-    ? `${getDisplayName(airfoil.value)} - Airfoil Details | Airfolio` 
-    : 'Airfoil Details - Airfolio',
+  title: pageTitle,
+  link: [{ rel: 'canonical', href: pageUrl }],
   meta: [
-    {
-      name: 'description',
-      content: airfoil.value 
-        ? `View geometry, performance data, and analysis results for ${getDisplayName(airfoil.value)}. ${airfoil.value.description || 'Explore aerodynamic characteristics and download coordinates.'}`
-        : 'View detailed airfoil geometry, performance data, and analysis results.'
-    }
-  ]
+    { name: 'description', content: pageDescription },
+    { property: 'og:title', content: pageTitle },
+    { property: 'og:description', content: pageDescription },
+    { property: 'og:url', content: pageUrl },
+    { name: 'twitter:title', content: pageTitle },
+    { name: 'twitter:description', content: pageDescription },
+  ],
 })
 </script>
 
 <template>
-  <div class="bg-white py-8">
-      <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
+  <div>
+    <VStateBlock v-if="loading" variant="loading" />
 
-      <!-- Error State -->
-      <div v-else-if="error" class="text-center py-12">
-        <p class="text-red-600 text-lg mb-4">{{ error }}</p>
-        <NuxtLink
-          to="/"
-          class="text-indigo-600 hover:text-indigo-800 underline"
-        >
-          Return to Home
-        </NuxtLink>
-      </div>
+    <VStateBlock
+      v-else-if="error === 'Airfoil not found'"
+      title="Airfoil not found"
+      :description="`No airfoil named “${airfoilSlug}” is in the catalog.`"
+      icon="heroicons:magnifying-glass"
+    >
+      <VButton to="/search" color="light">
+        Back to search
+      </VButton>
+    </VStateBlock>
 
-      <!-- Airfoil Details -->
-      <div v-else-if="airfoil" class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
-          <div class="min-w-0">
-            <h1 class="text-3xl font-bold text-gray-900 uppercase tracking-wide mb-2">
-              {{ getDisplayName(airfoil).toUpperCase() }}
-            </h1>
-            <p v-if="airfoil.description" class="text-lg text-gray-600">
-              {{ airfoil.description }}
-            </p>
-            <p v-if="geometryActionError" class="mt-2 text-sm text-red-600">
-              {{ geometryActionError }}
-            </p>
-            <p v-if="geometryActionSuccess" class="mt-2 text-sm text-green-600">
-              {{ geometryActionSuccess }}
-            </p>
+    <VStateBlock
+      v-else-if="error"
+      variant="error"
+      title="Could not load this airfoil"
+      :description="error"
+    >
+      <VButton to="/search" color="light">
+        Back to search
+      </VButton>
+    </VStateBlock>
+
+    <!-- Airfoil Details -->
+    <div v-else-if="airfoil" class="space-y-6">
+      <PageHeader :title="getDisplayName(airfoil).toUpperCase()" :subtitle="airfoil.description || undefined" class="!mb-0">
+        <template #eyebrow>
+          <div class="flex flex-wrap items-center gap-2">
+            <nav aria-label="Breadcrumb">
+              <ol class="flex items-center gap-1.5">
+                <li>
+                  <NuxtLink to="/search" class="rounded hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                    Airfoils
+                  </NuxtLink>
+                </li>
+                <li aria-hidden="true" class="flex">
+                  <Icon name="heroicons:chevron-right" class="h-3 w-3" />
+                </li>
+                <li aria-current="page" class="text-gray-700">
+                  {{ getDisplayName(airfoil) }}
+                </li>
+              </ol>
+            </nav>
+            <VBadge v-if="category" tone="primary" class="normal-case tracking-normal">
+              {{ formatCategoryName(category.name) }}
+            </VBadge>
           </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-            <VButton
-              type="button"
-              color="primary"
-              :disabled="isRerunningGeometry || isDeleting"
-              @click="handleRerunGeometryParams"
-            >
-              {{ isRerunningGeometry ? 'Rerunning...' : 'Rerun Geometry Params' }}
-            </VButton>
-            <VButton
-              type="button"
-              color="error"
-              :disabled="isDeleting || isRerunningGeometry"
-              @click="openDeleteModal"
-            >
-              {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
-            </VButton>
-          </div>
-        </div>
+        </template>
+      </PageHeader>
 
-        <!-- Geometry Visualization -->
-        <div class="mb-8">
-          <div class="bg-white rounded-lg shadow">
-            <!-- Tabs -->
-            <div class="border-b border-gray-200">
-              <nav class="flex -mb-px">
-                <button
-                  type="button"
-                  :class="[
-                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                    activeGeometryTab === 'plot'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  ]"
-                  @click="activeGeometryTab = 'plot'"
-                >
-                  Geometry
-                </button>
-                <button
-                  type="button"
-                  :class="[
-                    'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-                    activeGeometryTab === 'bezier'
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  ]"
-                  @click="activeGeometryTab = 'bezier'"
-                >
-                  Bezier Fit
-                </button>
-              </nav>
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <!-- Geometry plot / Bezier fit, with the parameters below (visible on both tabs) -->
+        <div class="flex min-w-0 flex-col gap-4 lg:col-span-2">
+          <VPanel>
+            <div class="-mx-4 -mt-4 mb-4 flex gap-2 border-b border-gray-200 px-4 sm:-mx-5 sm:-mt-5 sm:mb-5 sm:px-5">
+              <button
+                type="button"
+                :class="navTabButtonClasses(activeGeometryTab === 'plot')"
+                :aria-pressed="activeGeometryTab === 'plot'"
+                @click="activeGeometryTab = 'plot'"
+              >
+                Geometry
+              </button>
+              <button
+                type="button"
+                :class="navTabButtonClasses(activeGeometryTab === 'bezier')"
+                :aria-pressed="activeGeometryTab === 'bezier'"
+                @click="activeGeometryTab = 'bezier'"
+              >
+                Bezier Fit
+              </button>
             </div>
 
-            <!-- Tab Content -->
-            <div class="p-6">
-              <!-- Geometry Tab -->
-              <div v-if="activeGeometryTab === 'plot'">
-                <div class="flex flex-row w-full">
-                  <AirfoilGeometry
-                    v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-                    :upper-x="airfoil.upper_x_coordinates"
-                    :upper-y="airfoil.upper_y_coordinates"
-                    :lower-x="airfoil.lower_x_coordinates"
-                    :lower-y="airfoil.lower_y_coordinates"
-                    :name="getDisplayName(airfoil)"
-                    :aspect-ratio="7"
-                    :show-grid="true"
-                    :zoomable="true"
-                    :show-points-on-hover="false"
-                    :show-marker-toggle="true"
-                  />
-                  <div v-else class="text-center py-8 text-gray-400">
-                    Geometry data not available
-                  </div>
-                </div>
+            <!-- Geometry Tab -->
+            <div v-if="activeGeometryTab === 'plot'">
+              <AirfoilGeometry
+                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                :upper-x="airfoil.upper_x_coordinates"
+                :upper-y="airfoil.upper_y_coordinates"
+                :lower-x="airfoil.lower_x_coordinates"
+                :lower-y="airfoil.lower_y_coordinates"
+                :name="getDisplayName(airfoil)"
+                :aspect-ratio="7"
+                :show-grid="true"
+                :zoomable="true"
+                :show-points-on-hover="false"
+                :show-marker-toggle="true"
+              />
+              <VStateBlock v-else title="Geometry data not available" />
+            </div>
 
-                <!-- Coordinate Points Table -->
-                <div v-if="coordinateTableData.length > 0" class="mt-6 w-full">
-                  <div class="w-full flex items-center justify-between">
-                    <button
-                      type="button"
-                      @click="showPoints = !showPoints"
-                      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
-                    >
-                      <Icon
-                        name="heroicons:chevron-right"
-                        class="h-4 w-4 transition-transform"
-                        :class="{ 'rotate-90': showPoints }"
-                      />
-                      {{ showPoints ? 'Hide Points' : 'Show Points' }}
-                    </button>
-                    <button
-                      v-show="showPoints"
-                      type="button"
-                      @click="copyPointsToClipboard"
-                      class="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-50 transition-colors"
-                      :title="copiedPoints ? 'Copied!' : 'Copy points to clipboard'"
-                    >
-                      <Icon :name="copiedPoints ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div v-show="showPoints" class="mt-2 h-[300px] overflow-auto">
-                  <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                      <thead class="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Index
-                          </th>
-                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Upper X
-                          </th>
-                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Upper Y
-                          </th>
-                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Lower X
-                          </th>
-                          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Lower Y
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody class="bg-white divide-y divide-gray-200">
-                        <tr v-for="row in coordinateTableData" :key="row.index" class="hover:bg-gray-50">
-                          <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                            {{ row.index }}
-                          </td>
-                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {{ row.upperX }}
-                          </td>
-                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {{ row.upperY }}
-                          </td>
-                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {{ row.lowerX }}
-                          </td>
-                          <td class="px-3 py-2 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {{ row.lowerY }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  </div>
-                </div>
-              </div>
+            <!-- Bezier Fit Tab -->
+            <div v-else-if="activeGeometryTab === 'bezier'">
+              <BezierFitTab
+                v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
+                :upper-x="airfoil.upper_x_coordinates"
+                :upper-y="airfoil.upper_y_coordinates"
+                :lower-x="airfoil.lower_x_coordinates"
+                :lower-y="airfoil.lower_y_coordinates"
+                :airfoil-name="getDisplayName(airfoil)"
+              />
+              <VStateBlock v-else title="Geometry data not available for Bezier fitting" />
+            </div>
 
-              <!-- Bezier Fit Tab -->
-              <div v-else-if="activeGeometryTab === 'bezier'">
-                <BezierFitTab
-                  v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates"
-                  :upper-x="airfoil.upper_x_coordinates"
-                  :upper-y="airfoil.upper_y_coordinates"
-                  :lower-x="airfoil.lower_x_coordinates"
-                  :lower-y="airfoil.lower_y_coordinates"
-                  :airfoil-name="getDisplayName(airfoil)"
+            <!-- Geometric parameters -->
+            <div class="mt-5 border-t border-gray-200 pt-4">
+              <h3 class="sr-only">
+                Geometric parameters
+              </h3>
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+                <VStat
+                  v-if="airfoil.thickness_pct"
+                  label="Thickness (t/c)"
+                  :value="(airfoil.thickness_pct * 100).toFixed(2)"
+                  unit="%"
+                  :hint="airfoil.thickness_loc_pct ? `at ${(airfoil.thickness_loc_pct * 100).toFixed(1)}% x/c` : undefined"
                 />
-                <div v-else class="h-[400px] flex items-center justify-center text-gray-400">
-                  Geometry data not available for Bezier fitting
-                </div>
-              </div>
+                <VStat
+                  v-if="airfoil.camber_pct"
+                  label="Camber (y/c)"
+                  :value="(airfoil.camber_pct * 100).toFixed(2)"
+                  unit="%"
+                  :hint="airfoil.camber_loc_pct ? `at ${(airfoil.camber_loc_pct * 100).toFixed(1)}% x/c` : undefined"
+                />
+                <VStat
+                  v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined"
+                  label="Area (A/c²)"
+                  :value="(airfoil.area_coefficient * 100).toFixed(2)"
+                  unit="% c²"
+                />
+                <VStat v-if="airfoil.le_radius" label="LE radius" :value="airfoil.le_radius.toFixed(4)" />
+                <VStat v-if="airfoil.te_thickness" label="TE thickness" :value="airfoil.te_thickness.toFixed(4)" />
+                <VStat
+                  v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined"
+                  label="Upper nodes"
+                  :value="airfoil.upper_surface_nodes"
+                />
+                <VStat
+                  v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined"
+                  label="Lower nodes"
+                  :value="airfoil.lower_surface_nodes"
+                />
+              </dl>
             </div>
+          </VPanel>
+          <!-- Download sits at the row end, so its right-anchored menu always opens inside the row -->
+          <div class="flex flex-wrap items-center gap-2 empty:hidden">
+            <VButton v-if="airfoil.id" color="primary" @click="showAnalysisModal = true">
+              <Icon name="tabler:brain" class="h-4 w-4" aria-hidden="true" />
+              Run NN Analysis
+            </VButton>
+            <VButton
+              v-if="airfoil.id"
+              :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
+              color="light"
+            >
+              <Icon name="tabler:angle" class="h-4 w-4" aria-hidden="true" />
+              Control Surface Analysis
+            </VButton>
+            <VButton
+              v-if="airfoil.id"
+              :to="`/tools/numerical-analysis-2d?airfoil=${encodeURIComponent(airfoilSlug)}`"
+              color="light"
+            >
+              <Icon name="tabler:wind" class="h-4 w-4" aria-hidden="true" />
+              Numerical Analysis 2D
+            </VButton>
+            <VDropdown
+              v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
+              right
+              class="ml-auto"
+            >
+              <template #activator>
+                <VDropdownButton as="button" type="button" :class="buttonVariants({ color: 'light', size: 'md' })">
+                  <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
+                  Download
+                  <Icon name="heroicons:chevron-down" class="h-4 w-4 text-gray-500" aria-hidden="true" />
+                </VDropdownButton>
+              </template>
+              <VDropdownItem
+                v-for="format in downloadFormats"
+                :key="format.value"
+                @click="handleDownload(format.value)"
+              >
+                <span class="block text-left">
+                  <span class="block font-medium text-gray-900">{{ format.text }}</span>
+                  <span class="mt-0.5 block text-xs text-gray-500">{{ format.description }}</span>
+                </span>
+              </VDropdownItem>
+            </VDropdown>
           </div>
         </div>
 
-        <!-- Metadata -->
-        <div class="mb-8">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Geometry Parameters</h2>
-                <dl class="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div v-if="airfoil.thickness_pct" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Thickness (t/c)</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ (airfoil.thickness_pct * 100).toFixed(2) }}%
-                      <span v-if="airfoil.thickness_loc_pct" class="text-sm text-gray-600 font-normal">
-                        @ {{ (airfoil.thickness_loc_pct * 100).toFixed(1) }}% x/c
-                      </span>
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.camber_pct" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Camber (y/c)</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ (airfoil.camber_pct * 100).toFixed(2) }}%
-                      <span v-if="airfoil.camber_loc_pct" class="text-sm text-gray-600 font-normal">
-                        @ {{ (airfoil.camber_loc_pct * 100).toFixed(1) }}% x/c
-                      </span>
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.area_coefficient !== null && airfoil.area_coefficient !== undefined" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Area (A/c²)</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ (airfoil.area_coefficient * 100).toFixed(2) }}% c²
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.upper_surface_nodes !== null && airfoil.upper_surface_nodes !== undefined" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Upper Surface Nodes</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.upper_surface_nodes }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.lower_surface_nodes !== null && airfoil.lower_surface_nodes !== undefined" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Lower Surface Nodes</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.lower_surface_nodes }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.le_radius" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Leading Edge Radius</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.le_radius.toFixed(4) }}
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.te_thickness" class="min-w-0">
-                    <dt class="text-sm text-gray-500">Trailing Edge Thickness</dt>
-                    <dd class="text-lg font-semibold text-gray-900">
-                      {{ airfoil.te_thickness.toFixed(4) }}
-                    </dd>
-                  </div>
-                </dl>
+        <!-- Points and details: on lg+ the column takes the row height set by the left cell (geometry + buttons) -->
+        <div class="flex min-w-0 flex-col gap-6">
+          <!-- lg+: flush body is a relative flex-1 box; the scroller is absolute so the table never makes the row taller -->
+          <VPanel
+            v-if="coordinateTableData.length > 0"
+            flush
+            class="flex flex-col lg:max-h-[32rem] lg:flex-1 lg:[&>div:last-child]:relative lg:[&>div:last-child]:min-h-[7rem] lg:[&>div:last-child]:flex-1"
+            :class="{ 'max-lg:[&>div:last-child]:hidden': !showPoints }"
+          >
+            <template #title>
+              Points <span class="num text-xs font-normal text-gray-500">({{ coordinateTableData.length }} rows)</span>
+            </template>
+            <template #actions>
+              <button
+                type="button"
+                class="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 lg:hidden"
+                :aria-expanded="showPoints"
+                aria-controls="coordinate-points"
+                @click="showPoints = !showPoints"
+              >
+                <Icon
+                  name="heroicons:chevron-right"
+                  class="h-4 w-4 transition-transform"
+                  :class="{ 'rotate-90': showPoints }"
+                  aria-hidden="true"
+                />
+                {{ showPoints ? 'Hide points' : 'Show points' }}
+              </button>
+              <VButton
+                :class="{ 'hidden lg:inline-flex': !showPoints }"
+                type="button"
+                color="light"
+                size="sm"
+                @click="copyPointsToClipboard"
+              >
+                <Icon :name="copiedPoints ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" aria-hidden="true" />
+                {{ copiedPoints ? 'Copied' : 'Copy' }}
+              </VButton>
+            </template>
+            <div id="coordinate-points" class="max-h-[300px] overflow-auto lg:absolute lg:inset-0 lg:max-h-none">
+              <table class="min-w-full text-xs">
+                <thead class="sticky top-0 bg-gray-50 shadow-[inset_0_-1px_0] shadow-gray-200">
+                  <tr>
+                    <th scope="col" class="data-label px-1.5 py-2 text-right first:pl-3 last:pr-3">
+                      Upper X
+                    </th>
+                    <th scope="col" class="data-label px-1.5 py-2 text-right first:pl-3 last:pr-3">
+                      Upper Y
+                    </th>
+                    <th scope="col" class="data-label px-1.5 py-2 text-right first:pl-3 last:pr-3">
+                      Lower X
+                    </th>
+                    <th scope="col" class="data-label px-1.5 py-2 text-right first:pl-3 last:pr-3">
+                      Lower Y
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr v-for="row in coordinateTableData" :key="row.index" class="num text-right text-gray-900 hover:bg-gray-50">
+                    <td class="px-1.5 py-1 first:pl-3 last:pr-3">
+                      {{ row.upperX }}
+                    </td>
+                    <td class="px-1.5 py-1 first:pl-3 last:pr-3">
+                      {{ row.upperY }}
+                    </td>
+                    <td class="px-1.5 py-1 first:pl-3 last:pr-3">
+                      {{ row.lowerX }}
+                    </td>
+                    <td class="px-1.5 py-1 first:pl-3 last:pr-3">
+                      {{ row.lowerY }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </VPanel>
+          <VPanel v-if="category || airfoil.source_url || airfoil.created_at" title="Details">
+            <dl class="space-y-4 text-sm">
+              <div v-if="category">
+                <dt class="data-label">
+                  Category
+                </dt>
+                <dd class="mt-1">
+                  <VBadge tone="primary">
+                    {{ formatCategoryName(category.name) }}
+                  </VBadge>
+                </dd>
               </div>
-
-              <div>
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
-                <dl class="space-y-3">
-                  <div v-if="category">
-                    <dt class="text-sm text-gray-500">Category</dt>
-                    <dd>
-                      <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
-                        {{ formatCategoryName(category.name) }}
-                      </span>
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.source_url">
-                    <dt class="text-sm text-gray-500">Source</dt>
-                    <dd class="min-w-0">
-                      <a
-                        :href="airfoil.source_url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 min-w-0"
-                      >
-                        <span class="truncate">{{ airfoil.source_url }}</span>
-                        <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4 flex-shrink-0" />
-                      </a>
-                    </dd>
-                  </div>
-                  <div v-if="airfoil.created_at">
-                    <dt class="text-sm text-gray-500">Added</dt>
-                    <dd class="text-gray-900">
-                      {{ new Date(airfoil.created_at).toLocaleDateString() }}
-                    </dd>
-                  </div>
-                  <div
-                    v-if="airfoil.upper_x_coordinates && airfoil.upper_y_coordinates && airfoil.lower_x_coordinates && airfoil.lower_y_coordinates && airfoil.upper_surface_nodes && airfoil.lower_surface_nodes"
+              <div v-if="airfoil.source_url" class="min-w-0">
+                <dt class="data-label">
+                  Source
+                </dt>
+                <dd class="mt-1 min-w-0">
+                  <a
+                    :href="airfoil.source_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex min-w-0 items-center gap-1 rounded text-primary-700 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                   >
-                    <dt class="text-sm text-gray-500 flex items-center gap-1">
-                      Download Airfoil Coordinates
-                      <div class="relative group">
-                        <Icon
-                          name="heroicons:information-circle"
-                          class="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help"
-                        />
-                        <div class="absolute left-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                          <div class="space-y-2">
-                            <div>
-                              <span class="font-semibold">Lednicer:</span>
-                              <span class="text-gray-300"> Upper and lower surfaces listed separately with point counts in the header.</span>
-                            </div>
-                            <div>
-                              <span class="font-semibold">Selig:</span>
-                              <span class="text-gray-300"> Continuous loop from upper TE around LE to lower TE. Most common format for XFOIL.</span>
-                            </div>
-                            <div>
-                              <span class="font-semibold">OpenVSP AF:</span>
-                              <span class="text-gray-300"> Includes header with symmetry flag and point counts. Used by OpenVSP.</span>
-                            </div>
-                          </div>
-                          <div class="absolute left-3 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                        </div>
-                      </div>
-                    </dt>
-                    <dd class="flex items-center gap-2">
-                      <VSelect
-                        v-model="selectedFormat"
-                        :items="downloadFormats"
-                        placeholder="Select format..."
-                        class="flex-1"
-                      />
-                      <VButton
-                        type="button"
-                        color="primary"
-                        :disabled="!selectedFormat"
-                        @click="handleDownload"
-                      >
-                        <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-                        Download
-                      </VButton>
-                    </dd>
-                  </div>
-                </dl>
+                    <span class="truncate">{{ airfoil.source_url }}</span>
+                    <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <span class="sr-only">(opens in a new tab)</span>
+                  </a>
+                </dd>
               </div>
-            </div>
-        </div>
-        
-        <!-- Analysis Buttons -->
-        <div v-if="airfoil.id" class="mb-8 flex flex-row items-stretch gap-3 border-t border-gray-200 pt-8">
-          <VButton
-            color="primary"
-            class="min-w-0 flex-1"
-            size="lg"
-            @click="showAnalysisModal = true"
-          >
-            <Icon name="heroicons:play" class="h-5 w-5 shrink-0" />
-            Run Performance Analysis
-          </VButton>
-          <VButton
-            :to="`/control-surface?airfoil=${encodeURIComponent(airfoilSlug)}`"
-            color="neutral"
-            class="min-w-0 flex-1 min-h-12"
-            size="lg"
-          >
-            <Icon name="heroicons:adjustments-horizontal" class="h-5 w-5 shrink-0" />
-            Control Surface Analysis
-          </VButton>
-        </div>
-
-        <!-- Performance Data (Combined Cache and Plots) -->
-        <div v-if="airfoil.id" class="mb-8">
-          <h2 class="text-xl font-semibold text-gray-900 mb-2">Performance Data</h2>
-          <p class="text-sm text-gray-500 mb-4">All data generated via NeuralFoil AI-powered aerodynamic analysis</p>
-          
-          <!-- Performance Cache Table -->
-          <div class="mb-6">
-            <AirfoilPerformanceCache 
-              :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
-              ref="cacheRef"
-              :airfoil-id="airfoil.id"
-              :no-card="true"
-              @selection-change="handleSelectionChange"
-            />
-          </div>
-
-          <!-- Export Buttons -->
-          <div v-if="selectedCacheEntries.length > 0" class="flex gap-2 mb-6">
-            <VButton
-              type="button"
-              color="light"
-              @click="copyCSVToClipboard"
-            >
-              <Icon :name="copiedToClipboard ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" />
-              {{ copiedToClipboard ? 'Copied!' : 'Copy to Clipboard' }}
-            </VButton>
-            <VButton
-              type="button"
-              color="light"
-              @click="downloadCSV"
-            >
-              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-              Download CSV
-            </VButton>
-          </div>
-          <div class="border-t border-gray-200 my-4"></div>
-          <!-- Performance Plots -->
-          <AirfoilPolarPlots ref="plotsRef" :performance-data="performanceDataForPlots" @tooltips-toggled="handleTooltipsToggled" />
-        </div>
-
-        <!-- Data Accuracy Notice -->
-        <div class="mt-8 pt-6 border-t border-gray-200">
-          <p class="text-xs text-gray-400 text-center">
-            We need your help to keep an accurate database. If you suspect that there is an issue with this airfoil's geometry, stats, categorization, or description please email us at 
-            <a :href="`mailto:${supportEmail}`" class="text-gray-500 hover:text-gray-600 underline">{{ supportEmail }}</a>.
-          </p>
+              <div v-if="airfoil.created_at">
+                <dt class="data-label">
+                  Added
+                </dt>
+                <dd class="mt-1 text-gray-900">
+                  <!-- the visitor's locale and time zone are only known in the browser -->
+                  <ClientOnly>{{ new Date(airfoil.created_at).toLocaleDateString() }}</ClientOnly>
+                </dd>
+              </div>
+            </dl>
+          </VPanel>
         </div>
       </div>
 
-      <!-- Analysis Modal -->
-      <VModal v-model="showAnalysisModal">
-        <VModalHeader dismissable>
-          Run Performance Analysis
-        </VModalHeader>
-        <VModalBody>
-          <div class="space-y-4">
-            <p class="text-sm text-gray-600">
-              Configure the flow conditions for the performance analysis.
-            </p>
-            
-            <AnalysisParametersForm
-              ref="analysisParamsFormRef"
-              @submit="handleModalSubmit"
-            />
-
-            <!-- Error Message -->
-            <div v-if="analysisError" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p class="text-sm text-red-800">{{ analysisError }}</p>
-            </div>
-
-            <!-- Loading State -->
-            <div v-if="isRunningAnalysis" class="flex items-center justify-center py-4">
-              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <span class="ml-3 text-sm text-gray-600">Running analysis...</span>
-            </div>
-          </div>
-        </VModalBody>
-        <VModalFooter>
+      <!-- Admin tools (local admin branch only) -->
+      <VPanel v-if="airfoil.id" title="Admin">
+        <template #actions>
           <VButton
             type="button"
             color="light"
-            :disabled="isRunningAnalysis"
-            @click="showAnalysisModal = false"
+            size="sm"
+            :disabled="isRerunningGeometry || isDeleting"
+            @click="handleRerunGeometryParams"
           >
-            Cancel
-          </VButton>
-          <VButton
-            type="button"
-            color="primary"
-            :disabled="!analysisParamsFormRef?.isValid || isRunningAnalysis"
-            @click="analysisParamsFormRef?.submit()"
-          >
-            Run Analysis
-          </VButton>
-        </VModalFooter>
-      </VModal>
-
-      <!-- Delete confirmation modal -->
-      <VModal v-model="showDeleteModal">
-        <VModalHeader dismissable>
-          Delete Airfoil
-        </VModalHeader>
-        <VModalBody>
-          <p class="text-sm text-gray-700">
-            Permanently delete
-            <span class="font-semibold">{{ getDisplayName(airfoil) }}</span>
-            and all related performance cache? This cannot be undone.
-          </p>
-          <div v-if="deleteError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-800">{{ deleteError }}</p>
-          </div>
-        </VModalBody>
-        <VModalFooter>
-          <VButton
-            type="button"
-            color="light"
-            :disabled="isDeleting"
-            @click="showDeleteModal = false"
-          >
-            Cancel
+            <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
+            {{ isRerunningGeometry ? 'Rerunning…' : 'Rerun Geometry Params' }}
           </VButton>
           <VButton
             type="button"
             color="error"
-            :disabled="isDeleting"
-            @click="confirmDeleteAirfoil"
+            size="sm"
+            :disabled="isDeleting || isRerunningGeometry"
+            @click="openDeleteModal"
           >
-            {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
+            <Icon name="heroicons:trash" class="h-4 w-4" aria-hidden="true" />
+            {{ isDeleting ? 'Deleting…' : 'Delete Airfoil' }}
           </VButton>
-        </VModalFooter>
-      </VModal>
+        </template>
+        <p v-if="geometryActionError" class="text-sm text-error-700" role="alert">
+          {{ geometryActionError }}
+        </p>
+        <p v-else-if="geometryActionSuccess" class="text-sm text-success-700" role="status">
+          {{ geometryActionSuccess }}
+        </p>
+        <p v-else class="text-sm text-gray-500">
+          Rerun recalculates the geometric parameters with AeroSandbox and saves them. Delete removes the airfoil and its cached polars.
+        </p>
+      </VPanel>
+
+      <AirfoilAircraftList :aircraft="page?.aircraft ?? []" />
+
+      <!-- Performance Data -->
+      <template v-if="airfoil.id">
+        <AirfoilPerformanceCache
+          :key="`cache-${airfoil.id}-${cacheRefreshKey}`"
+          ref="cacheRef"
+          :airfoil-id="airfoil.id"
+          @selection-change="handleSelectionChange"
+        >
+          <template v-if="selectedCacheEntries.length > 0" #actions>
+            <VButton type="button" color="light" size="sm" @click="copyCSVToClipboard">
+              <Icon :name="copiedToClipboard ? 'heroicons:check' : 'heroicons:clipboard-document'" class="h-4 w-4" aria-hidden="true" />
+              {{ copiedToClipboard ? 'Copied!' : 'Copy to Clipboard' }}
+            </VButton>
+            <VButton type="button" color="light" size="sm" @click="downloadCSV">
+              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" aria-hidden="true" />
+              Download CSV
+            </VButton>
+          </template>
+        </AirfoilPerformanceCache>
+
+        <VPanel title="Polar plots">
+          <template v-if="performanceDataForPlots.length > 0" #actions>
+            <button
+              type="button"
+              :class="toggleButtonClasses(tooltipsEnabled)"
+              class="!h-8 !px-3"
+              :aria-pressed="tooltipsEnabled"
+              @click="plotsRef?.toggleTooltips()"
+            >
+              <Icon name="heroicons:cursor-arrow-rays" class="h-4 w-4" aria-hidden="true" />
+              Data hover
+            </button>
+            <VButton type="button" color="light" size="sm" @click="plotsRef?.resetZoom()">
+              <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
+              Reset zoom
+            </VButton>
+          </template>
+          <AirfoilPolarPlots
+            ref="plotsRef"
+            :performance-data="performanceDataForPlots"
+            :show-controls="false"
+            @tooltips-toggled="handleTooltipsToggled"
+          />
+        </VPanel>
+      </template>
+
+      <!-- Data Accuracy Notice -->
+      <p class="text-xs text-gray-500">
+        Spotted an issue with this airfoil's geometry, stats, categorization, or description? Help keep the database accurate: email
+        <a :href="`mailto:${supportEmail}`" class="underline underline-offset-2 hover:text-gray-700">{{ supportEmail }}</a>.
+      </p>
+    </div>
+
+    <!-- Analysis Modal -->
+    <VModal v-model="showAnalysisModal">
+      <VModalHeader dismissable>
+        Run NN Analysis
+      </VModalHeader>
+      <VModalBody>
+        <div class="space-y-4">
+          <p class="text-sm text-gray-600">
+            Configure the flow conditions for the performance analysis.
+          </p>
+
+          <AnalysisParametersForm
+            ref="analysisParamsFormRef"
+            @submit="handleModalSubmit"
+          />
+
+          <div v-if="analysisError" class="rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
+            <p class="text-sm text-error-700">
+              {{ analysisError }}
+            </p>
+          </div>
+
+          <VStateBlock v-if="isRunningAnalysis" variant="loading" title="Running analysis…" class="!py-4" />
+        </div>
+      </VModalBody>
+      <VModalFooter>
+        <VButton
+          type="button"
+          color="light"
+          :disabled="isRunningAnalysis"
+          @click="showAnalysisModal = false"
+        >
+          Cancel
+        </VButton>
+        <VButton
+          type="button"
+          color="primary"
+          :disabled="!analysisParamsFormRef?.isValid || isRunningAnalysis"
+          @click="analysisParamsFormRef?.submit()"
+        >
+          Run Analysis
+        </VButton>
+      </VModalFooter>
+    </VModal>
+
+    <!-- Admin: delete confirmation modal -->
+    <VModal v-model="showDeleteModal">
+      <VModalHeader dismissable>
+        Delete Airfoil
+      </VModalHeader>
+      <VModalBody>
+        <p class="text-sm text-gray-700">
+          Permanently delete
+          <span class="font-semibold">{{ getDisplayName(airfoil) }}</span>
+          and all related performance cache? This cannot be undone.
+        </p>
+        <div v-if="deleteError" class="mt-4 rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
+          <p class="text-sm text-error-700">
+            {{ deleteError }}
+          </p>
+        </div>
+      </VModalBody>
+      <VModalFooter>
+        <VButton
+          type="button"
+          color="light"
+          :disabled="isDeleting"
+          @click="showDeleteModal = false"
+        >
+          Cancel
+        </VButton>
+        <VButton
+          type="button"
+          color="error"
+          :disabled="isDeleting"
+          @click="confirmDeleteAirfoil"
+        >
+          {{ isDeleting ? 'Deleting…' : 'Delete Airfoil' }}
+        </VButton>
+      </VModalFooter>
+    </VModal>
   </div>
 </template>

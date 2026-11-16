@@ -2,6 +2,7 @@
  * Composable for airfoil CRUD operations
  */
 import type { Database } from '~/types/database.types'
+import type { AircraftUsageRow } from '~/utils/aircraftUsage'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -10,6 +11,21 @@ export type AirfoilListItem = Pick<
   Airfoil,
   'id' | 'name' | 'display_name' | 'thickness_pct' | 'camber_pct'
 >
+
+/** Meta description for an airfoil page: measured values first, then its own text, cut to ~160 characters. */
+export const airfoilMetaDescription = (airfoil: Airfoil, displayName: string, categoryLabel?: string): string => {
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+  const at = (loc: number | null) => (loc != null ? ` at ${pct(loc)} chord` : '')
+  const points = (airfoil.upper_x_coordinates?.length ?? 0) + (airfoil.lower_x_coordinates?.length ?? 0)
+  const facts = [
+    airfoil.thickness_pct != null && `${pct(airfoil.thickness_pct)} thick${at(airfoil.thickness_loc_pct)}`,
+    airfoil.camber_pct === 0 ? 'symmetric' : airfoil.camber_pct != null && `${pct(airfoil.camber_pct)} camber${at(airfoil.camber_loc_pct)}`,
+    categoryLabel,
+    points > 0 && `${points} points`,
+  ].filter(Boolean).join(', ')
+  const text = `${displayName} airfoil${facts ? `: ${facts}.` : '.'} ${airfoil.description || 'Coordinates, geometry and polars.'}`
+  return text.length <= 160 ? text : `${text.slice(0, 159).replace(/\s+\S*$/, '')}…`
+}
 
 export const useAirfoils = () => {
   const supabase = useSupabaseClient<Database>()
@@ -168,6 +184,32 @@ export const useAirfoils = () => {
   }
 
   /**
+   * Fetch the aircraft rows that use an airfoil (exact matches only, uncertain entries left out).
+   * Hidden aircraft are filtered out by RLS; the largest airfoils pass 1000 rows, so this pages.
+   */
+  const fetchAircraftUsage = async (airfoilId: string): Promise<AircraftUsageRow[]> => {
+    const rows: AircraftUsageRow[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('aircraft_airfoils')
+        .select('surface, position, modified, sources, aircraft(key, name, display_name)')
+        .eq('airfoil_id', airfoilId)
+        .eq('uncertain', false)
+        .order('id')
+        .range(from, from + 999)
+
+      if (error) {
+        console.error('Error fetching aircraft usage:', error)
+        throw error
+      }
+
+      rows.push(...data)
+      if (data.length < 1000) break
+    }
+    return rows
+  }
+
+  /**
    * Get random airfoils (for featured section)
    * Uses RPC function get_random_airfoils
    */
@@ -258,6 +300,7 @@ export const useAirfoils = () => {
       | 'thickness_loc_pct'
       | 'camber_pct'
       | 'camber_loc_pct'
+      | 'area_coefficient'
       | 'le_radius'
       | 'te_thickness'
       | 'te_angle'
@@ -324,6 +367,7 @@ export const useAirfoils = () => {
     fetchAirfoilListItems,
     fetchAirfoilsByIds,
     fetchRandomAirfoils,
+    fetchAircraftUsage,
     fetchAllAirfoils,
     updateAirfoil,
     deleteAirfoil,

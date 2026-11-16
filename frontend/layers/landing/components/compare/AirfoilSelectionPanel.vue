@@ -92,40 +92,31 @@ const formatPercentage = (value: number | null | undefined): string => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg border border-gray-200 p-4">
+  <div class="rounded-xl border border-gray-200 bg-white p-4">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="mb-3 flex items-center justify-between gap-2">
       <h3 class="text-sm font-semibold text-gray-900">Select Airfoils</h3>
-      <div class="flex items-center gap-2">
-        <span
-          :class="[
-            'text-xs font-medium px-2 py-1 rounded',
-            isValidSelection
-              ? 'bg-green-100 text-green-800'
-              : selectedCount === 0
-              ? 'bg-red-100 text-red-800'
-              : 'bg-yellow-100 text-yellow-800'
-          ]"
-        >
-          {{ selectedCount }} / {{ maxSelection }} selected
-        </span>
-      </div>
+      <VBadge :tone="isValidSelection ? 'success' : selectedCount === 0 ? 'error' : 'warning'">
+        <span class="num">{{ selectedCount }} / {{ maxSelection }}</span> selected
+      </VBadge>
     </div>
 
     <!-- Search Input -->
-    <div class="mb-4">
+    <div class="mb-3">
       <VInput
         v-model="searchQuery"
         type="text"
         placeholder="Search airfoils by name..."
         size="sm"
         prepend-icon="heroicons:magnifying-glass-20-solid"
+        icon-size="16"
+        aria-label="Search airfoils by name"
       />
     </div>
 
     <!-- Batch Actions -->
-    <div class="mb-4 pb-4 border-b border-gray-200">
-      <div class="flex items-center gap-2 mb-2">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
+      <div class="flex items-center gap-2">
         <VButton
           type="button"
           variant="ghost"
@@ -136,7 +127,7 @@ const formatPercentage = (value: number | null | undefined): string => {
         >
           Deselect All
         </VButton>
-        <span class="text-gray-300">|</span>
+        <span class="text-gray-300" aria-hidden="true">|</span>
         <VButton
           type="button"
           variant="ghost"
@@ -148,69 +139,61 @@ const formatPercentage = (value: number | null | undefined): string => {
           {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
         </VButton>
       </div>
-      <div v-if="searchQuery.trim() || showSelectedOnly" class="text-xs text-gray-500">
-        Showing {{ displayedAirfoils.length }} of {{ airfoils.length }}
-      </div>
+      <span v-if="searchQuery.trim() || showSelectedOnly" class="text-xs text-gray-500">
+        Showing <span class="num">{{ displayedAirfoils.length }}</span> of <span class="num">{{ airfoils.length }}</span>
+      </span>
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="text-center py-8">
-      <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-      <p class="mt-2 text-sm text-gray-600">Loading airfoils...</p>
-    </div>
+    <VStateBlock v-if="isLoading" variant="loading" description="Loading airfoils..." />
 
     <!-- Empty State -->
-    <div v-else-if="airfoils.length === 0" class="text-center py-8">
-      <p class="text-sm text-gray-500">No airfoils match the current filters.</p>
-    </div>
+    <VStateBlock v-else-if="airfoils.length === 0" description="No airfoils match the current filters." />
 
     <!-- Airfoil List -->
-    <div v-else class="max-h-96 overflow-y-auto space-y-1">
-      <div
+    <div v-else class="-mx-1 max-h-96 space-y-0.5 overflow-y-auto">
+      <label
         v-for="airfoil in displayedAirfoils"
         :key="airfoil.id"
+        class="flex items-center gap-3 rounded-md px-2 py-1.5 transition-colors"
         :class="[
-          'flex items-center gap-3 p-2 rounded cursor-pointer transition-colors',
           isSelected(airfoil.id)
-            ? 'bg-indigo-50 hover:bg-indigo-100'
+            ? 'bg-primary-50 hover:bg-primary-100'
             : 'hover:bg-gray-50',
           selectedCount >= maxSelection && !isSelected(airfoil.id)
-            ? 'opacity-50 cursor-not-allowed'
-            : ''
+            ? 'cursor-not-allowed opacity-50'
+            : 'cursor-pointer',
         ]"
-        @click="toggleSelection(airfoil.id)"
       >
         <input
           type="checkbox"
           :checked="isSelected(airfoil.id)"
           :disabled="selectedCount >= maxSelection && !isSelected(airfoil.id)"
-          class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 disabled:opacity-50 pointer-events-none"
-        />
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium text-gray-900 truncate uppercase">
+          class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
+          @change="toggleSelection(airfoil.id)"
+        >
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium uppercase text-gray-900">
             {{ airfoil.name }}
           </div>
-          <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+          <div class="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
             <span v-if="airfoil.thickness_pct !== null">
-              Thickness: {{ formatPercentage(airfoil.thickness_pct) }}
+              Thickness <span class="num">{{ formatPercentage(airfoil.thickness_pct) }}</span>
             </span>
             <span v-if="airfoil.camber_pct !== null">
-              Camber: {{ formatPercentage(airfoil.camber_pct) }}
+              Camber <span class="num">{{ formatPercentage(airfoil.camber_pct) }}</span>
             </span>
           </div>
         </div>
-      </div>
+      </label>
     </div>
 
     <!-- Validation Message -->
-    <div
+    <p
       v-if="selectedCount > maxSelection"
-      class="mt-4 pt-4 border-t border-gray-200"
+      class="mt-3 border-t border-gray-200 pt-3 text-center text-xs text-warning-700"
     >
-      <p class="text-xs text-center text-yellow-600">
-        Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
-      </p>
-    </div>
+      Maximum {{ maxSelection }} airfoils allowed. Please deselect some airfoils.
+    </p>
   </div>
 </template>
-

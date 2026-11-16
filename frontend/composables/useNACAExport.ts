@@ -1,235 +1,60 @@
-import type { NACACoordinates, NACA4Params, NACA5Params } from './useNACAGenerator'
+import type { NACACoordinates } from './useNACAGenerator'
+import { type Family, familyDef } from '../utils/airfoilFamilies.ts'
+import { formatCoord, sanitizeFilename, sortLowerCoordinates, sortUpperCoordinates, triggerDownload } from './useAirfoilDownload.ts'
 
 /**
- * Generate filename-safe string from airfoil name
+ * Export generator parameters to CSV: metadata, then the family's rows from AIRFOIL_FAMILIES
  */
-const sanitizeFilename = (name: string): string => {
-  return name.replace(/[^a-zA-Z0-9_-]/g, '_')
+export const exportNACAParameters = (family: Family, params: unknown, airfoilName: string, fileBase: string = sanitizeFilename(airfoilName)) => {
+  const lines = [
+    'parameter_name,value',
+    `airfoil_name,${airfoilName}`,
+    `series_type,${family}`,
+    `timestamp,${new Date().toISOString()}`,
+    '',
+    ...(familyDef(family).csvRows?.(params) ?? []),
+  ]
+  triggerDownload(lines.join('\n'), `${fileBase}_naca_parameters.csv`)
 }
 
-/**
- * Trigger browser download for a file
- */
-const triggerDownload = (content: string, filename: string, type: string = 'text/csv') => {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+// Drops a point near ANY kept point of the surface. The library writers in useAirfoilDownload only compare with the
+// previous point; this stricter rule is kept so generator files stay byte-identical to earlier exports.
+const dedupe = (coords: Array<[number, number]>, tolerance: number = 5e-5) => {
+  const kept: Array<[number, number]> = []
+  coords.forEach((c) => {
+    if (!kept.some(k => Math.abs(k[0] - c[0]) < tolerance && Math.abs(k[1] - c[1]) < tolerance))
+      kept.push(c)
+  })
+  return kept
 }
 
-/**
- * Format number for CSV (with sufficient precision)
- */
-const formatNumber = (num: number): string => {
-  return num.toFixed(6)
+const line = (c: [number, number]) => `${formatCoord(c[0])}  ${formatCoord(c[1])}`
+const count = (coords: unknown[]) => `${coords.length}.`.padStart(8)
+
+/** Selig point order: upper TE->LE then lower LE->TE, the shared LE point once */
+export const seligPoints = (c: NACACoordinates): Array<[number, number]> => {
+  const upper = dedupe(sortUpperCoordinates(c.upperX, c.upperY))
+  // Selig is one loop: the leading-edge point ends the upper surface, so drop it from the lower
+  return [...upper, ...dedupe([upper[upper.length - 1], ...sortLowerCoordinates(c.lowerX, c.lowerY)]).slice(1)]
 }
 
+/** The Selig points as tab-separated x, y lines for pasting into a spreadsheet */
+export const pointsToClipboardText = (c: NACACoordinates) =>
+  seligPoints(c).map(p => `${p[0].toFixed(6)}\t${p[1].toFixed(6)}`).join('\n')
+
 /**
- * Export NACA parameters to CSV format
- * @param seriesType '4-digit' or '5-digit'
- * @param naca4Params 4-digit parameters (if applicable)
- * @param naca5Params 5-digit parameters (if applicable)
- * @param airfoilName Name of the airfoil (for filename)
+ * Generated coordinates as {fileBase}_{suffix}_{format}.dat.
+ * Selig: name, blank, then seligPoints. Lednicer: NAME, counts, blank, both LE->TE.
  */
-export const exportNACAParameters = (
-  seriesType: '4-digit' | '5-digit',
-  naca4Params: NACA4Params | null,
-  naca5Params: NACA5Params | null,
-  airfoilName: string = 'NACA_Airfoil'
-) => {
-  const lines: string[] = []
-
-  // Header row
-  lines.push('parameter_name,value')
-
-  // Metadata
-  lines.push(`airfoil_name,${airfoilName}`)
-  lines.push(`series_type,${seriesType}`)
-  lines.push(`timestamp,${new Date().toISOString()}`)
-  lines.push('') // Empty line separator
-
-  if (seriesType === '4-digit' && naca4Params) {
-    lines.push(`max_camber_m,${formatNumber(naca4Params.m)}`)
-    lines.push(`camber_position_p,${formatNumber(naca4Params.p)}`)
-    lines.push(`max_thickness_t,${formatNumber(naca4Params.t)}`)
-    lines.push(`max_camber_percent,${formatNumber(naca4Params.m * 100)}`)
-    lines.push(`camber_position_percent,${formatNumber(naca4Params.p * 100)}`)
-    lines.push(`max_thickness_percent,${formatNumber(naca4Params.t * 100)}`)
-  } else if (seriesType === '5-digit' && naca5Params) {
-    lines.push(`design_lift_coefficient_cl,${formatNumber(naca5Params.cl)}`)
-    lines.push(`camber_position_p,${formatNumber(naca5Params.p)}`)
-    lines.push(`max_thickness_t,${formatNumber(naca5Params.t)}`)
-    lines.push(`is_reflex,${naca5Params.isReflex}`)
-    lines.push(`camber_position_percent,${formatNumber(naca5Params.p * 100)}`)
-    lines.push(`max_thickness_percent,${formatNumber(naca5Params.t * 100)}`)
+export const exportCoordinates = (c: NACACoordinates, name: string, fileBase: string, suffix: 'naca' | 'cst', format: 'selig' | 'lednicer') => {
+  let lines: string[]
+  if (format === 'lednicer') {
+    const upper = dedupe(sortLowerCoordinates(c.upperX, c.upperY))
+    const lower = dedupe(sortLowerCoordinates(c.lowerX, c.lowerY))
+    lines = [name.toUpperCase(), `${count(upper)}  ${count(lower)}`, '', ...upper.map(line), '', ...lower.map(line)]
   }
-
-  const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_parameters.csv`
-
-  triggerDownload(content, filename)
-}
-
-/**
- * Format a number to fixed-width string (8 characters, 6 decimal places)
- */
-const formatCoord = (num: number): string => {
-  return num.toFixed(6).padStart(8, ' ')
-}
-
-/**
- * Remove duplicate points from coordinate array
- * Two points are considered duplicates if both x and y are within tolerance
- */
-const removeDuplicates = (
-  coords: Array<[number, number]>,
-  tolerance: number = 5e-5
-): Array<[number, number]> => {
-  const result: Array<[number, number]> = []
-
-  for (const coord of coords) {
-    const isDuplicate = result.some(existing =>
-      Math.abs(existing[0] - coord[0]) < tolerance &&
-      Math.abs(existing[1] - coord[1]) < tolerance
-    )
-
-    if (!isDuplicate) {
-      result.push(coord)
-    }
+  else {
+    lines = [name, '', ...seligPoints(c).map(line)]
   }
-
-  return result
+  triggerDownload(lines.join('\n'), `${fileBase}_${suffix}_${format}.dat`)
 }
-
-/**
- * Sort upper surface coordinates by X descending (TE to LE)
- */
-const sortUpperCoordinates = (
-  upperX: number[],
-  upperY: number[]
-): Array<[number, number]> => {
-  const coords = upperX.map((x, i) => [x, upperY[i]] as [number, number])
-  return coords.sort((a, b) => b[0] - a[0]) // Descending X
-}
-
-/**
- * Sort lower surface coordinates by X ascending (LE to TE)
- */
-const sortLowerCoordinates = (
-  lowerX: number[],
-  lowerY: number[]
-): Array<[number, number]> => {
-  const coords = lowerX.map((x, i) => [x, lowerY[i]] as [number, number])
-  return coords.sort((a, b) => a[0] - b[0]) // Ascending X
-}
-
-/**
- * Export NACA-generated coordinates in Lednicer format
- * @param coordinates NACA coordinates
- * @param airfoilName Name for the exported file
- */
-export const exportNACALednicer = (
-  coordinates: NACACoordinates,
-  airfoilName: string = 'NACA_Airfoil'
-) => {
-  // Sort coordinates and remove duplicates
-  // Both surfaces: ascending X (LE to TE)
-  const upperCoordsSorted = sortLowerCoordinates(coordinates.upperX, coordinates.upperY)
-  const lowerCoordsSorted = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
-
-  // Remove duplicates from both surfaces
-  const upperCoords = removeDuplicates(upperCoordsSorted)
-  const lowerCoords = removeDuplicates(lowerCoordsSorted)
-
-  // Build file content
-  const lines: string[] = []
-
-  // Airfoil name
-  lines.push(airfoilName.toUpperCase())
-
-  // Upper and lower counts (with periods and spacing)
-  // Use actual counts after duplicate removal
-  const upperCountStr = (upperCoords.length.toString() + '.').padStart(8)
-  const lowerCountStr = (lowerCoords.length.toString() + '.').padStart(8)
-  lines.push(`${upperCountStr}  ${lowerCountStr}`)
-
-  // Blank line after counts
-  lines.push('')
-
-  // Upper surface coordinates (ascending X, LE to TE)
-  upperCoords.forEach(([x, y]) => {
-    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
-  })
-
-  // Blank line between upper and lower surfaces
-  lines.push('')
-
-  // Lower surface coordinates (ascending X, LE to TE)
-  lowerCoords.forEach(([x, y]) => {
-    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
-  })
-
-  const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_lednicer.dat`
-  triggerDownload(content, filename, 'text/plain')
-}
-
-/**
- * Export NACA-generated coordinates in Selig format
- * @param coordinates NACA coordinates
- * @param airfoilName Name for the exported file
- */
-export const exportNACASelig = (
-  coordinates: NACACoordinates,
-  airfoilName: string = 'NACA_Airfoil'
-) => {
-  // Sort coordinates and remove duplicates
-  // Upper: descending X (TE to LE)
-  // Lower: ascending X (LE to TE)
-  const upperCoordsSorted = sortUpperCoordinates(coordinates.upperX, coordinates.upperY)
-  const lowerCoordsSorted = sortLowerCoordinates(coordinates.lowerX, coordinates.lowerY)
-
-  // Remove duplicates from both surfaces
-  const upperCoords = removeDuplicates(upperCoordsSorted)
-  const lowerCoords = removeDuplicates(lowerCoordsSorted)
-
-  // Build file content
-  const lines: string[] = []
-
-  // Airfoil name
-  lines.push(airfoilName)
-
-  // Empty line
-  lines.push('')
-
-  // Upper surface coordinates (TE to LE) - already sorted descending
-  upperCoords.forEach(([x, y]) => {
-    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
-  })
-
-  // Lower surface coordinates (LE to TE) - already sorted ascending
-  lowerCoords.forEach(([x, y]) => {
-    lines.push(`${formatCoord(x)}  ${formatCoord(y)}`)
-  })
-
-  const content = lines.join('\n')
-  const filename = `${sanitizeFilename(airfoilName)}_naca_selig.dat`
-  triggerDownload(content, filename, 'text/plain')
-}
-
-/**
- * Composable function
- */
-export const useNACAExport = () => {
-  return {
-    exportNACAParameters,
-    exportNACALednicer,
-    exportNACASelig,
-  }
-}
-

@@ -71,84 +71,49 @@ const areaDecimals = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-    <div class="flex items-center gap-2 mb-4 text-gray-900 font-semibold border-b border-gray-200 pb-2">
-      <Icon name="heroicons:chart-bar" class="h-5 w-5 text-blue-600" />
-      <h2>Results</h2>
-    </div>
+  <VPanel title="Results" :description="result.valid ? `Moment of inertia (Ix), ${crossSectionName}` : undefined">
+    <VStateBlock
+      v-if="!result.valid && result.error"
+      variant="error"
+      title="Cannot size spar"
+      :description="result.error"
+    />
 
-    <!-- Error State -->
-    <div v-if="!result.valid && result.error" class="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
-      <div class="flex items-center gap-2 text-red-700">
-        <Icon name="heroicons:exclamation-triangle" class="h-5 w-5" />
-        <span class="text-sm font-medium">{{ result.error }}</span>
-      </div>
-    </div>
+    <dl v-else-if="result.valid" class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <VStat
+        label="Ix (net)"
+        :value="result.netMomentOfInertia.toExponential(3)"
+        :unit="inertiaUnit"
+        :hint="crossSectionName"
+      />
+      <template v-if="showInnerI">
+        <VStat label="Outer I" :value="result.outerMomentOfInertia.toExponential(2)" :unit="inertiaUnit" />
+        <VStat label="Inner I (hollow)" :value="result.innerMomentOfInertia.toExponential(2)" :unit="inertiaUnit" />
+      </template>
+      <VStat
+        v-else
+        label="I about centroidal axis"
+        :value="result.outerMomentOfInertia.toExponential(2)"
+        :unit="inertiaUnit"
+      />
+      <VStat
+        label="Spar height"
+        :value="result.sparHeight.toFixed(lengthDecimals)"
+        :unit="lengthUnit"
+        :hint="`Limited by airfoil thickness at ${(sparLocation * 100).toFixed(0)}% chord`"
+      />
+      <VStat
+        label="Cross-section area"
+        :value="result.area.toFixed(areaDecimals)"
+        :unit="areaUnit"
+        hint="Net area of spar material"
+      />
+    </dl>
 
-    <!-- Results Grid -->
-    <div v-if="result.valid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Spar Height -->
-      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-          Spar Height
-        </p>
-        <h3 class="text-2xl font-bold text-gray-800">
-          {{ result.sparHeight.toFixed(lengthDecimals) }}
-          <span class="text-sm font-normal text-gray-400 ml-1">{{ lengthUnit }}</span>
-        </h3>
-        <p class="text-xs text-gray-500 mt-2">
-          Constrained by airfoil thickness at {{ (sparLocation * 100).toFixed(0) }}% chord
-        </p>
-      </div>
-
-      <!-- Cross-Section Area -->
-      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-          Cross-Section Area
-        </p>
-        <h3 class="text-2xl font-bold text-gray-800">
-          {{ result.area.toFixed(areaDecimals) }}
-          <span class="text-sm font-normal text-gray-400 ml-1">{{ areaUnit }}</span>
-        </h3>
-        <p class="text-xs text-gray-500 mt-2">
-          Net area of spar material
-        </p>
-      </div>
-
-      <!-- Moment of Inertia (Ix) - Full Width -->
-      <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 md:col-span-2">
-        <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
-          Moment of Inertia (Ix) - {{ crossSectionName }}
-        </p>
-        <div class="flex items-baseline gap-4 mb-4">
-          <h3 class="text-4xl font-bold text-blue-900">
-            {{ result.netMomentOfInertia.toExponential(3) }}
-          </h3>
-          <span class="text-base font-medium text-blue-500">{{ inertiaUnit }}</span>
-        </div>
-        
-        <div v-if="showInnerI" class="grid grid-cols-2 gap-4 text-sm text-blue-800">
-          <div>
-            <span class="block text-xs opacity-60 mb-1">Outer I</span>
-            <span class="font-mono">{{ result.outerMomentOfInertia.toExponential(2) }}</span>
-          </div>
-          <div>
-            <span class="block text-xs opacity-60 mb-1">Inner I (Hollow)</span>
-            <span class="font-mono">{{ result.innerMomentOfInertia.toExponential(2) }}</span>
-          </div>
-        </div>
-        <div v-else class="text-sm text-blue-800">
-          <span class="block text-xs opacity-60 mb-1">About Centroidal Axis</span>
-          <span class="font-mono">{{ result.outerMomentOfInertia.toExponential(2) }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="!result.error" class="text-center py-8 text-gray-400">
-      <Icon name="heroicons:calculator" class="h-12 w-12 mx-auto mb-2 opacity-50" />
-      <p class="text-sm">Enter parameters to calculate spar properties</p>
-    </div>
-  </div>
+    <VStateBlock
+      v-else
+      icon="heroicons:calculator"
+      title="Enter parameters to calculate spar properties"
+    />
+  </VPanel>
 </template>
-

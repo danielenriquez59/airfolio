@@ -28,12 +28,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update-filter': [key: keyof FilterState, value: any]
-  'set-selected': [names: string[]]
-  'toggle-selection': [name: string]
-  'select-all': []
-  'deselect-all': []
   'reset-filters': []
-  'reset-analysis': []
   'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
@@ -198,111 +193,53 @@ watch(() => filterEnabled.targetDesign, (enabled) => {
   emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
 })
 
-// Search functionality for Analyzed Airfoils
-const searchQuery = ref('')
-const showSelectedOnly = ref(false)
-
-// Filter the airfoils based on search query and selected-only mode
-const visibleAirfoils = computed(() => {
-  let result = props.filteredAirfoils
-
-  // Filter to show only selected airfoils if in that mode
-  if (showSelectedOnly.value) {
-    result = result.filter(name => props.selectedAirfoils.includes(name))
-  }
-
-  // Further filter by search query
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(name =>
-      name.toLowerCase().includes(query)
-    )
-  }
-
-  return result
-})
-
-const handleSelectAll = () => {
-  if (searchQuery.value.trim()) {
-    // Select all visible airfoils
-    const newSelection = new Set([...props.selectedAirfoils, ...visibleAirfoils.value])
-    emit('set-selected', Array.from(newSelection))
-  } else {
-    emit('select-all')
-  }
-}
-
-const handleDeselectAll = () => {
-  if (searchQuery.value.trim()) {
-    // Deselect all visible airfoils
-    const visibleSet = new Set(visibleAirfoils.value)
-    const newSelection = props.selectedAirfoils.filter(name => !visibleSet.has(name))
-    emit('set-selected', newSelection)
-  } else {
-    emit('deselect-all')
-  }
-}
-
-const handleShowSelected = () => {
-  showSelectedOnly.value = !showSelectedOnly.value
-  // Clear search when toggling selected view
-  if (showSelectedOnly.value) {
-    searchQuery.value = ''
-  }
-}
-
 const handleResetFilters = () => {
   emit('reset-filters')
-}
-
-const handleResetAnalysis = () => {
-  emit('reset-analysis')
 }
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <!-- Combined Info Card -->
-    <div class="bg-white rounded-lg shadow p-4">
+    <VPanel title="Run summary">
       <div class="space-y-2 text-sm">
         <div v-if="dataContext && dataContext.Re" class="flex justify-between">
           <span class="text-gray-600">Reynolds Number:</span>
-          <span class="font-semibold text-gray-900">{{ dataContext.Re.toLocaleString() }}</span>
+          <span class="num font-medium text-gray-900">{{ dataContext.Re.toLocaleString() }}</span>
         </div>
         <div v-if="dataContext && dataContext.Mach !== undefined" class="flex justify-between">
           <span class="text-gray-600">Mach Number:</span>
-          <span class="font-semibold text-gray-900">{{ dataContext.Mach }}</span>
+          <span class="num font-medium text-gray-900">{{ dataContext.Mach }}</span>
         </div>
         <div v-if="dataContext && dataContext.nCrit !== undefined" class="flex justify-between">
           <span class="text-gray-600">N_crit:</span>
-          <span class="font-semibold text-gray-900">{{ dataContext.nCrit }}</span>
+          <span class="num font-medium text-gray-900">{{ dataContext.nCrit }}</span>
         </div>
         <div v-if="dataContext && (dataContext.alphaMin !== undefined || dataContext.alphaMax !== undefined)" class="flex justify-between">
           <span class="text-gray-600">Alpha Range:</span>
-          <span class="font-semibold text-gray-900">
+          <span class="num font-medium text-gray-900">
             {{ dataContext.alphaMin !== undefined ? dataContext.alphaMin : '—' }}° to {{ dataContext.alphaMax !== undefined ? dataContext.alphaMax : '—' }}°
           </span>
         </div>
         <div v-if="dataContext && (dataContext.Re || dataContext.Mach !== undefined || dataContext.nCrit !== undefined || dataContext.alphaMin !== undefined || dataContext.alphaMax !== undefined)" class="pt-2 mt-2 border-t border-gray-200"></div>
         <div class="flex justify-between">
           <span class="text-gray-600">Total Airfoils:</span>
-          <span class="font-semibold text-gray-900">{{ totalCount }}</span>
+          <span class="num font-medium text-gray-900">{{ totalCount }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-gray-600">Available after filtering:</span>
-          <span class="font-semibold text-indigo-600">{{ filteredAirfoils.length }}</span>
+          <span class="num font-medium text-primary-700">{{ filteredAirfoils.length }}</span>
         </div>
         <div class="flex justify-between">
           <span class="text-gray-600">Selected:</span>
-          <span class="font-semibold text-green-600">{{ selectedAirfoils.length }}</span>
+          <span class="num font-medium text-success-700">{{ selectedAirfoils.length }}</span>
         </div>
       </div>
-    </div>
+    </VPanel>
 
     <!-- Filters Section -->
-    <div class="bg-white rounded-lg shadow p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Filters</h2>
+    <VPanel title="Filters">
+      <template #actions>
         <VButton
           type="button"
           variant="ghost"
@@ -312,7 +249,7 @@ const handleResetAnalysis = () => {
         >
           Reset All
         </VButton>
-      </div>
+      </template>
 
       <div class="divide-y divide-gray-200">
         <!-- Target CL and Target α (Paired Filter) -->
@@ -321,17 +258,18 @@ const handleResetAnalysis = () => {
             <input
               type="checkbox"
               v-model="filterEnabled.targetDesign"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             Design CL & α
           </label>
           <div class="grid grid-cols-2 gap-4">
             <!-- Target CL -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
+              <label for="sidebar-design-cl" class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
               <VInput
                 :model-value="targetCL ?? undefined"
                 @update:model-value="targetCL = $event as number | null"
+                id="sidebar-design-cl"
                 type="number"
                 step="0.01"
                 placeholder="No target"
@@ -346,10 +284,11 @@ const handleResetAnalysis = () => {
 
             <!-- Target α -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design α (deg)</label>
+              <label for="sidebar-design-alpha" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design α (deg)</label>
               <VInput
                 :model-value="targetAOA ?? undefined"
                 @update:model-value="targetAOA = $event as number | null"
+                id="sidebar-design-alpha"
                 type="number"
                 step="0.5"
                 placeholder="No target"
@@ -366,16 +305,16 @@ const handleResetAnalysis = () => {
 
         <!-- Max L/D Range -->
         <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div class="relative mb-2 flex items-start justify-between gap-2">
+            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 v-model="filterEnabled.maxLD"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               Max L/D Range
             </label>
-            <span class="text-sm font-semibold text-indigo-600">
+            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
               <template v-if="minMaxLD !== null || maxMaxLD !== null">
                 {{ minMaxLD !== null ? minMaxLD.toFixed(1) : filterRanges.maxLD.min.toFixed(1) }} - {{ maxMaxLD !== null ? maxMaxLD.toFixed(1) : filterRanges.maxLD.max.toFixed(1) }}
               </template>
@@ -385,6 +324,7 @@ const handleResetAnalysis = () => {
           <div class="dual-range-slider">
             <input
               v-model.number="minMaxLDSlider"
+              aria-label="Max L/D minimum"
               type="range"
               :min="filterRanges.maxLD.min"
               :max="filterRanges.maxLD.max"
@@ -394,6 +334,7 @@ const handleResetAnalysis = () => {
             />
             <input
               v-model.number="maxMaxLDSlider"
+              aria-label="Max L/D maximum"
               type="range"
               :min="filterRanges.maxLD.min"
               :max="filterRanges.maxLD.max"
@@ -403,8 +344,8 @@ const handleResetAnalysis = () => {
             />
           </div>
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(1) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(1) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(1) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(1) }}</span>
           </div>
         </div>
         <div v-else class="py-4">
@@ -412,7 +353,7 @@ const handleResetAnalysis = () => {
             <input
               type="checkbox"
               v-model="filterEnabled.maxLD"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             Max L/D Range
           </label>
@@ -420,6 +361,7 @@ const handleResetAnalysis = () => {
             <VInput
               :model-value="minMaxLD ?? undefined"
               @update:model-value="minMaxLD = $event as number | null"
+              aria-label="Max L/D minimum"
               type="number"
               step="0.1"
               placeholder="Min"
@@ -430,6 +372,7 @@ const handleResetAnalysis = () => {
             <VInput
               :model-value="maxMaxLD ?? undefined"
               @update:model-value="maxMaxLD = $event as number | null"
+              aria-label="Max L/D maximum"
               type="number"
               step="0.1"
               placeholder="Max"
@@ -442,23 +385,22 @@ const handleResetAnalysis = () => {
 
         <!-- L/D Width -->
         <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div class="relative mb-2 flex items-start justify-between gap-2">
+            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 v-model="filterEnabled.ldWidth"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               L/D Width
-              <div class="group relative">
+              <div class="group">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
                   Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
             </label>
-            <span class="text-sm font-semibold text-indigo-600">
+            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
               <template v-if="minLDWidth !== null">
                 ≥ {{ minLDWidth.toFixed(1) }}°
               </template>
@@ -473,16 +415,17 @@ const handleResetAnalysis = () => {
             </div>
             <input
               v-model.number="minLDWidthSlider"
+              aria-label="L/D width minimum"
               type="range"
               :min="filterRanges.ldWidth.min"
               :max="filterRanges.ldWidth.max"
               step="0.1"
               :disabled="!filterEnabled.ldWidth"
-              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div class="flex justify-between">
-              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.min.toFixed(1) }}°</span>
-              <span class="text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
+              <span class="num text-xs text-gray-500">{{ filterRanges.ldWidth.min.toFixed(1) }}°</span>
+              <span class="num text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
             </div>
           </div>
         </div>
@@ -491,13 +434,14 @@ const handleResetAnalysis = () => {
             <input
               type="checkbox"
               v-model="filterEnabled.ldWidth"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             L/D Width
           </label>
           <VInput
             :model-value="minLDWidth ?? undefined"
             @update:model-value="minLDWidth = $event as number | null"
+            aria-label="L/D width minimum"
             type="number"
             step="0.1"
             placeholder="No limit"
@@ -512,16 +456,16 @@ const handleResetAnalysis = () => {
 
         <!-- CL Max Range -->
         <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div class="relative mb-2 flex items-start justify-between gap-2">
+            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 v-model="filterEnabled.clMax"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               CL Max Range
             </label>
-            <span class="text-sm font-semibold text-indigo-600">
+            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
               <template v-if="minCLMax !== null || maxCLMax !== null">
                 {{ minCLMax !== null ? minCLMax.toFixed(2) : filterRanges.clMax.min.toFixed(2) }} - {{ maxCLMax !== null ? maxCLMax.toFixed(2) : filterRanges.clMax.max.toFixed(2) }}
               </template>
@@ -531,6 +475,7 @@ const handleResetAnalysis = () => {
           <div class="dual-range-slider">
             <input
               v-model.number="minCLMaxSlider"
+              aria-label="CL max minimum"
               type="range"
               :min="filterRanges.clMax.min"
               :max="filterRanges.clMax.max"
@@ -540,6 +485,7 @@ const handleResetAnalysis = () => {
             />
             <input
               v-model.number="maxCLMaxSlider"
+              aria-label="CL max maximum"
               type="range"
               :min="filterRanges.clMax.min"
               :max="filterRanges.clMax.max"
@@ -549,8 +495,8 @@ const handleResetAnalysis = () => {
             />
           </div>
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(2) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(2) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(2) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(2) }}</span>
           </div>
         </div>
         <div v-else class="py-4">
@@ -558,7 +504,7 @@ const handleResetAnalysis = () => {
             <input
               type="checkbox"
               v-model="filterEnabled.clMax"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             CL Max Range
           </label>
@@ -566,6 +512,7 @@ const handleResetAnalysis = () => {
             <VInput
               :model-value="minCLMax ?? undefined"
               @update:model-value="minCLMax = $event as number | null"
+              aria-label="CL max minimum"
               type="number"
               step="0.01"
               placeholder="Min"
@@ -576,6 +523,7 @@ const handleResetAnalysis = () => {
             <VInput
               :model-value="maxCLMax ?? undefined"
               @update:model-value="maxCLMax = $event as number | null"
+              aria-label="CL max maximum"
               type="number"
               step="0.01"
               placeholder="Max"
@@ -588,31 +536,32 @@ const handleResetAnalysis = () => {
 
         <!-- Min CM at α = 0° -->
         <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div class="relative mb-2 flex items-start justify-between gap-2">
+            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 v-model="filterEnabled.minCMAtZero"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               Min CM at α = 0°
             </label>
-            <span class="text-sm font-semibold text-indigo-600">
+            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
               {{ minCMAtZero !== null && minCMAtZero !== undefined ? minCMAtZero.toFixed(3) : 'No limit' }}
             </span>
           </div>
           <input
             v-model.number="minCMAtZeroSlider"
+            aria-label="Min CM at alpha 0"
             type="range"
             :min="filterRanges.cmAtZero.min"
             :max="filterRanges.cmAtZero.max"
             step="0.01"
             :disabled="!filterEnabled.minCMAtZero"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
           </div>
         </div>
         <div v-else class="py-4">
@@ -620,13 +569,14 @@ const handleResetAnalysis = () => {
             <input
               type="checkbox"
               v-model="filterEnabled.minCMAtZero"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             Min CM at α = 0°
           </label>
           <VInput
             :model-value="minCMAtZero ?? undefined"
             @update:model-value="minCMAtZero = $event as number | null"
+            aria-label="Min CM at alpha 0"
             type="number"
             step="0.01"
             placeholder="No limit"
@@ -638,59 +588,59 @@ const handleResetAnalysis = () => {
 
         <!-- Max CM Roughness -->
         <div v-if="filterRanges" class="py-4">
-          <div class="flex items-center justify-between mb-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <div class="relative mb-2 flex items-start justify-between gap-2">
+            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
                 v-model="filterEnabled.maxCMRoughness"
-                class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               Max CM Curve Wiggliness
-              <div class="group relative">
+              <div class="group">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
                   Lower values = smoother moment curve.
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
             </label>
-            <span class="text-sm font-semibold text-indigo-600">
+            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
               {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
             </span>
           </div>
           <input
             v-model.number="maxCMRoughnessSlider"
+            aria-label="Max CM curve wiggliness"
             type="range"
             :min="filterRanges.smoothness_CM.min"
             :max="filterRanges.smoothness_CM.max"
             step="0.01"
             :disabled="!filterEnabled.maxCMRoughness"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <div class="flex justify-between mt-1">
-            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
-            <span class="text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
           </div>
         </div>
         <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+          <label class="relative flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
             <input
               type="checkbox"
               v-model="filterEnabled.maxCMRoughness"
-              class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             Max CM Curve Wiggliness
-            <div class="group relative">
+            <div class="group">
               <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
                 Lower values = smoother moment curve.
-                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
               </div>
             </div>
           </label>
           <VInput
             :model-value="maxCMRoughness ?? undefined"
             @update:model-value="maxCMRoughness = $event as number | null"
+            aria-label="Max CM curve wiggliness"
             type="number"
             step="0.01"
             placeholder="No limit"
@@ -703,20 +653,20 @@ const handleResetAnalysis = () => {
         <!-- Rendering Mode -->
         <div class="pt-4">
           <div class="space-y-2">
-            <div class="flex items-center gap-2 mb-1">
+            <div class="relative flex items-center gap-2 mb-1">
               <label class="block text-sm font-medium text-gray-700">Rendering Mode</label>
-              <div class="group relative">
+              <div class="group">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
                   Performance mode reduces data points for faster rendering with large datasets.
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </div>
             </div>
             <select
               :value="performanceMode || 'performance'"
               @change="emit('update-performance-mode', ($event.target as HTMLSelectElement).value as 'performance' | 'detail')"
-              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              aria-label="Rendering mode"
+              class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
               <option value="performance">Performance (Recommended)</option>
               <option value="detail">High Detail</option>
@@ -724,91 +674,7 @@ const handleResetAnalysis = () => {
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Airfoil Selection Section -->
-    <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="text-lg font-semibold text-gray-900 mb-2">Analyzed Airfoils</h2>
-      
-      <!-- Search Bar -->
-      <div class="mb-3">
-        <div class="relative rounded-md shadow-sm">
-          <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Icon name="heroicons:magnifying-glass" class="h-4 w-4 text-gray-400" />
-          </div>
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="block w-full rounded-md border-gray-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            placeholder="Search airfoils..."
-          />
-        </div>
-      </div>
-
-      <div class="flex gap-2 mb-4">
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          @click="handleSelectAll"
-        >
-          Show All
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          color="primary"
-          size="xs"
-          @click="handleDeselectAll"
-        >
-          Hide All
-        </VButton>
-        <span class="text-gray-300">|</span>
-        <VButton
-          type="button"
-          variant="ghost"
-          :color="showSelectedOnly ? 'error' : 'primary'"
-          size="xs"
-          @click="handleShowSelected"
-        >
-          {{ showSelectedOnly ? 'Show All' : 'Show Selected' }}
-        </VButton>
-      </div>
-
-      <div v-if="filteredAirfoils.length === 0" class="text-sm text-gray-500 text-center py-4">
-        No airfoils match the current filters. Try relaxing your filter criteria.
-      </div>
-
-      <div v-else class="space-y-2 max-h-96 overflow-y-auto">
-        <label
-          v-for="name in visibleAirfoils"
-          :key="name"
-          class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedAirfoils.includes(name)"
-            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            @change="emit('toggle-selection', name)"
-          />
-          <span class="text-sm text-gray-700 flex-1">{{ name.toUpperCase() }}</span>
-        </label>
-      </div>
-
-      <!-- Reset Analysis Button -->
-      <div class="pt-4 border-t border-gray-200 mt-4">
-        <VButton
-          type="button"
-          color="error"
-          block
-          @click="handleResetAnalysis"
-        >
-          Reset Analysis
-        </VButton>
-      </div>
-    </div>
+    </VPanel>
   </div>
 </template>
 
@@ -833,7 +699,7 @@ const handleResetAnalysis = () => {
 
 /* First input gets the track styling */
 .dual-range-input:first-child {
-  background: #e5e7eb;
+  background: #e2e8f0;
   border-radius: 9999px;
 }
 
@@ -849,7 +715,7 @@ const handleResetAnalysis = () => {
   height: 1rem;
   width: 1rem;
   border-radius: 9999px;
-  background: #4f46e5;
+  background: #2563eb;
   cursor: pointer;
   pointer-events: auto;
   border: 2px solid white;
@@ -866,7 +732,7 @@ const handleResetAnalysis = () => {
   height: 1rem;
   width: 1rem;
   border-radius: 9999px;
-  background: #4f46e5;
+  background: #2563eb;
   cursor: pointer;
   pointer-events: auto;
   border: 2px solid white;
@@ -885,7 +751,7 @@ const handleResetAnalysis = () => {
 }
 
 .dual-range-input:first-child::-moz-range-track {
-  background: #e5e7eb;
+  background: #e2e8f0;
   border-radius: 9999px;
 }
 </style>

@@ -27,6 +27,15 @@ const alphaEnd = ref<number>(20)
 const alphaStep = ref<number>(0.5)
 const nCrit = ref<number>(9)
 
+const fields = [
+  { id: 'naca-re', label: 'Reynolds (thousands)', model: reynolds, min: 10, step: 10, help: 'e.g. 100 = Re 100,000', wide: true },
+  { id: 'naca-mach', label: 'Mach', model: mach, min: 0, max: 1, step: 0.01 },
+  { id: 'naca-ncrit', label: 'N-Crit', model: nCrit, min: 1, max: 20, step: 0.5 },
+  { id: 'naca-alpha-start', label: 'Alpha start (deg)', model: alphaStart, step: 0.5 },
+  { id: 'naca-alpha-end', label: 'Alpha end (deg)', model: alphaEnd, step: 0.5 },
+  { id: 'naca-alpha-step', label: 'Alpha step (deg)', model: alphaStep, min: 0.1, step: 0.1 },
+]
+
 const handleSubmit = () => {
   if (props.isLoading) return
 
@@ -56,96 +65,28 @@ const handleSubmit = () => {
 </script>
 
 <template>
-  <div class="p-6 bg-white rounded-lg border border-gray-200 shadow">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">Performance Analysis</h3>
-    <p class="text-sm text-gray-600 mb-4">
-      Run NeuralFoil analysis on the NACA-generated airfoil. Results are not cached.
-    </p>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Reynolds Number (thousands)
+  <VPanel title="Performance analysis" description="NeuralFoil analysis of the generated section. Results are not cached.">
+    <div class="grid grid-cols-2 gap-x-3 gap-y-4">
+      <div v-for="field in fields" :key="field.id" :class="field.wide ? 'col-span-2' : ''">
+        <label :for="field.id" class="mb-1 block text-sm font-medium text-gray-700">
+          {{ field.label }}
         </label>
         <input
-          v-model.number="reynolds"
+          :id="field.id"
+          v-model.number="field.model.value"
           type="number"
-          min="10"
-          step="10"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          Enter value in thousands (e.g., 100 = Re = 100,000)
+          :min="field.min"
+          :max="field.max"
+          :step="field.step"
+          class="num h-9 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+        <p v-if="field.help" class="mt-1 text-xs text-gray-500">
+          {{ field.help }}
         </p>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Mach Number
-        </label>
-        <input
-          v-model.number="mach"
-          type="number"
-          min="0"
-          max="1"
-          step="0.01"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Alpha Start (deg)
-        </label>
-        <input
-          v-model.number="alphaStart"
-          type="number"
-          step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Alpha End (deg)
-        </label>
-        <input
-          v-model.number="alphaEnd"
-          type="number"
-          step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Alpha Step (deg)
-        </label>
-        <input
-          v-model.number="alphaStep"
-          type="number"
-          min="0.1"
-          step="0.1"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          N-Crit
-        </label>
-        <input
-          v-model.number="nCrit"
-          type="number"
-          min="1"
-          max="20"
-          step="0.5"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
       </div>
     </div>
 
-    <div class="mt-6">
+    <div class="mt-5">
       <VButton
         type="button"
         color="primary"
@@ -164,6 +105,5 @@ const handleSubmit = () => {
         Analysis may take a few moments.
       </p>
     </div>
-  </div>
+  </VPanel>
 </template>
-

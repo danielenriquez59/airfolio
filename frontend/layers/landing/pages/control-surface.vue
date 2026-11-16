@@ -86,20 +86,24 @@ const geometriesForDisplay = computed(() => {
     color: string
   }> = []
 
-  // Always add original airfoil
+  // Polars (performanceDataForPlots) list an 'Original' series first only when a 0° config ran,
+  // then the deflected configs in order; colour each shape with its polar series index.
+  const polarOffset = results.value?.results.some(r => r.deflection === 0) ? 1 : 0
+
+  // Always add original airfoil: neutral unless it also has a polar series (index 0)
   geometries.push({
     name: 'Original',
     upperX: airfoil.value.upper_x_coordinates || [],
     upperY: airfoil.value.upper_y_coordinates || [],
     lowerX: airfoil.value.lower_x_coordinates || [],
     lowerY: airfoil.value.lower_y_coordinates || [],
-    color: '#3B82F6', // Blue
+    color: polarOffset ? seriesColor(0) : chartColors.tick,
   })
 
   // Add deflected configurations if results are available
   if (results.value) {
-    const colors = ['#EF4444', '#10B981', '#F59E0B'] // Red, Green, Amber
-    results.value.results.forEach((result, index) => {
+    let deflectedIndex = 0
+    results.value.results.forEach((result) => {
       if (result.deflection !== 0) {
         geometries.push({
           name: `δ=${result.deflection}° @ ${(result.hinge_point * 100).toFixed(0)}%`,
@@ -107,7 +111,8 @@ const geometriesForDisplay = computed(() => {
           upperY: result.geometry.upper_y,
           lowerX: result.geometry.lower_x,
           lowerY: result.geometry.lower_y,
-          color: colors[index % colors.length],
+          color: seriesColor(polarOffset + deflectedIndex++),
+
         })
       }
     })
@@ -216,244 +221,197 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white py-12">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="mb-8">
-        <button
-          type="button"
-          @click="router.back()"
-          class="mb-4 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-        >
-          <Icon name="heroicons:arrow-left" class="h-4 w-4" />
+  <div>
+    <PageHeader
+      eyebrow="Tools"
+      title="Control Surface Analysis"
+      subtitle="Deflect a trailing-edge flap and compare geometry and polars for up to three configurations."
+    >
+      <template #actions>
+        <VButton type="button" color="light" size="sm" @click="router.back()">
+          <Icon name="heroicons:arrow-left" class="h-4 w-4" aria-hidden="true" />
           Back
-        </button>
-        <h1 class="text-3xl font-bold text-gray-900">Control Surface Analysis</h1>
-        <p v-if="airfoil" class="mt-2 text-lg text-gray-600">
-          Airfoil: {{ airfoil.name }}
-        </p>
-      </div>
+        </VButton>
+      </template>
+    </PageHeader>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
-          <p class="text-gray-600">Loading airfoil...</p>
-        </div>
-      </div>
+    <VPanel v-if="loading">
+      <VStateBlock variant="loading" title="Loading airfoil" />
+    </VPanel>
 
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <Icon name="heroicons:exclamation-triangle" class="h-12 w-12 text-red-600 mx-auto mb-4" />
-        <h2 class="text-lg font-semibold text-red-900 mb-2">Error</h2>
-        <p class="text-red-800">{{ error }}</p>
-      </div>
+    <VPanel v-else-if="error">
+      <VStateBlock variant="error" title="Could not load airfoil" :description="error" />
+    </VPanel>
 
-      <!-- Main Content -->
-      <div v-else-if="airfoil" class="space-y-8">
-        <!-- Flap Configuration Table -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <h2 class="text-xl font-semibold text-gray-900">Flap Configurations</h2>
-              <span class="text-xs text-gray-500">(Up to three)</span>
-            </div>
+    <div v-else-if="airfoil" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <!-- Inputs -->
+      <div class="min-w-0 space-y-6">
+        <VPanel title="Airfoil">
+          <NuxtLink
+            :to="`/airfoils/${encodeURIComponent(airfoil.name)}`"
+            class="inline-flex items-center gap-1 rounded text-base font-semibold text-primary-700 hover:text-primary-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          >
+            {{ airfoil.display_name || airfoil.name }}
+            <Icon name="heroicons:arrow-up-right" class="h-4 w-4" aria-hidden="true" />
+          </NuxtLink>
+          <dl class="mt-3 grid grid-cols-2 gap-4">
+            <VStat
+              label="Thickness"
+              :value="airfoil.thickness_pct != null ? (airfoil.thickness_pct * 100).toFixed(2) : 'N/A'"
+              :unit="airfoil.thickness_pct != null ? '%' : undefined"
+            />
+            <VStat
+              label="Camber"
+              :value="airfoil.camber_pct != null ? (airfoil.camber_pct * 100).toFixed(2) : 'N/A'"
+              :unit="airfoil.camber_pct != null ? '%' : undefined"
+            />
+          </dl>
+        </VPanel>
+
+        <VPanel title="Flap configurations" description="Up to three">
+          <template #actions>
             <VButton
               v-if="flapConfigs.length < 3"
               type="button"
-              color="primary"
+              color="light"
               size="sm"
               @click="addFlapConfig"
             >
-              Add Configuration
+              <Icon name="heroicons:plus" class="h-4 w-4" aria-hidden="true" />
+              Add
             </VButton>
-          </div>
+          </template>
 
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Deflection (deg)
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Hinge Point (% chord)
-                  </th>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="(config, index) in flapConfigs" :key="index">
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <VInput
-                      v-model.number="config.deflection"
-                      type="number"
-                      step="0.5"
-                      min="-30"
-                      max="30"
-                      wrapper-class="w-32"
-                      size="sm"
-                    />
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <VInput
-                      v-model.number="config.hinge_point"
-                      type="number"
-                      step="0.01"
-                      min="0.5"
-                      max="0.9"
-                      wrapper-class="w-32"
-                      size="sm"
-                    />
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <button
-                      v-if="flapConfigs.length > 1"
-                      type="button"
-                      @click="removeFlapConfig(index)"
-                      class="text-red-600 hover:text-red-800"
-                      title="Remove configuration"
-                    >
-                      <Icon name="heroicons:trash-20-solid" class="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="mt-2 text-xs text-gray-500">
-            Deflection range: -30° to +30° | Hinge point range: 50% to 90% chord
-          </p>
-
-          <!-- Airfoil Geometry -->
-          <div class="mt-6">
-            <h3 class="text-md font-semibold text-gray-900 mb-4">Airfoil Geometry Comparison</h3>
-            <AirfoilGeometry
-              :geometries="geometriesForDisplay"
-              :show-legend="true"
-              :aspect-ratio="3.5"
-            />
-          </div>
-        </div>
-
-        <!-- Flow Conditions -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Flow Conditions</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Reynolds Number (×1000)
-              </label>
+          <div class="grid grid-cols-[1.25rem_1fr_1fr_2rem] items-center gap-2">
+            <span aria-hidden="true" />
+            <span class="data-label">Deflection (deg)</span>
+            <span class="data-label">Hinge (x/c)</span>
+            <span aria-hidden="true" />
+            <template v-for="(flap, index) in flapConfigs" :key="index">
+              <span class="num text-sm text-gray-500">{{ index + 1 }}</span>
               <VInput
-                v-model.number="reynoldsNumber"
-                type="number"
-                step="100"
-                min="1"
-                wrapper-class="w-full"
-                size="lg"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Mach Number
-              </label>
-              <VInput
-                v-model.number="machNumber"
-                type="number"
-                step="0.1"
-                min="0"
-                wrapper-class="w-full"
-                size="lg"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                N-crit
-              </label>
-              <VInput
-                v-model.number="nCrit"
+                v-model.number="flap.deflection"
                 type="number"
                 step="0.5"
-                min="1"
-                wrapper-class="w-full"
-                size="lg"
+                min="-30"
+                max="30"
+                class="num text-right"
+                :aria-label="`Configuration ${index + 1} deflection in degrees`"
               />
+              <VInput
+                v-model.number="flap.hinge_point"
+                type="number"
+                step="0.01"
+                min="0.5"
+                max="0.9"
+                class="num text-right"
+                :aria-label="`Configuration ${index + 1} hinge point as chord fraction`"
+              />
+              <button
+                v-if="flapConfigs.length > 1"
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-error-50 hover:text-error-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                :aria-label="`Remove configuration ${index + 1}`"
+                title="Remove configuration"
+                @click="removeFlapConfig(index)"
+              >
+                <Icon name="heroicons:trash-20-solid" class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <span v-else aria-hidden="true" />
+            </template>
+          </div>
+          <p class="mt-3 text-xs text-gray-500">
+            Deflection −30° to +30° · hinge point 0.50 to 0.90 chord
+          </p>
+        </VPanel>
+
+        <VPanel title="Flow conditions">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="cs-re" class="mb-1.5 block text-sm font-medium text-gray-700">Re (×1000)</label>
+              <VInput id="cs-re" v-model.number="reynoldsNumber" type="number" step="100" min="1" class="num" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Alpha Min (deg)
-              </label>
-              <VInput
-                v-model.number="alphaMin"
-                type="number"
-                step="1"
-                wrapper-class="w-full"
-                size="lg"
-              />
+              <label for="cs-mach" class="mb-1.5 block text-sm font-medium text-gray-700">Mach</label>
+              <VInput id="cs-mach" v-model.number="machNumber" type="number" step="0.1" min="0" class="num" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Alpha Max (deg)
-              </label>
-              <VInput
-                v-model.number="alphaMax"
-                type="number"
-                step="1"
-                wrapper-class="w-full"
-                size="lg"
-              />
+              <label for="cs-ncrit" class="mb-1.5 block text-sm font-medium text-gray-700">N-crit</label>
+              <VInput id="cs-ncrit" v-model.number="nCrit" type="number" step="0.5" min="1" class="num" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Alpha Step (deg)
-              </label>
-              <VInput
-                v-model.number="alphaStep"
-                type="number"
-                step="0.1"
-                min="0.1"
-                wrapper-class="w-full"
-                size="lg"
-              />
+              <label for="cs-astep" class="mb-1.5 block text-sm font-medium text-gray-700">α step (deg)</label>
+              <VInput id="cs-astep" v-model.number="alphaStep" type="number" step="0.1" min="0.1" class="num" />
+            </div>
+            <div>
+              <label for="cs-amin" class="mb-1.5 block text-sm font-medium text-gray-700">α min (deg)</label>
+              <VInput id="cs-amin" v-model.number="alphaMin" type="number" step="1" class="num" />
+            </div>
+            <div>
+              <label for="cs-amax" class="mb-1.5 block text-sm font-medium text-gray-700">α max (deg)</label>
+              <VInput id="cs-amax" v-model.number="alphaMax" type="number" step="1" class="num" />
             </div>
           </div>
 
-          <!-- Submit Button -->
-          <div class="mt-6 flex justify-center">
+          <div class="mt-5 border-t border-gray-200 pt-4">
             <VButton
               type="button"
               color="primary"
-              size="lg"
+              block
               :disabled="!isValidConfig || isAnalyzing"
+              :aria-describedby="!isValidConfig ? 'cs-run-reason' : undefined"
               @click="handleAnalysis"
             >
               <Icon
                 v-if="isAnalyzing"
                 name="heroicons:arrow-path"
-                class="h-5 w-5 animate-spin"
+                class="h-4 w-4 animate-spin"
+                aria-hidden="true"
               />
-              <span>{{ isAnalyzing ? 'Running Analysis...' : 'Run Performance Analysis' }}</span>
+              <span>{{ isAnalyzing ? 'Running analysis…' : 'Run NN analysis' }}</span>
             </VButton>
+            <p v-if="!isValidConfig" id="cs-run-reason" class="mt-2 text-xs text-error-700">
+              Each configuration needs a deflection between −30° and 30° and a hinge point between 0.50 and 0.90.
+            </p>
           </div>
-        </div>
+        </VPanel>
+      </div>
 
-        <!-- Analysis Error -->
-        <div v-if="analysisError" class="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p class="text-red-800">{{ analysisError }}</p>
-        </div>
+      <!-- Results -->
+      <div class="min-w-0 space-y-6 lg:col-span-2">
+        <VPanel
+          title="Geometry"
+          :description="results ? 'Original and deflected configurations' : 'Deflected shapes appear after the analysis runs'"
+        >
+          <AirfoilGeometry
+            :geometries="geometriesForDisplay"
+            :show-legend="true"
+            :aspect-ratio="3.5"
+          />
+        </VPanel>
 
-        <!-- Results -->
-        <div v-if="results" class="space-y-8">
-          <!-- Performance Plots -->
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Performance Comparison</h2>
-            <AirfoilPolarPlots :performance-data="performanceDataForPlots" />
-          </div>
-        </div>
+        <VPanel title="Performance comparison">
+          <VStateBlock
+            v-if="isAnalyzing"
+            variant="loading"
+            title="Running analysis"
+            description="This can take a few moments."
+          />
+          <VStateBlock
+            v-else-if="analysisError"
+            variant="error"
+            title="Analysis failed"
+            :description="analysisError"
+          />
+          <AirfoilPolarPlots v-else-if="results" :performance-data="performanceDataForPlots" />
+          <VStateBlock
+            v-else
+            icon="heroicons:chart-bar"
+            title="No results yet"
+            description="Set the flap configurations and flow conditions, then run the analysis."
+          />
+        </VPanel>
       </div>
     </div>
   </div>
 </template>
-

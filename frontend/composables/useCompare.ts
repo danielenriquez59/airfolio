@@ -4,7 +4,6 @@
  */
 
 import { computed, reactive, readonly, watch } from 'vue'
-import { useAirfoils } from './useAirfoils'
 import type { Database } from '~/types/database.types'
 
 // Simple memoization cache
@@ -156,7 +155,8 @@ function findZeroAlphaIndex(alpha: number[]): number {
 const LD_WIDTH_LEVEL = 80
 
 export function calculateSummaryMetrics(airfoil: AirfoilPolarData, designAlpha?: number | null) {
-  const cacheKey = airfoil.name + JSON.stringify(airfoil.alpha) + (designAlpha ?? 'null')
+  // CL and CD are in the key so a re-run at another Re or Mach is not served the old numbers
+  const cacheKey = airfoil.name + JSON.stringify([airfoil.alpha, airfoil.CL, airfoil.CD]) + (designAlpha ?? 'null')
   
   if (metricsCache.has(cacheKey)) {
     return metricsCache.get(cacheKey)
@@ -298,6 +298,7 @@ function passesFilters(airfoil: AirfoilPolarData, filters: FilterState): boolean
 }
 
 export const useCompare = () => {
+  const supabase = useSupabaseClient<Database>()
   const state = reactive<CompareState>({
     allAirfoils: new Map(),
     filteredAirfoils: [],
@@ -315,7 +316,6 @@ export const useCompare = () => {
     airfoilNames: string[]
   ) => {
     const airfoils = new Map<string, AirfoilPolarData>()
-    const { fetchAirfoilByName } = useAirfoils()
     
     // First, normalize the analysis results
     // Handle single airfoil result
@@ -350,18 +350,21 @@ export const useCompare = () => {
       })
     }
     
-    // Fetch geometry data for all airfoils and merge it
-    const geometryPromises = Array.from(airfoils.keys()).map(async (name) => {
-      try {
-        const airfoilData = await fetchAirfoilByName(name)
-        return { name, airfoilData }
-      } catch (error) {
-        console.warn(`Failed to fetch geometry for ${name}:`, error)
-        return { name, airfoilData: null }
+    // Fetch geometry columns in sequential batches: thousands of parallel requests get dropped by the browser
+    const names = Array.from(airfoils.keys())
+    const geometryResults: { name: string, airfoilData: Pick<Airfoil, 'thickness_pct' | 'thickness_loc_pct' | 'camber_pct' | 'camber_loc_pct'> }[] = []
+    for (let i = 0; i < names.length; i += 200) {
+      const chunk = names.slice(i, i + 200)
+      const { data, error } = await supabase
+        .from('airfoils')
+        .select('name, thickness_pct, thickness_loc_pct, camber_pct, camber_loc_pct')
+        .in('name', chunk)
+      if (error) {
+        console.warn(`Failed to fetch geometry for ${chunk.length} airfoils:`, error)
+        continue
       }
-    })
-    
-    const geometryResults = await Promise.all(geometryPromises)
+      data.forEach(row => geometryResults.push({ name: row.name, airfoilData: row }))
+    }
     
     // Merge geometry data into airfoil polar data
     geometryResults.forEach(({ name, airfoilData }) => {
