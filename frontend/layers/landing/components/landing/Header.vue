@@ -33,6 +33,7 @@ const navigation: NavigationItem[] = [
       { header: 'Admin' },
       { title: 'Airfoil Manager', to: '/airfoils-manager' },
       { title: 'Categories Manager', to: '/categories-manager' },
+      { title: 'Aircraft Manager', to: '/aircraft-manager' },
     ],
   },
   { title: 'About', to: '/about' },

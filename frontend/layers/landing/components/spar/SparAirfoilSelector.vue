@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
 import { useDebounceFn } from '@vueuse/core'
+import { useId } from 'vue'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 interface Props {
   modelValue: Airfoil | null
   showSelectionSummary?: boolean
+  label?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showSelectionSummary: true,
+  label: 'Airfoil',
 })
+// unique per instance so several selectors can share a page
+const inputId = useId()
 const emit = defineEmits<{
   'update:modelValue': [value: Airfoil | null]
 }>()
@@ -101,13 +106,13 @@ onMounted(() => {
 
 <template>
   <div>
-    <label for="spar-airfoil-search" class="mb-1 block text-sm font-medium text-gray-700">
-      Airfoil
+    <label :for="inputId" class="mb-1 block text-sm font-medium text-gray-700">
+      {{ label }}
     </label>
     <div class="relative">
       <div class="relative">
         <input
-          id="spar-airfoil-search"
+          :id="inputId"
           v-model="searchQuery"
           type="text"
           placeholder="Search airfoil"

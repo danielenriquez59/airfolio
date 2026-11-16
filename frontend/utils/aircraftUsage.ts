@@ -27,7 +27,7 @@ const SURFACE_LABELS: Record<string, string> = {
   rotor: 'rotor blade',
 }
 const POSITION_ORDER = ['root', 'mid', 'tip', 'inboard', 'outboard']
-const SOURCE_LABELS: Record<string, string> = { lednicer: 'Lednicer', wikipedia: 'Wikipedia', j2mcl: 'J2mcL' }
+export const SOURCE_LABELS: Record<string, string> = { lednicer: 'Lednicer', wikipedia: 'Wikipedia', j2mcl: 'J2mcL' }
 
 const joinWords = (words: string[]) =>
   words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`
