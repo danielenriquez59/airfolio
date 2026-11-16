@@ -2,8 +2,10 @@
 import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
 import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
+import { groupAircraftUsage } from '~/utils/aircraftUsage'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import AirfoilPerformanceCache from '~/layers/landing/components/airfoils/AirfoilPerformanceCache.vue'
+import AirfoilAircraftList from '~/layers/landing/components/airfoils/AirfoilAircraftList.vue'
 import { buttonVariants, navTabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
@@ -16,7 +18,7 @@ definePageMeta({
 const route = useRoute()
 const config = useRuntimeConfig()
 const supportEmail = config.public.supportEmail
-const { fetchAirfoilByName } = useAirfoils()
+const { fetchAirfoilByName, fetchAircraftUsage } = useAirfoils()
 const { downloadLednicer, downloadSelig, downloadOpenVSP } = useAirfoilDownload()
 const { submitAnalysis } = useAnalysis()
 const { fetchCategories } = useCategories()
@@ -26,7 +28,11 @@ const airfoilSlug = computed(() => route.params.slug as string)
 // Fetched during prerender so the generated HTML carries the data; lazy keeps client-side navigation instant
 const pageData = useAsyncData(`airfoil:${airfoilSlug.value}`, async () => {
   const [airfoil, categories] = await Promise.all([fetchAirfoilByName(airfoilSlug.value), fetchCategories()])
-  return { airfoil, category: categories.find(cat => cat.id === airfoil?.category) ?? null }
+  // Optional section: a failed fetch is logged (in the composable) and leaves the list empty instead of failing the page
+  const aircraft = airfoil
+    ? await fetchAircraftUsage(airfoil.id).then(groupAircraftUsage, () => [])
+    : []
+  return { airfoil, category: categories.find(cat => cat.id === airfoil?.category) ?? null, aircraft }
 }, { lazy: true })
 const { data: page, error: loadError, pending: loading } = pageData
 // A failed fetch during prerender must fail the route (not be saved as an error page); the browser then loads it via the SPA fallback
@@ -644,6 +650,8 @@ useHead({
           </VPanel>
         </div>
       </div>
+
+      <AirfoilAircraftList :aircraft="page?.aircraft ?? []" />
 
       <!-- Performance Data -->
       <template v-if="airfoil.id">

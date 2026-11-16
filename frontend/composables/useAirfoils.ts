@@ -2,6 +2,7 @@
  * Composable for airfoil CRUD operations
  */
 import type { Database } from '~/types/database.types'
+import type { AircraftUsageRow } from '~/utils/aircraftUsage'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -183,6 +184,32 @@ export const useAirfoils = () => {
   }
 
   /**
+   * Fetch the aircraft rows that use an airfoil (exact matches only, uncertain entries left out).
+   * Hidden aircraft are filtered out by RLS; the largest airfoils pass 1000 rows, so this pages.
+   */
+  const fetchAircraftUsage = async (airfoilId: string): Promise<AircraftUsageRow[]> => {
+    const rows: AircraftUsageRow[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('aircraft_airfoils')
+        .select('surface, position, modified, sources, aircraft(key, name, display_name)')
+        .eq('airfoil_id', airfoilId)
+        .eq('uncertain', false)
+        .order('id')
+        .range(from, from + 999)
+
+      if (error) {
+        console.error('Error fetching aircraft usage:', error)
+        throw error
+      }
+
+      rows.push(...data)
+      if (data.length < 1000) break
+    }
+    return rows
+  }
+
+  /**
    * Get random airfoils (for featured section)
    * Uses RPC function get_random_airfoils
    */
@@ -235,5 +262,6 @@ export const useAirfoils = () => {
     fetchAirfoilListItems,
     fetchAirfoilsByIds,
     fetchRandomAirfoils,
+    fetchAircraftUsage,
   }
 }

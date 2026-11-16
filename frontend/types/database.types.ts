@@ -212,6 +212,112 @@ export type Database = {
           },
         ]
       }
+      aircraft: {
+        Row: {
+          category: string | null
+          country: string | null
+          created_at: string
+          display_name: string | null
+          hidden: boolean
+          id: string
+          key: string
+          name: string
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          display_name?: string | null
+          hidden?: boolean
+          id?: string
+          key: string
+          name: string
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          display_name?: string | null
+          hidden?: boolean
+          id?: string
+          key?: string
+          name?: string
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      aircraft_airfoils: {
+        Row: {
+          aircraft_id: string
+          airfoil_id: string | null
+          airfoil_name: string
+          created_at: string
+          id: string
+          modified: boolean
+          position: string
+          probable_airfoil_id: string | null
+          sources: Json
+          surface: string
+          thickness_pct: number | null
+          uncertain: boolean
+        }
+        Insert: {
+          aircraft_id: string
+          airfoil_id?: string | null
+          airfoil_name: string
+          created_at?: string
+          id?: string
+          modified?: boolean
+          position: string
+          probable_airfoil_id?: string | null
+          sources?: Json
+          surface: string
+          thickness_pct?: number | null
+          uncertain?: boolean
+        }
+        Update: {
+          aircraft_id?: string
+          airfoil_id?: string | null
+          airfoil_name?: string
+          created_at?: string
+          id?: string
+          modified?: boolean
+          position?: string
+          probable_airfoil_id?: string | null
+          sources?: Json
+          surface?: string
+          thickness_pct?: number | null
+          uncertain?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aircraft_airfoils_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aircraft_airfoils_airfoil_id_fkey"
+            columns: ["airfoil_id"]
+            isOneToOne: false
+            referencedRelation: "airfoils"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aircraft_airfoils_probable_airfoil_id_fkey"
+            columns: ["probable_airfoil_id"]
+            isOneToOne: false
+            referencedRelation: "airfoils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
