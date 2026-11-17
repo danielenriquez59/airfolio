@@ -1,4 +1,4 @@
-"""Public coordinates endpoint and the daily upload cap, called directly (the pinned FastAPI test client does not work with the pinned httpx). Run from backend/: python -m pytest tests/test_coordinates_api.py"""
+"""Public coordinates endpoint, the daily upload cap and deleting own uploads, called directly (the pinned FastAPI test client does not work with the pinned httpx). Run from backend/: python -m pytest tests/test_coordinates_api.py"""
 import asyncio
 from types import SimpleNamespace
 
@@ -24,7 +24,7 @@ class FakeSupabase:
     """Records the filter used and returns the rows it was given."""
 
     def __init__(self, rows, count=None):
-        self.rows, self.count, self.filter, self.tables = rows, count, None, []
+        self.rows, self.count, self.filter, self.tables, self.deleted = rows, count, None, [], False
 
     def table(self, name):
         self.tables.append(name)
@@ -34,6 +34,10 @@ class FakeSupabase:
         return self
 
     def gte(self, _column, _value):
+        return self
+
+    def delete(self):
+        self.deleted = True
         return self
 
     def eq(self, column, value):
@@ -112,3 +116,19 @@ def test_upload_limit_does_not_block_admin_or_under_limit(monkeypatch):
         req = main.AirfoilCreateRequest(name='newfoil', upper_surface=SURF, lower_surface=SURF)
         res = main.create_airfoil(req, user_id=UUID)
         assert 'limited uploads' not in (res.error or '')
+
+
+def test_cannot_delete_an_airfoil_someone_else_uploaded(monkeypatch):
+    fake = FakeSupabase([])  # no uploader record for this user and airfoil
+    monkeypatch.setattr(main, 'supabase', fake)
+    with pytest.raises(HTTPException) as err:
+        main.delete_own_airfoil(main.uuid.UUID(UUID), user_id='someone-else')
+    assert err.value.status_code == 404
+    assert fake.tables == ['airfoil_uploads'] and not fake.deleted
+
+
+def test_uploader_can_delete_their_airfoil(monkeypatch):
+    fake = FakeSupabase([{'airfoil_id': UUID}])
+    monkeypatch.setattr(main, 'supabase', fake)
+    assert main.delete_own_airfoil(main.uuid.UUID(UUID), user_id='me') == {'success': True}
+    assert fake.tables == ['airfoil_uploads', 'airfoils'] and fake.deleted and fake.filter == ('id', UUID)

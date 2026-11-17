@@ -15,7 +15,7 @@ const config = useRuntimeConfig()
 
 // undefined until the session is read on the client (the SSG HTML never has one), null when signed out
 const email = ref<string | null>()
-const uploads = ref<{ created_at: string; airfoil: { name: string; display_name: string | null } }[]>()
+const uploads = ref<{ id: string; created_at: string; airfoil: { name: string; display_name: string | null } }[]>()
 const uploadsError = ref('')
 
 const showDeleteModal = ref(false)
@@ -29,19 +29,46 @@ onMounted(async () => {
     return
   const { data, error } = await supabase
     .from('airfoil_uploads')
-    .select('created_at, airfoils(name, display_name)')
+    .select('airfoil_id, created_at, airfoils(name, display_name)')
     .order('created_at', { ascending: false })
   if (error) {
     uploadsError.value = error.message
     return
   }
-  uploads.value = data.flatMap(u => u.airfoils ? [{ created_at: u.created_at, airfoil: u.airfoils }] : [])
+  uploads.value = data.flatMap(u => u.airfoils ? [{ id: u.airfoil_id, created_at: u.created_at, airfoil: u.airfoils }] : [])
 })
 
 async function handleSignOut() {
   // 'local' clears this browser even when the network call would fail
   await supabase.auth.signOut({ scope: 'local' })
   await navigateTo('/')
+}
+
+// The upload the delete confirmation is open for, if any
+const uploadToDelete = ref<{ id: string; airfoil: { name: string; display_name: string | null } }>()
+const uploadDeleteError = ref('')
+
+async function confirmDeleteUpload() {
+  const target = uploadToDelete.value
+  if (!target)
+    return
+  isDeleting.value = true
+  uploadDeleteError.value = ''
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    await $fetch(`${config.public.backendUrl}/api/airfoils/${target.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+    })
+    uploads.value = uploads.value?.filter(u => u.id !== target.id)
+    uploadToDelete.value = undefined
+  }
+  catch (err) {
+    uploadDeleteError.value = (err as any)?.data?.detail || (err instanceof Error ? err.message : 'Failed to delete airfoil')
+  }
+  finally {
+    isDeleting.value = false
+  }
 }
 
 async function confirmDeleteAccount() {
@@ -104,18 +131,26 @@ async function confirmDeleteAccount() {
             </VButton>
           </VStateBlock>
           <ul v-else class="divide-y divide-gray-200">
-            <li v-for="u in uploads" :key="u.airfoil.name" class="flex items-center justify-between gap-3 py-2 text-sm">
+            <li v-for="u in uploads" :key="u.id" class="flex items-center gap-3 py-2 text-sm">
               <NuxtLink :to="`/airfoils/${encodeURIComponent(u.airfoil.name)}`" class="min-w-0 truncate font-medium text-primary-600 hover:text-primary-700 hover:underline">
                 {{ u.airfoil.display_name || u.airfoil.name }}
               </NuxtLink>
-              <span class="num shrink-0 text-gray-500">{{ new Date(u.created_at).toLocaleDateString() }}</span>
+              <span class="num ml-auto shrink-0 text-gray-500">{{ new Date(u.created_at).toLocaleDateString() }}</span>
+              <button
+                type="button"
+                class="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-error-50 hover:text-error-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500"
+                :aria-label="`Delete ${u.airfoil.display_name || u.airfoil.name}`"
+                @click="uploadDeleteError = ''; uploadToDelete = u"
+              >
+                <Icon name="heroicons:trash" class="h-4 w-4" aria-hidden="true" />
+              </button>
             </li>
           </ul>
         </VPanel>
 
         <VPanel title="Delete account">
           <p class="text-sm text-gray-700">
-            Permanently deletes your account and sign-in details. Airfoils you uploaded stay in the public catalog, with no link to you.
+            Permanently deletes your account and sign-in details. Airfoils you uploaded stay in the public catalog, with no link to you. To remove them, delete them above first.
           </p>
           <p v-if="deleteError && !showDeleteModal" class="mt-3 text-sm text-error-700" role="alert">
             {{ deleteError }}
@@ -127,6 +162,32 @@ async function confirmDeleteAccount() {
         </VPanel>
       </template>
     </div>
+
+    <!-- The modal also emits when it opens, so only a close clears the target -->
+    <VModal :model-value="!!uploadToDelete" @update:model-value="open => { if (!open) uploadToDelete = undefined }">
+      <VModalHeader dismissable>
+        Delete airfoil
+      </VModalHeader>
+      <VModalBody>
+        <p class="text-sm text-gray-700">
+          Permanently delete <span class="font-semibold">{{ uploadToDelete?.airfoil.display_name || uploadToDelete?.airfoil.name }}</span>
+          from the catalog? This cannot be undone.
+        </p>
+        <div v-if="uploadDeleteError" class="mt-4 rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
+          <p class="text-sm text-error-700">
+            {{ uploadDeleteError }}
+          </p>
+        </div>
+      </VModalBody>
+      <VModalFooter>
+        <VButton type="button" color="light" :disabled="isDeleting" @click="uploadToDelete = undefined">
+          Cancel
+        </VButton>
+        <VButton type="button" color="error" :disabled="isDeleting" @click="confirmDeleteUpload">
+          {{ isDeleting ? 'Deleting…' : 'Delete airfoil' }}
+        </VButton>
+      </VModalFooter>
+    </VModal>
 
     <VModal v-model="showDeleteModal">
       <VModalHeader dismissable>

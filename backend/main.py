@@ -731,6 +731,23 @@ def delete_account(user_id: str = Depends(require_user)):
     return {"success": True}
 
 
+@app.delete("/api/airfoils/{airfoil_id}")
+def delete_own_airfoil(airfoil_id: uuid.UUID, user_id: str = Depends(require_user)):
+    """Delete an airfoil the caller uploaded. Ownership comes from the uploader record, never from the request."""
+    owned = supabase.table('airfoil_uploads').select('airfoil_id').eq(
+        'airfoil_id', str(airfoil_id)
+    ).eq('user_id', user_id).execute().data
+    if not owned:
+        raise HTTPException(status_code=404, detail="Airfoil not found among your uploads")
+    try:
+        # The uploader record and cached analyses go with it (ON DELETE CASCADE)
+        supabase.table('airfoils').delete().eq('id', str(airfoil_id)).execute()
+    except Exception as e:
+        print(f"Airfoil deletion failed for {airfoil_id}: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete airfoil")
+    return {"success": True}
+
+
 @app.post("/api/airfoils/create", response_model=AirfoilCreateResponse)
 def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require_user)):
     """

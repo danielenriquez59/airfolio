@@ -28,7 +28,7 @@ const sections = [
     title: 'Your uploads',
     items: [
       'Only upload airfoils you have the right to share.',
-      'Uploaded airfoils become part of the public catalog. You may not be able to delete them yourself afterwards.',
+      'Uploaded airfoils become part of the public catalog. You can delete your own uploads from the Account page while your account exists.',
       'You keep any rights you have in what you upload. You give Airfolio permission to store, display, analyze, and distribute it as part of the service, free of charge.',
       'We may edit or remove uploads, for example duplicates, errors, or content that breaks these terms.',
     ],
