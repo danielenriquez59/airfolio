@@ -27,24 +27,29 @@ const confirmationSent = ref(false)
 // Only follow same-site paths, so the link can't bounce users to another site.
 const redirectTo = computed(() => {
   const target = route.query.redirect
-  const isLocalPath = typeof target === 'string' && target.startsWith('/') && !target.startsWith('//')
+  // Browsers read "/\" like "//", so both are refused.
+  const isLocalPath = typeof target === 'string' && /^\/(?![/\\])/.test(target)
   return isLocalPath ? target : '/'
 })
+
+// Where the confirmation email and Google send the user back to: here, then on to where they were going.
+const returnUrl = () => `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTo.value)}`
 
 async function handleSubmit() {
   isSubmitting.value = true
   errorMessage.value = ''
   const credentials = { email: email.value, password: password.value }
   const { data, error } = isSignUp.value
-    ? await supabase.auth.signUp({
-      ...credentials,
-      // The confirmation email links back here, then on to where the user was going.
-      options: { emailRedirectTo: `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTo.value)}` },
-    })
+    ? await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: returnUrl() } })
     : await supabase.auth.signInWithPassword(credentials)
   isSubmitting.value = false
   if (error) {
     errorMessage.value = error.message
+    return
+  }
+  // Supabase answers a sign-up for an existing email with a user that has no identities, and sends no email.
+  if (isSignUp.value && data.user?.identities?.length === 0) {
+    errorMessage.value = 'An account with this email already exists. Sign in instead.'
     return
   }
   // No session after sign-up means the email still has to be confirmed.
@@ -57,24 +62,21 @@ async function handleSubmit() {
 
 async function handleGoogleSignIn() {
   errorMessage.value = ''
-  // Google sends the user back here, then the "Signed in" panel takes them on.
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTo.value)}` },
-  })
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: returnUrl() } })
   if (error)
     errorMessage.value = error.message
 }
 
 async function handleSignOut() {
-  await supabase.auth.signOut()
+  // 'local' clears this browser even when the network call would fail
+  await supabase.auth.signOut({ scope: 'local' })
   signedInEmail.value = null
 }
 </script>
 
 <template>
   <div class="page-container py-8">
-    <div class="max-w-md">
+    <div class="mx-auto max-w-md">
       <PageHeader :title="isSignUp ? 'Create Account' : 'Sign In'" />
 
       <VPanel v-if="signedInEmail === undefined">
@@ -85,9 +87,6 @@ async function handleSignOut() {
         <VStateBlock icon="heroicons:user-circle" title="Signed in" :description="signedInEmail">
           <VButton color="primary" :to="redirectTo">
             Continue
-          </VButton>
-          <VButton color="light" to="/account">
-            Account
           </VButton>
           <VButton type="button" color="light" @click="handleSignOut">
             Sign out
@@ -115,6 +114,7 @@ async function handleSignOut() {
           </div>
 
           <VButton type="button" color="light" class="w-full" @click="handleGoogleSignIn">
+            <Icon name="logos:google-icon" class="h-4 w-4" aria-hidden="true" />
             Continue with Google
           </VButton>
           <p class="text-center text-xs text-gray-500">

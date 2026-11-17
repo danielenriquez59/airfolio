@@ -8,13 +8,6 @@ defineProps<{
 }>()
 
 const isAdmin = useIsAdmin()
-const session = useSupabaseSession()
-// false until mounted so the pre-rendered (signed-out) HTML hydrates without a mismatch
-const mounted = ref(false)
-onMounted(() => {
-  mounted.value = true
-})
-const signedIn = computed(() => mounted.value && !!session.value)
 
 const adminLinks: NavigationItem[] = [
   { divider: true },
@@ -50,7 +43,6 @@ const navigation = computed<NavigationItem[]>(() => [
     ],
   },
   { title: 'About', to: '/about' },
-  signedIn.value ? { title: 'Account', to: '/account' } : { title: 'Sign in', to: '/login' },
 ])
 </script>
 

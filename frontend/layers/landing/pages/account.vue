@@ -39,7 +39,8 @@ onMounted(async () => {
 })
 
 async function handleSignOut() {
-  await supabase.auth.signOut()
+  // 'local' clears this browser even when the network call would fail
+  await supabase.auth.signOut({ scope: 'local' })
   await navigateTo('/')
 }
 
@@ -67,7 +68,7 @@ async function confirmDeleteAccount() {
 
 <template>
   <div class="page-container py-8">
-    <div class="max-w-2xl space-y-6">
+    <div class="mx-auto max-w-2xl space-y-6">
       <PageHeader title="Account" />
 
       <VPanel v-if="email === undefined">
@@ -104,10 +105,10 @@ async function confirmDeleteAccount() {
           </VStateBlock>
           <ul v-else class="divide-y divide-gray-200">
             <li v-for="u in uploads" :key="u.airfoil.name" class="flex items-center justify-between gap-3 py-2 text-sm">
-              <NuxtLink :to="`/airfoils/${encodeURIComponent(u.airfoil.name)}`" class="font-medium text-primary-600 hover:text-primary-700 hover:underline">
+              <NuxtLink :to="`/airfoils/${encodeURIComponent(u.airfoil.name)}`" class="min-w-0 truncate font-medium text-primary-600 hover:text-primary-700 hover:underline">
                 {{ u.airfoil.display_name || u.airfoil.name }}
               </NuxtLink>
-              <span class="num text-gray-500">{{ new Date(u.created_at).toLocaleDateString() }}</span>
+              <span class="num shrink-0 text-gray-500">{{ new Date(u.created_at).toLocaleDateString() }}</span>
             </li>
           </ul>
         </VPanel>
