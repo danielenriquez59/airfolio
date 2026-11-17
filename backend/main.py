@@ -656,6 +656,17 @@ def recalculate_geometry(request: RecalculateGeometryRequest):
         )
 
 
+@app.delete("/api/account")
+def delete_account(user_id: str = Depends(require_user)):
+    """Delete the caller's own auth account; the id comes only from the verified token."""
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception as e:
+        print(f"Account deletion failed for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete account")
+    return {"success": True}
+
+
 @app.post("/api/airfoils/create", response_model=AirfoilCreateResponse)
 def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require_user)):
     """

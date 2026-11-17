@@ -117,6 +117,32 @@ export type Database = {
         }
         Relationships: []
       }
+      airfoil_uploads: {
+        Row: {
+          airfoil_id: string
+          created_at: string
+          user_id: string | null
+        }
+        Insert: {
+          airfoil_id: string
+          created_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          airfoil_id?: string
+          created_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "airfoil_uploads_airfoil_id_fkey"
+            columns: ["airfoil_id"]
+            isOneToOne: true
+            referencedRelation: "airfoils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           id: string

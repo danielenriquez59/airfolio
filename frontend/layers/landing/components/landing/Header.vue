@@ -8,6 +8,13 @@ defineProps<{
 }>()
 
 const isAdmin = useIsAdmin()
+const session = useSupabaseSession()
+// false until mounted so the pre-rendered (signed-out) HTML hydrates without a mismatch
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
+const signedIn = computed(() => mounted.value && !!session.value)
 
 const adminLinks: NavigationItem[] = [
   { divider: true },
@@ -32,7 +39,7 @@ const navigation = computed<NavigationItem[]>(() => [
       { title: 'Numerical Analysis 2D', to: '/tools/numerical-analysis-2d' },
       { divider: true },
       { header: 'Generate' },
-      { title: 'Upload (sign-in required)', to: '/upload' },
+      { title: 'Upload', to: '/upload' },
       { title: 'Airfoil Generator', to: '/tools/airfoil-generator' },
       { title: 'Bezier Fit', to: '/tools/bezier-fit' },
       { divider: true },
@@ -43,6 +50,7 @@ const navigation = computed<NavigationItem[]>(() => [
     ],
   },
   { title: 'About', to: '/about' },
+  signedIn.value ? { title: 'Account', to: '/account' } : { title: 'Sign in', to: '/login' },
 ])
 </script>
 

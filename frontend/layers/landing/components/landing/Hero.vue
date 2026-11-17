@@ -194,8 +194,8 @@ onClickOutside(searchContainerRef, () => {
             Compare performance
           </VButton>
           <VButton to="/upload" color="light" size="sm">
-            <Icon name="heroicons:lock-closed" class="h-4 w-4" aria-hidden="true" />
-            Upload an airfoil (sign-in required)
+            <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" aria-hidden="true" />
+            Upload an airfoil
           </VButton>
         </nav>
       </div>

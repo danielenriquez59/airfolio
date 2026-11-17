@@ -75,6 +75,9 @@ async function handleSignOut() {
           <VButton color="primary" :to="redirectTo">
             Continue
           </VButton>
+          <VButton color="light" to="/account">
+            Account
+          </VButton>
           <VButton type="button" color="light" @click="handleSignOut">
             Sign out
           </VButton>

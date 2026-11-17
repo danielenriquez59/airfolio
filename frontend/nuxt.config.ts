@@ -169,7 +169,8 @@ export default defineNuxtConfig({
     prerender: {
       failOnError: false,
       crawlLinks: true,
-      routes: ['/login'],
+      // /account is only linked when signed in, so crawling never finds it
+      routes: ['/login', '/account'],
       // a generated redirect page at tools/mfoil/ would shadow the netlify.toml rule and drop the query string
       ignore: ['/tools/mfoil', '/cst-visualizer', '/tools/naca-generator'],
     },

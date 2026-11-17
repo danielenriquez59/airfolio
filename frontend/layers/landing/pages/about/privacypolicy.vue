@@ -33,7 +33,7 @@ const sections = [
       'How we use it: only to create your Airfolio account, sign you in, and identify your account (for example, to record which account uploaded an airfoil).',
       'How we store it: in our sign-in database, hosted by Supabase, for as long as your account exists.',
       'How we share it: we do not sell it, share it with third parties, or use it for advertising. It is not used to train AI or machine-learning models.',
-      'How to remove it: email us to delete your account and this data. You can also remove Airfolio\'s access at any time from your Google account settings.',
+      'How to remove it: delete your account and this data from the Account page, or email us to do it for you. You can also remove Airfolio\'s access at any time from your Google account settings.',
     ],
   },
   {
@@ -50,7 +50,7 @@ const sections = [
   },
   {
     title: 'Your choices',
-    text: 'You can ask us to delete your account and the information linked to it at any time. Airfoils you uploaded may stay in the public catalog, with no link to you. You can block analytics cookies in your browser settings.',
+    text: 'You can delete your account and the information linked to it at any time from the Account page, or ask us to do it by email. Airfoils you uploaded may stay in the public catalog, with no link to you. You can block analytics cookies in your browser settings.',
   },
   {
     title: 'Children',
