@@ -55,6 +55,17 @@ async function handleSubmit() {
   await navigateTo(redirectTo.value)
 }
 
+async function handleGoogleSignIn() {
+  errorMessage.value = ''
+  // Google sends the user back here, then the "Signed in" panel takes them on.
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/login?redirect=${encodeURIComponent(redirectTo.value)}` },
+  })
+  if (error)
+    errorMessage.value = error.message
+}
+
 async function handleSignOut() {
   await supabase.auth.signOut()
   signedInEmail.value = null
@@ -102,6 +113,13 @@ async function handleSignOut() {
             <Icon name="heroicons:exclamation-triangle" class="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
             <p>{{ errorMessage }}</p>
           </div>
+
+          <VButton type="button" color="light" class="w-full" @click="handleGoogleSignIn">
+            Continue with Google
+          </VButton>
+          <p class="text-center text-xs text-gray-500">
+            or use your email
+          </p>
 
           <VInput v-model="email" type="email" name="email" label="Email" autocomplete="email" required />
           <VInput v-model="password" type="password" name="password" label="Password" :autocomplete="isSignUp ? 'new-password' : 'current-password'" required />
