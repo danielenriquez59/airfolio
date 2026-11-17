@@ -753,7 +753,7 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
         if recent >= UPLOADS_PER_DAY and not supabase.table('admins').select('user_id').eq('user_id', user_id).execute().data:
             return AirfoilCreateResponse(
                 success=False,
-                error=f"Upload limit reached: {UPLOADS_PER_DAY} airfoils per 24 hours. Please try again later."
+                error=f"Sorry, to prevent spam, we've limited uploads to {UPLOADS_PER_DAY} per day."
             )
 
         # Validate first

@@ -102,7 +102,7 @@ def test_upload_blocked_at_daily_limit_for_non_admin(monkeypatch):
     monkeypatch.setattr(main, 'supabase', fake)
     req = main.AirfoilCreateRequest(name='newfoil', upper_surface=SURF, lower_surface=SURF)
     res = main.create_airfoil(req, user_id=UUID)
-    assert res.success is False and 'Upload limit reached' in res.error
+    assert res.success is False and 'limited uploads' in res.error
     assert fake.tables == ['airfoil_uploads', 'admins']  # stopped before touching airfoils
 
 
@@ -111,4 +111,4 @@ def test_upload_limit_does_not_block_admin_or_under_limit(monkeypatch):
         monkeypatch.setattr(main, 'supabase', fake)
         req = main.AirfoilCreateRequest(name='newfoil', upper_surface=SURF, lower_surface=SURF)
         res = main.create_airfoil(req, user_id=UUID)
-        assert 'Upload limit reached' not in (res.error or '')
+        assert 'limited uploads' not in (res.error or '')
