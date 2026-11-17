@@ -253,6 +253,111 @@ export const useAirfoils = () => {
     }
   }
 
+  /**
+   * Fetch all airfoils without pagination (for management view)
+   * Fetches in batches to handle large datasets
+   */
+  const fetchAllAirfoils = async (): Promise<Airfoil[]> => {
+    let allAirfoils: Airfoil[] = []
+    let from = 0
+    const batchSize = 1000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('airfoils')
+        .select('*')
+        .order('name', { ascending: true })
+        .range(from, from + batchSize - 1)
+
+      if (error) {
+        console.error('Error fetching airfoils:', error)
+        throw error
+      }
+
+      if (data && data.length > 0) {
+        allAirfoils = [...allAirfoils, ...data]
+        from += batchSize
+        hasMore = data.length === batchSize
+      } else {
+        hasMore = false
+      }
+    }
+
+    return allAirfoils
+  }
+
+  /**
+   * Update airfoil fields (metadata and/or geometry properties)
+   */
+  const updateAirfoil = async (
+    id: string,
+    updates: Partial<Pick<
+      Airfoil,
+      | 'display_name'
+      | 'description'
+      | 'thickness_pct'
+      | 'thickness_loc_pct'
+      | 'camber_pct'
+      | 'camber_loc_pct'
+      | 'area_coefficient'
+      | 'le_radius'
+      | 'te_thickness'
+      | 'te_angle'
+      | 'upper_surface_nodes'
+      | 'lower_surface_nodes'
+      | 'upper_x_coordinates'
+      | 'upper_y_coordinates'
+      | 'lower_x_coordinates'
+      | 'lower_y_coordinates'
+    >>
+  ): Promise<Airfoil> => {
+    const { data, error } = await supabase
+      .from('airfoils')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating airfoil:', error)
+      throw error
+    }
+
+    return data
+  }
+
+  /**
+   * Hard-delete an airfoil and its performance_cache rows.
+   */
+  const deleteAirfoil = async (id: string): Promise<void> => {
+    const { error: cacheError } = await supabase
+      .from('performance_cache')
+      .delete()
+      .eq('airfoil_id', id)
+
+    if (cacheError) {
+      console.error('Error deleting performance cache:', cacheError)
+      throw cacheError
+    }
+
+    const { data, error } = await supabase
+      .from('airfoils')
+      .delete()
+      .eq('id', id)
+      .select('id')
+
+    if (error) {
+      console.error('Error deleting airfoil:', error)
+      throw error
+    }
+
+    // RLS silently filters blocked deletes, so zero rows means it did not happen.
+    if (!data || data.length === 0) {
+      throw new Error('Airfoil was not deleted. You may not have permission to delete airfoils.')
+    }
+  }
+
   return {
     fetchAirfoil,
     fetchAirfoilByName,
@@ -263,5 +368,8 @@ export const useAirfoils = () => {
     fetchAirfoilsByIds,
     fetchRandomAirfoils,
     fetchAircraftUsage,
+    fetchAllAirfoils,
+    updateAirfoil,
+    deleteAirfoil,
   }
 }

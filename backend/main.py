@@ -97,6 +97,19 @@ class AirfoilValidationResponse(BaseModel):
     calculated_properties: Optional[Dict[str, Any]] = None
 
 
+class RecalculateGeometryRequest(BaseModel):
+    """Request to recalculate geometric properties from coordinates"""
+    upper_surface: List[CoordinatePair] = Field(..., description="Upper surface coordinates")
+    lower_surface: List[CoordinatePair] = Field(..., description="Lower surface coordinates")
+
+
+class RecalculateGeometryResponse(BaseModel):
+    """Response with recalculated geometric properties"""
+    success: bool
+    calculated_properties: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
 class AirfoilCreateRequest(BaseModel):
     """Request to create a new airfoil"""
     # lower-case and address-safe: Netlify lower-cases paths, so other names break the airfoil page
@@ -599,6 +612,34 @@ def validate_airfoil(request: AirfoilValidationRequest):
         return AirfoilValidationResponse(
             valid=False,
             errors=[f"Validation error: {str(e)}"]
+        )
+
+
+@app.post("/api/airfoils/recalculate-geometry", response_model=RecalculateGeometryResponse)
+def recalculate_geometry(request: RecalculateGeometryRequest):
+    """
+    Recalculate geometric properties from coordinates via AeroSandbox.
+    Does not check name uniqueness; intended for updating existing airfoils.
+    """
+    try:
+        if len(request.upper_surface) < 2 or len(request.lower_surface) < 2:
+            return RecalculateGeometryResponse(
+                success=False,
+                error="Upper and lower surfaces each require at least 2 points",
+            )
+
+        calculated_properties = calculate_airfoil_properties(
+            request.upper_surface,
+            request.lower_surface,
+        )
+        return RecalculateGeometryResponse(
+            success=True,
+            calculated_properties=calculated_properties,
+        )
+    except Exception as e:
+        return RecalculateGeometryResponse(
+            success=False,
+            error=f"Geometry recalculation failed: {str(e)}",
         )
 
 
