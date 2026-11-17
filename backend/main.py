@@ -2,7 +2,7 @@
 FastAPI backend for airfoil analysis job submission.
 Handles analysis requests and job queuing.
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -42,6 +42,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def require_user(authorization: str = Header(default="")) -> str:
+    """Allow only signed-in users. Returns the user id."""
+    if not supabase or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Sign in required")
+    try:
+        user = supabase.auth.get_user(authorization.removeprefix("Bearer ")).user
+    except Exception:
+        user = None
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    return user.id
 
 
 # Request/Response Models
@@ -644,7 +657,7 @@ def recalculate_geometry(request: RecalculateGeometryRequest):
 
 
 @app.post("/api/airfoils/create", response_model=AirfoilCreateResponse)
-def create_airfoil(request: AirfoilCreateRequest):
+def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require_user)):
     """
     Create a new airfoil in the database.
     """
@@ -710,6 +723,11 @@ def create_airfoil(request: AirfoilCreateRequest):
         response = supabase.table('airfoils').insert(airfoil_data).execute()
         print("Airfoil created successfully")
         if response.data:
+            # Record who uploaded it, for moderation. Never fail the upload over this.
+            try:
+                supabase.table('airfoil_uploads').insert({'airfoil_id': airfoil_id, 'user_id': user_id}).execute()
+            except Exception as e:
+                print(f"Failed to record uploader: {e}")
             # Use the actual name as the slug (will be URL-encoded by frontend)
             slug = request.name
             return AirfoilCreateResponse(

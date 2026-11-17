@@ -22,6 +22,9 @@ const route = useRoute()
 const router = useRouter()
 
 const config = useRuntimeConfig()
+const session = useSupabaseSession()
+const supabase = useSupabaseClient()
+const signedIn = ref(false)
 const { retrieveTemporaryData, clearTemporaryData } = useAirfoilUpload()
 const { fetchCategories } = useCategories()
 
@@ -39,6 +42,11 @@ const hash = route.query.hash as string
 // Lifecycle
 onMounted(async () => {
   try {
+    // Read the session directly; the SSG HTML has none and useSupabaseSession fills in later
+    signedIn.value = !!(await supabase.auth.getSession()).data.session
+    if (!signedIn.value)
+      return
+
     if (!hash) {
       error.value = 'Invalid upload session. Please start over.'
       return
@@ -110,6 +118,7 @@ async function handleConfirm() {
 
     const response = await $fetch(`${config.public.backendUrl}/api/airfoils/create`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${session.value?.access_token ?? ''}` },
       body,
     })
 
@@ -126,7 +135,7 @@ async function handleConfirm() {
   }
   catch (err) {
     console.error('Confirmation error:', err)
-    error.value = err instanceof Error ? err.message : 'Failed to create airfoil'
+    error.value = (err as any)?.data?.detail || (err instanceof Error ? err.message : 'Failed to create airfoil')
   }
   finally {
     isConfirming.value = false
@@ -149,6 +158,14 @@ async function handleBack() {
 
     <VPanel v-if="isLoading">
       <VStateBlock variant="loading" title="Calculating airfoil properties..." />
+    </VPanel>
+
+    <VPanel v-else-if="!signedIn">
+      <VStateBlock icon="heroicons:lock-closed" title="Sign in to upload" description="Sign in or create a free account to share airfoils with the community.">
+        <VButton color="primary" :to="`/login?redirect=${encodeURIComponent(route.fullPath)}`">
+          Sign in
+        </VButton>
+      </VStateBlock>
     </VPanel>
 
     <VPanel v-else-if="error">

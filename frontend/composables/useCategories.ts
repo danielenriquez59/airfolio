@@ -80,12 +80,14 @@ export const useCategories = () => {
    * Delete a category
    */
   const deleteCategory = async (id: string): Promise<void> => {
-    const { error } = await supabase.from('categories').delete().eq('id', id)
+    const { data, error } = await supabase.from('categories').delete().eq('id', id).select('id')
 
     if (error) {
       console.error('Error deleting category:', error)
       throw error
     }
+    // RLS silently filters blocked writes, so zero rows means it did not happen.
+    if (!data?.length) throw new Error('Category was not deleted. You may not have permission.')
   }
 
   /**
@@ -99,15 +101,17 @@ export const useCategories = () => {
       return
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('airfoils')
       .update({ category: categoryId })
       .in('id', airfoilIds)
+      .select('id')
 
     if (error) {
       console.error('Error assigning category to airfoils:', error)
       throw error
     }
+    if (!data?.length) throw new Error('No airfoils were updated. You may not have permission.')
   }
 
   /**
@@ -118,15 +122,17 @@ export const useCategories = () => {
       return
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('airfoils')
       .update({ category: null })
       .in('id', airfoilIds)
+      .select('id')
 
     if (error) {
       console.error('Error removing category from airfoils:', error)
       throw error
     }
+    if (!data?.length) throw new Error('No airfoils were updated. You may not have permission.')
   }
 
   /**
@@ -219,15 +225,17 @@ export const useCategories = () => {
       return
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('airfoils')
       .update({ description: description || null })
       .in('id', airfoilIds)
+      .select('id')
 
     if (error) {
       console.error('Error updating descriptions:', error)
       throw error
     }
+    if (!data?.length) throw new Error('No airfoils were updated. You may not have permission.')
   }
 
   return {

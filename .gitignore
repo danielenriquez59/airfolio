@@ -48,3 +48,4 @@ yarn-error.log*
 schrenk-lift*
 .claude*
 references/
+supabase/.temp/

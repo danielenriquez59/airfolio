@@ -7,7 +7,17 @@ defineProps<{
   hideBg?: boolean
 }>()
 
-const navigation: NavigationItem[] = [
+const isAdmin = useIsAdmin()
+
+const adminLinks: NavigationItem[] = [
+  { divider: true },
+  { header: 'Admin' },
+  { title: 'Airfoil Manager', to: '/airfoils-manager' },
+  { title: 'Categories Manager', to: '/categories-manager' },
+  { title: 'Aircraft Manager', to: '/aircraft-manager' },
+]
+
+const navigation = computed<NavigationItem[]>(() => [
   { title: 'Home', to: '/' },
   { title: 'Airfoils', to: '/search' },
   {
@@ -22,22 +32,18 @@ const navigation: NavigationItem[] = [
       { title: 'Numerical Analysis 2D', to: '/tools/numerical-analysis-2d' },
       { divider: true },
       { header: 'Generate' },
-      { title: 'Upload', to: '/upload' },
+      { title: 'Upload (sign-in required)', to: '/upload' },
       { title: 'Airfoil Generator', to: '/tools/airfoil-generator' },
       { title: 'Bezier Fit', to: '/tools/bezier-fit' },
       { divider: true },
       { header: 'Structures' },
       { title: 'Structural Loading Calculator', to: '/tools/schrenk-calculator' },
       { title: 'Spar Inertia Calculator', to: '/tools/spar-inertia-calculator' },
-      { divider: true },
-      { header: 'Admin' },
-      { title: 'Airfoil Manager', to: '/airfoils-manager' },
-      { title: 'Categories Manager', to: '/categories-manager' },
-      { title: 'Aircraft Manager', to: '/aircraft-manager' },
+      ...(isAdmin.value ? adminLinks : []),
     ],
   },
   { title: 'About', to: '/about' },
-]
+])
 </script>
 
 <template>

@@ -1,14 +1,14 @@
 export default defineNuxtConfig({
   ssr: true, // Disable SSR - run as SPA (client-side only)
-  
+
   alias: {
     '@': './',
   },
-  
+
   app: {
     head: {
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
       meta: [
         { property: 'og:title', content: 'Airfolio' },
@@ -19,10 +19,10 @@ export default defineNuxtConfig({
         { property: 'og:type', content: 'website' },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:image', content: 'https://airfolio.live/og-image.png' },
-      ]
-    }
+      ],
+    },
   },
-  
+
   modules: [
     '@nuxt/content',
     '@nuxt/icon',
@@ -43,7 +43,7 @@ export default defineNuxtConfig({
   },
   sitemap: {
     sources: [
-      '/api/sitemap-urls'
+      '/api/sitemap-urls',
     ],
     // the only <img> found on pages is the Buy me a coffee button; the home image is set in routeRules
     discoverImages: false,
@@ -98,9 +98,9 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true,
   },
-  
+
   hooks: {
-    async 'nitro:config'(nitroConfig) {
+    'nitro:config': async function (nitroConfig) {
       try {
         // Fetch all airfoil names from Supabase at build time
         const supabaseUrl = process.env.SUPABASE_URL
@@ -111,6 +111,7 @@ export default defineNuxtConfig({
           return
         }
 
+        // eslint-disable-next-line no-console
         console.log('📡 Fetching airfoils for pre-rendering...')
         // Supabase returns at most 1000 rows per request, so page until a short page
         const airfoils: { name: string }[] = []
@@ -129,30 +130,32 @@ export default defineNuxtConfig({
 
           const page = await response.json()
           airfoils.push(...page)
-          if (page.length < 1000) break
+          if (page.length < 1000)
+            break
         }
-        const airfoilRoutes = airfoils.map((airfoil: { name: string }) => 
-          `/airfoils/${encodeURIComponent(airfoil.name)}`
+        const airfoilRoutes = airfoils.map((airfoil: { name: string }) =>
+          `/airfoils/${encodeURIComponent(airfoil.name)}`,
         )
 
+        // eslint-disable-next-line no-console
         console.log(`✅ Pre-rendering ${airfoilRoutes.length} airfoil pages...`)
-        
+
         // Add airfoil routes to prerender list
-        if (!nitroConfig.prerender) {
+        if (!nitroConfig.prerender)
           nitroConfig.prerender = { routes: [] }
-        }
-        if (!nitroConfig.prerender.routes) {
+
+        if (!nitroConfig.prerender.routes)
           nitroConfig.prerender.routes = []
-        }
-        
+
         nitroConfig.prerender.routes.push(...airfoilRoutes)
-      } catch (error) {
+      }
+      catch (error) {
         console.error('❌ Error fetching airfoils for pre-rendering:', error instanceof Error ? error.message : error)
         // Don't fail the build, just log the error
       }
-    }
+    },
   },
-  
+
   routeRules: {
     '/': { sitemap: { images: [{ loc: '/og-image.png' }] } },
     // Old URL of the 2D analysis page, for the dev server; Netlify redirects it in netlify.toml
@@ -166,6 +169,7 @@ export default defineNuxtConfig({
     prerender: {
       failOnError: false,
       crawlLinks: true,
+      routes: ['/login'],
       // a generated redirect page at tools/mfoil/ would shadow the netlify.toml rule and drop the query string
       ignore: ['/tools/mfoil', '/cst-visualizer', '/tools/naca-generator'],
     },

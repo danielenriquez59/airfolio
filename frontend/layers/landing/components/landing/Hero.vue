@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { onClickOutside, useDebounceFn } from '@vueuse/core'
 import type { Database } from '~/types/database.types'
-import { useDebounceFn, onClickOutside } from '@vueuse/core'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -27,10 +27,12 @@ const debouncedSearch = useDebounceFn(async (query: string) => {
     suggestions.value = results
     showSuggestions.value = true
     selectedIndex.value = -1
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Error fetching autocomplete suggestions:', error)
     suggestions.value = []
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }, 300)
@@ -39,50 +41,52 @@ const debouncedSearch = useDebounceFn(async (query: string) => {
 watch(searchQuery, (newQuery) => {
   if (newQuery.length >= 2) {
     debouncedSearch(newQuery)
-  } else {
+  }
+  else {
     suggestions.value = []
     showSuggestions.value = false
     selectedIndex.value = -1
   }
 })
 
-const handleSearch = () => {
+function handleSearch() {
   // Navigate to search page with search query
   showSuggestions.value = false
-  if (searchQuery.value.trim()) {
+  if (searchQuery.value.trim())
     navigateTo(`/search?q=${encodeURIComponent(searchQuery.value)}`)
-  } else {
+  else
     navigateTo('/search')
-  }
 }
 
-const handleSuggestionClick = (airfoil: Airfoil) => {
+function handleSuggestionClick(airfoil: Airfoil) {
   const slug = encodeURIComponent(airfoil.name)
   navigateTo(`/airfoils/${slug}`)
   showSuggestions.value = false
   searchQuery.value = ''
 }
 
-const handleKeydown = (event: KeyboardEvent) => {
+function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter') {
     if (showSuggestions.value && selectedIndex.value >= 0 && suggestions.value[selectedIndex.value]) {
       // Select highlighted suggestion
       handleSuggestionClick(suggestions.value[selectedIndex.value])
-    } else {
+    }
+    else {
       // Perform regular search
       handleSearch()
     }
-  } else if (event.key === 'ArrowDown') {
+  }
+  else if (event.key === 'ArrowDown') {
     event.preventDefault()
-    if (showSuggestions.value && suggestions.value.length > 0) {
+    if (showSuggestions.value && suggestions.value.length > 0)
       selectedIndex.value = Math.min(selectedIndex.value + 1, suggestions.value.length - 1)
-    }
-  } else if (event.key === 'ArrowUp') {
+  }
+  else if (event.key === 'ArrowUp') {
     event.preventDefault()
-    if (showSuggestions.value) {
+    if (showSuggestions.value)
       selectedIndex.value = Math.max(selectedIndex.value - 1, -1)
-    }
-  } else if (event.key === 'Escape') {
+  }
+  else if (event.key === 'Escape') {
     showSuggestions.value = false
     selectedIndex.value = -1
   }
@@ -190,8 +194,8 @@ onClickOutside(searchContainerRef, () => {
             Compare performance
           </VButton>
           <VButton to="/upload" color="light" size="sm">
-            <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" aria-hidden="true" />
-            Upload an airfoil
+            <Icon name="heroicons:lock-closed" class="h-4 w-4" aria-hidden="true" />
+            Upload an airfoil (sign-in required)
           </VButton>
         </nav>
       </div>

@@ -49,6 +49,7 @@ const error = computed<string | null>(() => loadError.value
   : (page.value && !page.value.airfoil ? 'Airfoil not found' : null))
 
 // Admin actions (delete, rerun geometry)
+const isAdmin = useIsAdmin()
 const isDeleting = ref(false)
 const deleteError = ref<string | null>(null)
 const showDeleteModal = ref(false)
@@ -756,8 +757,8 @@ useHead({
         </div>
       </div>
 
-      <!-- Admin tools (local admin branch only) -->
-      <VPanel v-if="airfoil.id" title="Admin">
+      <!-- Admin tools -->
+      <VPanel v-if="isAdmin && airfoil.id" title="Admin">
         <template #actions>
           <VButton
             type="button"
@@ -892,7 +893,7 @@ useHead({
     </VModal>
 
     <!-- Admin: delete confirmation modal -->
-    <VModal v-model="showDeleteModal">
+    <VModal v-if="isAdmin" v-model="showDeleteModal">
       <VModalHeader dismissable>
         Delete Airfoil
       </VModalHeader>

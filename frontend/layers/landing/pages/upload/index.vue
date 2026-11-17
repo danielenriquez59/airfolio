@@ -15,7 +15,7 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'Upload custom airfoil coordinates to share with the community. Paste or edit points with a live preview, or upload a CSV/DAT file.',
+      content: 'Sign in or create a free account to upload custom airfoil coordinates and share them with the community. Paste or edit points with a live preview, or upload a CSV/DAT file.',
     },
   ],
 })
@@ -36,6 +36,9 @@ const { fetchCategories } = useCategories()
 
 const route = useRoute()
 const router = useRouter()
+const supabase = useSupabaseClient()
+// undefined until the session is read on the client; the SSG HTML never has one
+const signedIn = ref<boolean>()
 
 const MIN_POINTS_PER_SURFACE = 10
 const MAX_POINTS_PER_SURFACE = 200
@@ -172,6 +175,8 @@ function restoreFromDraft(data: {
 }
 
 onMounted(async () => {
+  signedIn.value = !!(await supabase.auth.getSession()).data.session
+
   try {
     allCategories.value = await fetchCategories()
   }
@@ -258,7 +263,7 @@ const surfaces = computed(() => [
 
 <template>
   <div>
-    <PageHeader title="Upload Airfoil" subtitle="Share your airfoil design with the community.">
+    <PageHeader title="Upload Airfoil" subtitle="Share your airfoil design with the community. Sign in to upload.">
       <template #actions>
         <VButton type="button" color="light" @click="showHelp = true">
           <Icon name="heroicons:question-mark-circle" class="h-5 w-5" aria-hidden="true" />
@@ -269,7 +274,19 @@ const surfaces = computed(() => [
 
     <UploadSteps :current="1" />
 
-    <form novalidate @submit.prevent>
+    <VPanel v-if="signedIn === undefined">
+      <VStateBlock variant="loading" title="Checking sign-in..." />
+    </VPanel>
+
+    <VPanel v-else-if="!signedIn">
+      <VStateBlock icon="heroicons:lock-closed" title="Sign in to upload" description="Sign in or create a free account to share airfoils with the community.">
+        <VButton color="primary" to="/login?redirect=/upload">
+          Sign in
+        </VButton>
+      </VStateBlock>
+    </VPanel>
+
+    <form v-else novalidate @submit.prevent>
       <div class="grid gap-6 lg:grid-cols-2">
         <!-- Coordinates -->
         <VPanel title="Coordinates" description="Load a file, then fine-tune the points by hand.">
