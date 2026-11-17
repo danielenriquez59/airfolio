@@ -200,6 +200,25 @@ def orient_airfoil_surfaces(
     return upper, lower
 
 
+def selig_loop(
+    upper: List[Tuple[float, float]],
+    lower: List[Tuple[float, float]],
+) -> List[List[float]]:
+    """
+    One loop of [x, y] points in Selig order: upper trailing edge, round the
+    nose, to the lower trailing edge. Same order as buildSeligString in
+    frontend/composables/useAirfoilDownload.ts.
+    """
+    upper, lower = orient_airfoil_surfaces(upper, lower)
+    points: List[List[float]] = []
+    for x, y in [*upper, *lower]:
+        # Skip adjacent repeats so the shared leading-edge point appears once
+        if points and abs(points[-1][0] - x) < 5e-5 and abs(points[-1][1] - y) < 5e-5:
+            continue
+        points.append([x, y])
+    return points
+
+
 def calculate_area_coefficient(x: List[float], y: List[float]) -> Optional[float]:
     """
     Enclosed profile area of a chord-normalized polygon, as A/c^2.

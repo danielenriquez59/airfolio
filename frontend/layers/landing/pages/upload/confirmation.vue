@@ -130,7 +130,7 @@ async function handleConfirm() {
       await router.push(`/airfoils/${encodeURIComponent(response.slug)}`)
     }
     else {
-      error.value = 'Failed to create airfoil. Please try again.'
+      error.value = response.error || 'Failed to create airfoil. Please try again.'
     }
   }
   catch (err) {

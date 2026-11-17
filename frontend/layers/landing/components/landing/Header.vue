@@ -42,7 +42,14 @@ const navigation = computed<NavigationItem[]>(() => [
       ...(isAdmin.value ? adminLinks : []),
     ],
   },
-  { title: 'About', to: '/about' },
+  {
+    title: 'Docs',
+    to: '#',
+    children: [
+      { title: 'API Documentation', to: '/docs/api' },
+      { title: 'About', to: '/about' },
+    ],
+  },
 ])
 </script>
 

@@ -2,12 +2,14 @@
 FastAPI backend for airfoil analysis job submission.
 Handles analysis requests and job queuing.
 """
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from collections import Counter
+import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 
 from config import settings
@@ -19,6 +21,7 @@ from utils import (
     calculate_area_coefficient,
     orient_airfoil_surfaces,
     deflect_trailing_edge_flap,
+    selig_loop,
 )
 from airfoil_analysis import analyze_airfoil
 from bezier_fitting import BezierFitter
@@ -55,6 +58,34 @@ def require_user(authorization: str = Header(default="")) -> str:
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
     return user.id
+
+
+PUBLIC_API_LIMIT = 60  # requests per minute, per client IP
+UPLOADS_PER_DAY = 4  # airfoils per account per rolling 24 hours (admins are exempt)
+_rate_window = 0
+_rate_hits: Counter = Counter()
+
+
+# async on purpose: it runs on the event loop, so the counters need no lock
+async def rate_limit(request: Request) -> None:
+    """Cap public API calls per client IP per minute."""
+    # shortcut: counts live in this one process and the forwarded IP can be faked;
+    # move to a shared store (Redis) or API keys if the backend runs more than one instance or gets abused.
+    global _rate_window
+    now = time.time()
+    window = int(now // 60)
+    if window != _rate_window:
+        _rate_window = window
+        _rate_hits.clear()
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    _rate_hits[ip] += 1
+    if _rate_hits[ip] > PUBLIC_API_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: {PUBLIC_API_LIMIT} requests per minute",
+            headers={"Retry-After": str(60 - int(now % 60))},
+        )
 
 
 # Request/Response Models
@@ -262,6 +293,39 @@ async def root():
 async def health():
     """Health check endpoint for monitoring services like Uptime Robot"""
     return {"status": "healthy"}
+
+
+@app.get("/api/v1/airfoils/{name_or_id}/coordinates", dependencies=[Depends(rate_limit)])
+def get_airfoil_coordinates(name_or_id: str):
+    """
+    Public API: an airfoil's coordinates as JSON.
+
+    `name_or_id` is the airfoil's name as used in its page address (e.g. `naca2412`) or its ID.
+    `coordinates` is a list of [x, y] points in Selig order: upper trailing edge,
+    round the nose, to the lower trailing edge.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database connection not configured")
+    try:
+        column, value = "id", str(uuid.UUID(name_or_id))
+    except ValueError:
+        column, value = "name", name_or_id.lower()
+
+    rows = supabase.table('airfoils').select(
+        'id, name, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
+    ).eq(column, value).limit(1).execute().data
+    airfoil = rows[0] if rows else None
+    if not airfoil or not all(airfoil[f'{s}_{a}_coordinates'] for s in ('upper', 'lower') for a in ('x', 'y')):
+        raise HTTPException(status_code=404, detail=f"No airfoil coordinates found for '{name_or_id}'")
+
+    return {
+        "id": airfoil['id'],
+        "name": airfoil['name'],
+        "coordinates": selig_loop(
+            list(zip(airfoil['upper_x_coordinates'], airfoil['upper_y_coordinates'])),
+            list(zip(airfoil['lower_x_coordinates'], airfoil['lower_y_coordinates'])),
+        ),
+    }
 
 
 @app.post("/api/analyze", response_model=AnalysisResponse)
@@ -678,7 +742,20 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
                 success=False,
                 error="Database connection not available"
             )
-        
+
+        # Daily cap per account, counted from the uploader records written below.
+        # shortcut: count-then-insert, so uploads sent at the same instant can slip one past the cap;
+        # move the check into the database if that is ever abused.
+        since = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        recent = supabase.table('airfoil_uploads').select('airfoil_id', count='exact').eq(
+            'user_id', user_id
+        ).gte('created_at', since).execute().count or 0
+        if recent >= UPLOADS_PER_DAY and not supabase.table('admins').select('user_id').eq('user_id', user_id).execute().data:
+            return AirfoilCreateResponse(
+                success=False,
+                error=f"Upload limit reached: {UPLOADS_PER_DAY} airfoils per 24 hours. Please try again later."
+            )
+
         # Validate first
         validation_request = AirfoilValidationRequest(
             name=request.name,
