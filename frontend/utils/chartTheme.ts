@@ -48,7 +48,7 @@ export const themedLegend = {
 }
 
 export const themedTooltip = {
-  backgroundColor: '#0f172a', // gray-900
+  backgroundColor: 'rgba(15, 23, 42, 0.75)', // gray-900 at 75%
   titleFont: { ...chartFonts.sans, weight: 600 },
   bodyFont: chartFonts.mono,
   padding: 8,

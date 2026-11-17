@@ -11,7 +11,7 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
-import { toggleButtonClasses } from '~/layers/ui/utils/buttons'
+import { tabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -64,10 +64,14 @@ const calculateLD = (CL: number[], CD: number[]): number[] => {
   })
 }
 
+type XAxis = 'alpha' | 'CL'
+const xAxis = ref<XAxis>('alpha')
+
 // Generate chart data for a metric
 const generateChartData = (
   metric: 'CL' | 'CD' | 'CM' | 'LD',
-  showLegend: boolean
+  showLegend: boolean,
+  x: XAxis = 'alpha'
 ) => {
   const datasets = props.performanceData.map((data, idx) => {
     let values: number[]
@@ -81,8 +85,9 @@ const generateChartData = (
     return {
       label: data.name,
       data: values.map((value, i) => ({
-        x: data.alpha[i],
+        x: x === 'CL' ? data.CL[i] : data.alpha[i],
         y: value,
+        alpha: data.alpha[i],
       })),
       borderColor: data.color ?? seriesColor(idx),
       backgroundColor: data.color ?? seriesColor(idx),
@@ -106,13 +111,14 @@ const tooltipsEnabled = ref(true)
 const getChartOptions = (
   yLabel: string,
   showLegend: boolean,
-  enableTooltips: boolean = true
+  enableTooltips: boolean = true,
+  x: XAxis = 'alpha'
 ): any => ({
   responsive: true,
   maintainAspectRatio: false,
   animation: false,
-  parsing: false,
-  normalized: true,
+  // parsing: false assumes data sorted by x (binary search); CL is not monotonic past stall
+  ...(x === 'alpha' && { parsing: false, normalized: true }),
   plugins: {
     legend: {
       ...themedLegend,
@@ -121,17 +127,23 @@ const getChartOptions = (
     tooltip: {
       ...themedTooltip,
       enabled: enableTooltips,
-      mode: 'index' as const,
+      // Same index in different series is a different CL, so pick the nearest point instead
+      mode: x === 'CL' ? 'nearest' as const : 'index' as const,
       intersect: false,
-      callbacks: {
-        title: (context: any[]) => {
-          const point = context[0]
-          return `α = ${point.raw.x.toFixed(2)}°`
-        },
-        label: (context: any) => {
-          return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
-        },
-      },
+      callbacks: x === 'CL'
+        ? {
+            title: (context: any[]) => `CL = ${context[0].raw.x.toFixed(4)}`,
+            label: (context: any) => `${context.dataset.label}: ${context.raw.y.toFixed(4)}, α = ${context.raw.alpha.toFixed(2)}°`,
+          }
+        : {
+            title: (context: any[]) => {
+              const point = context[0]
+              return `α = ${point.raw.x.toFixed(2)}°`
+            },
+            label: (context: any) => {
+              return `${context.dataset.label}: ${context.raw.y.toFixed(4)}`
+            },
+          },
     },
     zoom: {
       zoom: {
@@ -151,7 +163,7 @@ const getChartOptions = (
   },
   scales: {
     x: {
-      ...themedAxis('Angle of Attack α (degrees)'),
+      ...themedAxis(x === 'CL' ? 'Lift Coefficient (CL)' : 'Angle of Attack α (degrees)'),
       type: 'linear' as const,
       position: 'bottom' as const,
     },
@@ -178,14 +190,14 @@ const getChartOptions = (
 })
 
 const clChartData = computed(() => generateChartData('CL', true))
-const cdChartData = computed(() => generateChartData('CD', false))
-const cmChartData = computed(() => generateChartData('CM', false))
-const ldChartData = computed(() => generateChartData('LD', false))
+const cdChartData = computed(() => generateChartData('CD', false, xAxis.value))
+const cmChartData = computed(() => generateChartData('CM', false, xAxis.value))
+const ldChartData = computed(() => generateChartData('LD', false, xAxis.value))
 
 const clChartOptions = computed(() => getChartOptions('Lift Coefficient (CL)', false, tooltipsEnabled.value))
-const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value))
-const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value))
-const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value))
+const cdChartOptions = computed(() => getChartOptions('Drag Coefficient (CD)', false, tooltipsEnabled.value, xAxis.value))
+const cmChartOptions = computed(() => getChartOptions('Moment Coefficient (CM)', false, tooltipsEnabled.value, xAxis.value))
+const ldChartOptions = computed(() => getChartOptions('Lift-to-Drag Ratio (L/D)', false, tooltipsEnabled.value, xAxis.value))
 
 // Chart refs for reset zoom
 const clChartRef = ref<InstanceType<typeof Line> | null>(null)
@@ -205,6 +217,9 @@ const resetZoom = () => {
     }
   })
 }
+
+// A zoom window from the old x-axis would be stale
+watch(xAxis, resetZoom, { flush: 'post' })
 
 const emit = defineEmits<{
   tooltipsToggled: [enabled: boolean]
@@ -244,24 +259,42 @@ defineExpose({
     </ul>
 
     <!-- Control Buttons -->
-    <div v-if="props.showControls" class="flex justify-end gap-2">
-      <button
-        type="button"
-        :class="toggleButtonClasses(tooltipsEnabled)"
-        :aria-pressed="tooltipsEnabled"
-        @click="toggleTooltips"
-      >
-        <Icon name="heroicons:cursor-arrow-rays" class="h-4 w-4" aria-hidden="true" />
-        Data hover
-      </button>
-      <VButton
-        type="button"
-        color="light"
-        @click="resetZoom"
-      >
-        <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
-        Reset zoom
-      </VButton>
+    <div v-if="props.showControls" class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-gray-700" aria-hidden="true">X axis</span>
+        <div class="inline-flex gap-1 rounded-lg bg-gray-100 p-1" role="radiogroup" aria-label="X axis">
+          <button
+            v-for="opt in ([['alpha', 'α'], ['CL', 'CL']] as const)"
+            :key="opt[0]"
+            type="button"
+            role="radio"
+            :aria-checked="xAxis === opt[0]"
+            :class="tabButtonClasses(xAxis === opt[0])"
+            @click="xAxis = opt[0]"
+          >
+            {{ opt[1] }}
+          </button>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          :class="toggleButtonClasses(tooltipsEnabled)"
+          :aria-pressed="tooltipsEnabled"
+          @click="toggleTooltips"
+        >
+          <Icon name="heroicons:cursor-arrow-rays" class="h-4 w-4" aria-hidden="true" />
+          Data hover
+        </button>
+        <VButton
+          type="button"
+          color="light"
+          @click="resetZoom"
+        >
+          <Icon name="heroicons:arrow-path" class="h-4 w-4" aria-hidden="true" />
+          Reset zoom
+        </VButton>
+      </div>
     </div>
 
     <!-- Plots Grid: 2x2 on large screens, 1 column on smaller screens -->

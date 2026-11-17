@@ -91,7 +91,8 @@ const cfData = computed(() => blChart('cf'))
 const dsData = computed(() => blChart('ds'))
 const hkData = computed(() => blChart('hk'))
 
-const cpOptions = options('Cp', true)
+const invertCp = ref(true)
+const cpOptions = computed(() => options('Cp', invertCp.value))
 const cfOptions = options('Cf')
 const dsOptions = options('δ*/c')
 // Separated flow drives Hk far up; cap the axis so one spike does not flatten the attached-flow values
@@ -107,6 +108,10 @@ const hkOptions = computed(() => {
 
 <template>
   <div class="space-y-3">
+    <div class="flex items-center gap-2">
+      <VSwitch v-model="invertCp" name="invert-cp" sr-text="Invert Cp" />
+      <span class="text-sm font-medium text-gray-700" aria-hidden="true">Invert Cp</span>
+    </div>
     <ul class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-700" aria-label="Line style key">
       <li class="flex items-center gap-1.5">
         <span class="w-5 border-t-2 border-gray-600" aria-hidden="true" />
