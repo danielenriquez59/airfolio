@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { reactive } from 'vue'
-import { MAX_SNAPSHOTS, addSnapshot, angleCount, isUnsaved, parseSavedDesign, polarStats, runKey } from '../utils/airfoilDesigner.ts'
+import { MAX_SNAPSHOTS, addSnapshot, angleCount, blendCST, isUnsaved, parseSavedDesign, polarStats, runKey } from '../utils/airfoilDesigner.ts'
 
 const params = { upperWeights: [0.2, 0.1, 0], lowerWeights: [-0.2, -0.1, 0], leWeight: 0.5, teThickness: 0.001, order: 2 }
 
@@ -21,6 +21,11 @@ test('addSnapshot: freezes a copy, reuses a freed colour, stops at the limit', (
   while (list.length < MAX_SNAPSHOTS)
     list = addSnapshot(list, params)!
   assert.equal(addSnapshot(list, params), null)
+})
+
+test('addSnapshot: takes an optional name', () => {
+  const list = addSnapshot(addSnapshot([], params, 'NACA0012 / NACA4412 50%')!, params)!
+  assert.deepEqual(list.map(s => s.name), ['NACA0012 / NACA4412 50%', 'Snapshot 2'])
 })
 
 test('addSnapshot: copies a Vue reactive object (structuredClone throws on it)', () => {
@@ -69,6 +74,19 @@ test('parseSavedDesign: flow conditions kept when valid, dropped when not', () =
   assert.deepEqual(parseSavedDesign(JSON.stringify({ params, snapshots: [], conditions })), { params, snapshots: [], conditions })
   assert.deepEqual(parseSavedDesign(JSON.stringify({ params, snapshots: [] })), { params, snapshots: [] })
   assert.deepEqual(parseSavedDesign(JSON.stringify({ params, snapshots: [], conditions: { ...conditions, mach: '' } })), { params, snapshots: [] })
+})
+
+test('blendCST: t=0 is a, t=1 is b, t=0.5 the midpoint', () => {
+  const b = { upperWeights: [0.4, 0.3, 0.2], lowerWeights: [0, 0.1, 0.2], leWeight: -0.5, teThickness: 0.003, order: 2 }
+  assert.deepEqual(blendCST(params, b, 0), params)
+  assert.deepEqual(blendCST(params, b, 1), b)
+  const mid = blendCST(reactive(structuredClone(params)), b, 0.5)
+  assert.doesNotThrow(() => structuredClone(mid)) // plain object even from a proxy
+  const close = (x: number[], y: number[]) => x.forEach((v, i) => assert.ok(Math.abs(v - y[i]) < 1e-12))
+  close(mid.upperWeights, [0.3, 0.2, 0.1])
+  close(mid.lowerWeights, [-0.1, 0, 0.1])
+  close([mid.leWeight, mid.teThickness], [0, 0.002])
+  assert.equal(mid.order, 2)
 })
 
 test('polarStats: extremes with their angles', () => {

@@ -7,6 +7,8 @@ type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 interface Props {
   parameters: CSTParameters
+  /** Off while the parent refits the weights itself on a count change */
+  refitOnOrderChange?: boolean
 }
 
 interface Emits {
@@ -14,11 +16,11 @@ interface Emits {
   (e: 'update-order', order: number): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { refitOnOrderChange: true })
 const emit = defineEmits<Emits>()
 
 const { fetchAirfoilGeometry } = useAirfoils()
-const { fitCSTNormalised } = useCSTParameters()
+const { fitCSTToGeometry } = useCSTParameters()
 
 // Airfoil fit state
 const selectedAirfoil = ref<Airfoil | null>(null)
@@ -29,21 +31,8 @@ const handleFitToAirfoil = async (weights = props.parameters.order + 1) => {
 
   isFitting.value = true
   try {
-    const geometry = await fetchAirfoilGeometry(selectedAirfoil.value.id)
-    if (!geometry || !geometry.upper_x_coordinates || !geometry.upper_y_coordinates || !geometry.lower_x_coordinates || !geometry.lower_y_coordinates) {
-      console.error('Missing coordinate data for airfoil')
-      return
-    }
-
     // Weights are fitted (and shown) in the standard CST frame: true LE at the origin, unit chord along x
-    const { params } = fitCSTNormalised(
-      geometry.upper_x_coordinates,
-      geometry.upper_y_coordinates,
-      geometry.lower_x_coordinates,
-      geometry.lower_y_coordinates,
-      weights,
-    )
-    emit('update:parameters', params)
+    emit('update:parameters', fitCSTToGeometry(await fetchAirfoilGeometry(selectedAirfoil.value.id), weights))
   } catch (err) {
     console.error('Error fitting CST parameters:', err)
   } finally {
@@ -66,9 +55,11 @@ watch(inputOrder, (newValue) => {
 
   const newOrder = count - 1
   if (newOrder !== props.parameters.order) {
+    // Read before the emit: the value from before this count change
+    const refit = props.refitOnOrderChange && selectedAirfoil.value
     emit('update-order', newOrder)
     // Re-fit instead of keeping the parent's default weights; the fit awaits a fetch, so it lands after that reset
-    if (selectedAirfoil.value)
+    if (refit)
       handleFitToAirfoil(count)
   }
 })
@@ -134,6 +125,8 @@ const handleEdgeChange = (key: 'leWeight' | 'teThickness', value: string | numbe
         </VButton>
       </div>
     </VPanel>
+
+    <slot />
 
     <!-- Parameters -->
     <VPanel title="CST parameters">

@@ -48,14 +48,26 @@ export const runKey = (params: CSTParameters, solver: string, conditions: unknow
 /** Deep copy. JSON, because structuredClone throws on Vue's reactive proxies. */
 export const cloneParams = (params: CSTParameters): CSTParameters => JSON.parse(JSON.stringify(params))
 
-/** The list with a frozen copy of params added, or null when the list is full */
-export function addSnapshot(list: DesignSnapshot[], params: CSTParameters): DesignSnapshot[] | null {
+/** (1 - t) * a + t * b of every weight and edge term; order from a. Both must have the same weight count. */
+export function blendCST(a: CSTParameters, b: CSTParameters, t: number): CSTParameters {
+  const mix = (x: number, y: number) => (1 - t) * x + t * y
+  return {
+    order: a.order,
+    upperWeights: a.upperWeights.map((w, i) => mix(w, b.upperWeights[i])),
+    lowerWeights: a.lowerWeights.map((w, i) => mix(w, b.lowerWeights[i])),
+    leWeight: mix(a.leWeight, b.leWeight),
+    teThickness: mix(a.teThickness, b.teThickness),
+  }
+}
+
+/** The list with a frozen copy of params added, or null when the list is full. Named "Snapshot N" unless a name is given. */
+export function addSnapshot(list: DesignSnapshot[], params: CSTParameters, name?: string): DesignSnapshot[] | null {
   if (list.length >= MAX_SNAPSHOTS)
     return null
   const id = Math.max(0, ...list.map(s => s.id)) + 1
   return [...list, {
     id,
-    name: `Snapshot ${id}`,
+    name: name || `Snapshot ${id}`,
     params: cloneParams(params),
     colorIndex: lowestFreeIndex(list.map(s => s.colorIndex)),
     visible: true,

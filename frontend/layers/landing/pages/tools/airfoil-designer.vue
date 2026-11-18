@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 import type { CSTParameters } from '~/composables/useCSTParameters'
-import { generateCSTCoordinates } from '~/composables/useCSTParameters'
+import { fitCSTToGeometry, generateCSTCoordinates } from '~/composables/useCSTParameters'
 import { exportCSTParameters } from '~/composables/useCSTExport'
 import { exportCoordinates } from '~/composables/useNACAExport'
+import type { Database } from '~/types/database.types'
 import { AIRFOIL_FAMILIES, defaultCSTWeights } from '~/utils/airfoilFamilies'
-import { type Conditions, type DesignSnapshot, MAX_SNAPSHOTS, type Polar, addSnapshot, angleCount, cloneParams, isUnsaved, parseSavedDesign, polarStats, runKey } from '~/utils/airfoilDesigner'
+import { type Conditions, type DesignSnapshot, MAX_SNAPSHOTS, type Polar, addSnapshot, angleCount, blendCST, cloneParams, isUnsaved, parseSavedDesign, polarStats, runKey } from '~/utils/airfoilDesigner'
 import { tabButtonClasses } from '~/layers/ui/utils/buttons'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
+import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
+
+type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
 definePageMeta({
   layout: 'detail',
@@ -63,12 +67,109 @@ watch([params, snapshots, lastConditions], () => {
   }
 }, { deep: true })
 
+// One confirm modal for Delete, and for Load or Blend when it would replace a design no snapshot holds
+const pending = ref<{ action: 'load' | 'delete'; snapshot: DesignSnapshot } | { action: 'blend' }>()
+
+// Blend two catalog airfoils into the current design. The pickers are not saved.
+const { fetchAirfoilGeometry } = useAirfoils()
+const blendA = ref<Airfoil | null>(null)
+const blendB = ref<Airfoil | null>(null)
+const blendPct = ref(50)
+const blendFits = shallowRef<CSTParameters[]>() // [A, B], fitted with the current weight count
+const blendError = ref<string | null>(null)
+const isBlendFitting = ref(false)
+let blendToken = 0 // drops a fit that lands after the picks or the weight count changed
+let requestOnLand = false // new picks: offer the blend once their fits arrive
+
+// Active while the design is still exactly what the blend last wrote; any other change makes it inactive
+const paramsJson = computed(() => JSON.stringify(params.value))
+const blendApplied = ref<string>()
+const blendActive = computed(() => paramsJson.value === blendApplied.value)
+// Default weights set by a count change made while the blend was active; replaced by the blend when the refit lands
+const blendHold = ref<string>()
+const blendKeeps = computed(() => blendActive.value || paramsJson.value === blendHold.value)
+
+const pickerName = (f: Airfoil | null) => f ? (f.display_name || f.name).toUpperCase() : '' // as SparAirfoilSelector shows it
+// The page default, or the default weights at another count: nothing to lose
+const isDefaultDesign = (p: CSTParameters) => JSON.stringify(p) === JSON.stringify({ ...AIRFOIL_FAMILIES.cst.defaults, ...defaultCSTWeights(p.order), order: p.order })
+
+function applyBlend() {
+  if (!blendFits.value)
+    return
+  params.value = blendCST(blendFits.value[0], blendFits.value[1], blendPct.value / 100)
+  blendApplied.value = JSON.stringify(params.value)
+}
+// Asks first when the blend would replace a design no snapshot holds (same check as Load)
+function requestBlend() {
+  if (!blendActive.value && isUnsaved(params.value, snapshots.value) && !isDefaultDesign(params.value))
+    pending.value = { action: 'blend' }
+  else
+    applyBlend()
+}
+async function fitBlend() {
+  const token = ++blendToken
+  const [a, b] = [blendA.value, blendB.value]
+  blendFits.value = undefined
+  blendError.value = null
+  isBlendFitting.value = !!(a && b)
+  if (!a || !b) {
+    blendHold.value = undefined
+    return
+  }
+  const weights = params.value.order + 1
+  try {
+    const fits = await Promise.all([a, b].map(async f => fitCSTToGeometry(await fetchAirfoilGeometry(f.id), weights)))
+    if (token !== blendToken)
+      return
+    blendFits.value = fits
+    if (paramsJson.value === blendHold.value)
+      applyBlend()
+    else if (requestOnLand)
+      requestBlend()
+    requestOnLand = false
+  }
+  catch (err: any) {
+    if (token === blendToken) {
+      blendError.value = err?.message || 'Could not fit the airfoils.'
+      requestOnLand = false
+    }
+  }
+  finally {
+    if (token === blendToken) {
+      isBlendFitting.value = false
+      blendHold.value = undefined
+    }
+  }
+}
+watch([blendA, blendB], () => {
+  blendApplied.value = undefined
+  requestOnLand = true
+  fitBlend()
+})
+// Moves only while active, so the slider never discards other edits
+watch(blendPct, () => {
+  if (blendActive.value)
+    applyBlend()
+})
+function setBlendPct(e: Event) {
+  const el = e.target as HTMLInputElement
+  const v = el.value === '' ? Number.NaN : Math.round(Number(el.value))
+  if (Number.isFinite(v))
+    blendPct.value = Math.min(100, Math.max(0, v))
+  el.value = String(blendPct.value) // shows the clamped value, or the old one for empty input
+}
+
 function handleOrderUpdate(order: number) {
+  const keep = blendKeeps.value
   params.value = { ...params.value, order, ...defaultCSTWeights(order) }
+  blendHold.value = keep ? JSON.stringify(params.value) : undefined
+  if (blendA.value && blendB.value)
+    fitBlend()
 }
 
 function takeSnapshot() {
-  snapshots.value = addSnapshot(snapshots.value, params.value) ?? snapshots.value
+  const name = blendActive.value ? `${pickerName(blendA.value)} / ${pickerName(blendB.value)} ${blendPct.value}%` : undefined
+  snapshots.value = addSnapshot(snapshots.value, params.value, name) ?? snapshots.value
 }
 function removeSnapshot(id: number) {
   snapshots.value = snapshots.value.filter(s => s.id !== id)
@@ -77,8 +178,12 @@ function loadSnapshot(s: DesignSnapshot) {
   params.value = cloneParams(s.params)
 }
 
-// One confirm modal for Delete, and for Load when it would replace a design no snapshot holds
-const pending = ref<{ action: 'load' | 'delete'; snapshot: DesignSnapshot }>()
+const CONFIRM = {
+  load: { title: 'Load snapshot', color: 'primary' },
+  delete: { title: 'Delete snapshot', color: 'error' },
+  blend: { title: 'Apply blend', color: 'primary' },
+} as const
+const confirmKind = computed(() => CONFIRM[pending.value?.action ?? 'delete'])
 function requestLoad(s: DesignSnapshot) {
   if (isUnsaved(params.value, snapshots.value))
     pending.value = { action: 'load', snapshot: s }
@@ -88,8 +193,10 @@ function requestLoad(s: DesignSnapshot) {
 function confirmPending() {
   if (pending.value?.action === 'load')
     loadSnapshot(pending.value.snapshot)
-  else if (pending.value)
+  else if (pending.value?.action === 'delete')
     removeSnapshot(pending.value.snapshot.id)
+  else if (pending.value?.action === 'blend')
+    applyBlend()
   pending.value = undefined
 }
 
@@ -282,9 +389,70 @@ const handleExportSelig = () => exportCoordinates(coordinates(params.value, 400)
       <div class="min-w-0 space-y-6 lg:row-span-2">
         <CSTParameterEditor
           :parameters="params"
+          :refit-on-order-change="!blendKeeps"
           @update:parameters="params = $event"
           @update-order="handleOrderUpdate"
-        />
+        >
+          <VPanel title="Blend two airfoils" description="Mix two catalog airfoils into a new design.">
+            <div class="space-y-3">
+              <p class="text-xs text-gray-500">
+                Blends the CST fits of both airfoils. Raise the weight count for a closer match.
+              </p>
+              <SparAirfoilSelector v-model="blendA" input-id="blend-airfoil-a" label="Airfoil A" :show-selection-summary="false" />
+              <SparAirfoilSelector v-model="blendB" input-id="blend-airfoil-b" label="Airfoil B" :show-selection-summary="false" />
+              <div>
+                <div class="mb-1 flex items-center justify-between gap-3">
+                  <label for="blend-mix" class="text-sm font-medium text-gray-700">Mix</label>
+                  <span class="flex items-center gap-1 text-xs text-gray-500">
+                    <input
+                      id="blend-mix-pct"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      :value="blendPct"
+                      :disabled="!blendFits || !blendActive"
+                      aria-label="Mix percentage toward airfoil B"
+                      class="num h-8 w-16 rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      @change="setBlendPct"
+                    >
+                    %
+                  </span>
+                </div>
+                <input
+                  id="blend-mix"
+                  v-model.number="blendPct"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  :disabled="!blendFits || !blendActive"
+                  :aria-valuetext="`${blendPct}% toward ${pickerName(blendB) || 'airfoil B'}`"
+                  class="w-full cursor-pointer accent-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                <div class="mt-1 flex justify-between gap-3 text-xs text-gray-500" aria-hidden="true">
+                  <span class="min-w-0 truncate" :title="pickerName(blendA)">{{ pickerName(blendA) || 'Airfoil A' }}</span>
+                  <span class="min-w-0 truncate text-right" :title="pickerName(blendB)">{{ pickerName(blendB) || 'Airfoil B' }}</span>
+                </div>
+              </div>
+              <p v-if="blendA && blendB && blendA.id === blendB.id" class="text-xs text-gray-500">
+                Both picks are the same airfoil, so the mix has no effect.
+              </p>
+              <p v-if="isBlendFitting" class="text-xs text-gray-500" role="status">
+                Fitting both airfoils…
+              </p>
+              <div v-else-if="blendFits && !blendActive" class="flex items-center justify-between gap-3">
+                <p class="text-xs text-warning-700" role="status">
+                  The design has changed since this blend.
+                </p>
+                <VButton type="button" color="light" size="sm" @click="requestBlend">
+                  Reapply blend
+                </VButton>
+              </div>
+              <VStateBlock v-if="blendError" variant="error" title="Could not fit the airfoils" :description="blendError" />
+            </div>
+          </VPanel>
+        </CSTParameterEditor>
 
         <NACAAnalysisPanel
           :is-loading="isRunning"
@@ -442,9 +610,9 @@ const handleExportSelig = () => exportCoordinates(coordinates(params.value, 400)
 
     <VModalConfirm
       :model-value="!!pending"
-      :title="pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot'"
-      :confirm-label="pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot'"
-      :confirm-color="pending?.action === 'load' ? 'primary' : 'error'"
+      :title="confirmKind.title"
+      :confirm-label="confirmKind.title"
+      :confirm-color="confirmKind.color"
       @update:model-value="pending = undefined"
       @confirm="confirmPending"
     >
@@ -452,8 +620,11 @@ const handleExportSelig = () => exportCoordinates(coordinates(params.value, 400)
         <template v-if="pending?.action === 'load'">
           Load <span class="font-semibold">{{ pending.snapshot.name }}</span> into the editor? The current design is not in any snapshot and will be lost.
         </template>
-        <template v-else>
-          Delete <span class="font-semibold">{{ pending?.snapshot.name }}</span>? This cannot be undone.
+        <template v-else-if="pending?.action === 'blend'">
+          Replace the current design with the blend? The current design is not in any snapshot and will be lost.
+        </template>
+        <template v-else-if="pending">
+          Delete <span class="font-semibold">{{ pending.snapshot.name }}</span>? This cannot be undone.
         </template>
       </p>
     </VModalConfirm>

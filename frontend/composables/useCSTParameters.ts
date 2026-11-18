@@ -356,6 +356,15 @@ export function fitCSTNormalised(
   }
 }
 
+type CoordinateColumns = 'upper_x_coordinates' | 'upper_y_coordinates' | 'lower_x_coordinates' | 'lower_y_coordinates'
+
+/** fitCSTNormalised on an airfoils row's coordinate columns; throws when any is missing */
+export function fitCSTToGeometry(g: { [K in CoordinateColumns]: number[] | null } | null, weights: number): CSTParameters {
+  if (!g?.upper_x_coordinates || !g.upper_y_coordinates || !g.lower_x_coordinates || !g.lower_y_coordinates)
+    throw new Error('Missing coordinate data for airfoil')
+  return fitCSTNormalised(g.upper_x_coordinates, g.upper_y_coordinates, g.lower_x_coordinates, g.lower_y_coordinates, weights).params
+}
+
 /**
  * fitCSTNormalised, regenerated with `panels` panels per surface and mapped back to where the input airfoil sits.
  * Input and output use the database ordering: upper TE→LE, lower LE→TE, LE point in both surfaces;
@@ -423,6 +432,7 @@ export const useCSTParameters = () => {
   return {
     generateCSTCoordinates,
     fitCSTNormalised,
+    fitCSTToGeometry,
     fitCSTAirfoil,
     smoothAirfoilCST,
   }
