@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { useSortedRows } from '~/composables/useSortedRows'
+import { toCSV, triggerDownload } from '~/composables/useAirfoilDownload'
 import type { Database } from '~/types/database.types'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
@@ -9,10 +10,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-// Sort state - default to sorting by name
-const sortColumn = ref<string | null>('name')
-const sortDirection = ref<'asc' | 'desc'>('asc')
 
 /**
  * Format number for display
@@ -30,97 +27,25 @@ const formatPercent = (value: number | null | undefined, decimals = 2): string =
   return (value * 100).toFixed(decimals)
 }
 
-/**
- * Check if a value is valid (not N/A)
- */
-const isValidValue = (value: any): boolean => {
-  return value !== undefined && value !== null && isFinite(value)
-}
+// Column definitions: sort value and display text (cells and CSV)
+const nodes = (v: number | null) => v?.toString() ?? 'N/A'
+const columns: Array<{ key: string, label: string, sticky?: boolean, get: (a: Airfoil) => any, format: (v: any) => string }> = [
+  { key: 'name', label: 'Airfoil Name', sticky: true, get: a => a.name, format: String },
+  { key: 'thickness', label: 'Thickness (%)', get: a => a.thickness_pct, format: formatPercent },
+  { key: 'thicknessLoc', label: 'Thickness Loc (%)', get: a => a.thickness_loc_pct, format: formatPercent },
+  { key: 'camber', label: 'Camber (%)', get: a => a.camber_pct, format: formatPercent },
+  { key: 'camberLoc', label: 'Camber Loc (%)', get: a => a.camber_loc_pct, format: formatPercent },
+  { key: 'area', label: 'Area (% c²)', get: a => a.area_coefficient, format: formatPercent },
+  { key: 'leRadius', label: 'LE Radius', get: a => a.le_radius, format: v => formatNumber(v, 4) },
+  { key: 'teAngle', label: 'TE Angle (deg)', get: a => a.te_angle, format: v => formatNumber(v, 2) },
+  { key: 'teThickness', label: 'TE Thickness', get: a => a.te_thickness, format: v => formatNumber(v, 4) },
+  { key: 'upperNodes', label: 'Upper Nodes', get: a => a.upper_surface_nodes, format: nodes },
+  { key: 'lowerNodes', label: 'Lower Nodes', get: a => a.lower_surface_nodes, format: nodes },
+]
 
-/**
- * Get sortable value for a column
- */
-const getSortValue = (airfoil: Airfoil, column: string): any => {
-  switch (column) {
-    case 'name':
-      return airfoil.name
-    case 'thickness':
-      return airfoil.thickness_pct
-    case 'thicknessLoc':
-      return airfoil.thickness_loc_pct
-    case 'camber':
-      return airfoil.camber_pct
-    case 'camberLoc':
-      return airfoil.camber_loc_pct
-    case 'area':
-      return airfoil.area_coefficient
-    case 'leRadius':
-      return airfoil.le_radius
-    case 'teAngle':
-      return airfoil.te_angle
-    case 'teThickness':
-      return airfoil.te_thickness
-    case 'upperNodes':
-      return airfoil.upper_surface_nodes
-    case 'lowerNodes':
-      return airfoil.lower_surface_nodes
-    default:
-      return null
-  }
-}
-
-/**
- * Computed sorted data
- */
-const sortedData = computed(() => {
-  if (!sortColumn.value) {
-    return props.airfoils
-  }
-
-  const sorted = [...props.airfoils].sort((a, b) => {
-    const valA = getSortValue(a, sortColumn.value!)
-    const valB = getSortValue(b, sortColumn.value!)
-
-    // Handle N/A values - they always go to the bottom
-    const isValidA = isValidValue(valA)
-    const isValidB = isValidValue(valB)
-
-    if (!isValidA && !isValidB) return 0
-    if (!isValidA) return 1
-    if (!isValidB) return -1
-
-    // Compare based on type
-    let result = 0
-    if (typeof valA === 'string') {
-      result = valA.localeCompare(valB as string, undefined, { sensitivity: 'base' })
-    } else {
-      result = (valA as number) - (valB as number)
-    }
-
-    return sortDirection.value === 'asc' ? result : -result
-  })
-
-  return sorted
-})
-
-/**
- * Handle column sort click
- */
-const handleSort = (column: string) => {
-  if (sortColumn.value === column) {
-    // Toggle direction or remove sort
-    if (sortDirection.value === 'asc') {
-      sortDirection.value = 'desc'
-    } else {
-      sortColumn.value = null
-      sortDirection.value = 'asc'
-    }
-  } else {
-    // Set new sort column
-    sortColumn.value = column
-    sortDirection.value = 'asc'
-  }
-}
+// Sort state - default to sorting by name
+const { sortColumn, sortDirection, sortedData, handleSort } = useSortedRows(
+  () => props.airfoils, (a, key) => columns.find(c => c.key === key)?.get(a) ?? null, 'name', 'asc')
 
 /**
  * Export summary table to CSV
@@ -140,51 +65,10 @@ const exportToCSV = () => {
     'Lower Surface Nodes',
   ]
 
-  const rows = sortedData.value.map((airfoil) => [
-    airfoil.name,
-    formatPercent(airfoil.thickness_pct),
-    formatPercent(airfoil.thickness_loc_pct),
-    formatPercent(airfoil.camber_pct),
-    formatPercent(airfoil.camber_loc_pct),
-    formatPercent(airfoil.area_coefficient),
-    formatNumber(airfoil.le_radius, 4),
-    formatNumber(airfoil.te_angle, 2),
-    formatNumber(airfoil.te_thickness, 4),
-    airfoil.upper_surface_nodes?.toString() ?? 'N/A',
-    airfoil.lower_surface_nodes?.toString() ?? 'N/A',
-  ])
+  const rows = sortedData.value.map(airfoil => columns.map(col => col.format(col.get(airfoil))))
 
-  // Combine headers and rows
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n')
-
-  // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', 'geometry_comparison_summary.csv')
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  triggerDownload(toCSV([headers, ...rows]), 'geometry_comparison_summary.csv', 'text/csv;charset=utf-8;')
 }
-
-// Column definitions for cleaner template
-const columns: Array<{ key: string, label: string, sticky?: boolean }> = [
-  { key: 'name', label: 'Airfoil Name', sticky: true },
-  { key: 'thickness', label: 'Thickness (%)' },
-  { key: 'thicknessLoc', label: 'Thickness Loc (%)' },
-  { key: 'camber', label: 'Camber (%)' },
-  { key: 'camberLoc', label: 'Camber Loc (%)' },
-  { key: 'area', label: 'Area (% c²)' },
-  { key: 'leRadius', label: 'LE Radius' },
-  { key: 'teAngle', label: 'TE Angle (deg)' },
-  { key: 'teThickness', label: 'TE Thickness' },
-  { key: 'upperNodes', label: 'Upper Nodes' },
-  { key: 'lowerNodes', label: 'Lower Nodes' },
-]
 
 /** Swatch colour matches the overlay plot, which colours airfoils by selection order */
 const rowColor = (airfoil: Airfoil) => seriesColor(props.airfoils.indexOf(airfoil))
@@ -254,35 +138,8 @@ const cellClass = 'px-4 py-2.5 whitespace-nowrap text-right num text-sm text-gra
                 {{ airfoil.name }}
               </span>
             </th>
-            <td :class="cellClass">
-              {{ formatPercent(airfoil.thickness_pct) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatPercent(airfoil.thickness_loc_pct) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatPercent(airfoil.camber_pct) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatPercent(airfoil.camber_loc_pct) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatPercent(airfoil.area_coefficient) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatNumber(airfoil.le_radius, 4) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatNumber(airfoil.te_angle, 2) }}
-            </td>
-            <td :class="cellClass">
-              {{ formatNumber(airfoil.te_thickness, 4) }}
-            </td>
-            <td :class="cellClass">
-              {{ airfoil.upper_surface_nodes ?? 'N/A' }}
-            </td>
-            <td :class="cellClass">
-              {{ airfoil.lower_surface_nodes ?? 'N/A' }}
+            <td v-for="col in columns.slice(1)" :key="col.key" :class="cellClass">
+              {{ col.format(col.get(airfoil)) }}
             </td>
           </tr>
         </tbody>

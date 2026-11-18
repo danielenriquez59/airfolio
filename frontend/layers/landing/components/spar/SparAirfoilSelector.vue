@@ -9,6 +9,8 @@ interface Props {
   modelValue: Airfoil | null
   showSelectionSummary?: boolean
   label?: string
+  inputId?: string
+  hideLabel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -16,7 +18,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: 'Airfoil',
 })
 // unique per instance so several selectors can share a page
-const inputId = useId()
+const inputId = props.inputId || useId()
 const emit = defineEmits<{
   'update:modelValue': [value: Airfoil | null]
 }>()
@@ -106,7 +108,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <label :for="inputId" class="mb-1 block text-sm font-medium text-gray-700">
+    <label :for="inputId" :class="hideLabel ? 'sr-only' : 'mb-1 block text-sm font-medium text-gray-700'">
       {{ label }}
     </label>
     <div class="relative">

@@ -727,34 +727,21 @@ onMounted(async () => {
     </VModal>
 
     <!-- Delete aircraft -->
-    <VModal v-model="showDelete">
-      <VModalHeader dismissable>
-        Delete aircraft
-      </VModalHeader>
-      <VModalBody>
-        <p v-if="selected">
-          Permanently delete <span class="font-semibold">{{ labelOf(selected) }}</span>
-          <template v-if="!rowsLoading && !rowsError">
-            and its <span class="font-semibold">{{ rows.length }}</span> airfoil assignment{{ rows.length === 1 ? '' : 's' }}?
-          </template>
-          <template v-else>
-            and all of its airfoil assignments?
-          </template>
-          This cannot be undone.
-        </p>
-        <p v-if="deleteError" class="mt-3 text-sm text-error-700" role="alert">
-          {{ deleteError }}
-        </p>
-      </VModalBody>
-      <VModalFooter>
-        <VButton type="button" :disabled="deleting" @click="showDelete = false">
-          Cancel
-        </VButton>
-        <VButton type="button" color="error" :disabled="deleting" @click="confirmDeleteAircraft">
-          Delete
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm v-model="showDelete" title="Delete aircraft" confirm-label="Delete" :busy="deleting" @confirm="confirmDeleteAircraft">
+      <p v-if="selected">
+        Permanently delete <span class="font-semibold">{{ labelOf(selected) }}</span>
+        <template v-if="!rowsLoading && !rowsError">
+          and its <span class="font-semibold">{{ rows.length }}</span> airfoil assignment{{ rows.length === 1 ? '' : 's' }}?
+        </template>
+        <template v-else>
+          and all of its airfoil assignments?
+        </template>
+        This cannot be undone.
+      </p>
+      <p v-if="deleteError" class="mt-3 text-sm text-error-700" role="alert">
+        {{ deleteError }}
+      </p>
+    </VModalConfirm>
 
     <!-- Link a row to a catalog airfoil -->
     <VModal v-model="showLink">

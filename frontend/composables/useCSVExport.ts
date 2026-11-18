@@ -4,6 +4,7 @@
 
 import type { AirfoilPolarData } from './useCompare'
 import { calculateLD } from './useCompare'
+import { toCSV, triggerDownload } from './useAirfoilDownload'
 
 /**
  * Format a number value for CSV export
@@ -86,22 +87,6 @@ export function exportPolarDataCSV(airfoils: AirfoilPolarData[]): void {
     }
   }
 
-  // Combine headers and rows
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n')
-
-  // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  const timestamp = generateTimestamp()
-  link.setAttribute('href', url)
-  link.setAttribute('download', `airfoil_comparison_data_${timestamp}.csv`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  triggerDownload(toCSV([headers, ...rows]), `airfoil_comparison_data_${generateTimestamp()}.csv`, 'text/csv;charset=utf-8;')
 }
 

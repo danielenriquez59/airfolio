@@ -1,18 +1,9 @@
 <script setup lang="ts">
 import { Scatter } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  Legend,
-  LineElement,
-  LinearScale,
-  PointElement,
-  Tooltip,
-} from 'chart.js'
 import type { MfoilPoint, MfoilSurface } from '~/utils/mfoil/index'
 
 const props = defineProps<{ series: { name: string; color: string; point: MfoilPoint }[] }>()
-ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend)
-applyChartDefaults(ChartJS)
+registerCharts()
 
 const DASH = [5, 4]
 

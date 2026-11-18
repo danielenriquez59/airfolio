@@ -1,42 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
 import type { AirfoilPolarData } from '~/composables/useCompare'
 import { toggleButtonClasses } from '~/layers/ui/utils/buttons'
 import { calculateLD } from '~/composables/useCompare'
 import { exportPolarDataCSV } from '~/composables/useCSVExport'
 import { downsampleLTTB, getOptimalThreshold } from '~/utils/dataDownsampling'
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-)
-applyChartDefaults(ChartJS)
-
-// Register zoom plugin only on client side
-if (process.client) {
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default)
-  })
-}
+registerCharts()
 
 interface Props {
   airfoils: AirfoilPolarData[]
@@ -291,17 +262,7 @@ const cmChartRef = ref<InstanceType<typeof Line> | null>(null)
 const ldChartRef = ref<InstanceType<typeof Line> | null>(null)
 
 // Reset zoom on all charts
-const resetZoom = () => {
-  const charts = [clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value]
-  charts.forEach((chartRef) => {
-    if (chartRef && chartRef.chart) {
-      const chart = chartRef.chart as any
-      if (chart && typeof chart.resetZoom === 'function') {
-        chart.resetZoom()
-      }
-    }
-  })
-}
+const resetZoom = () => resetChartZoom([clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value])
 
 // Export filtered data to CSV
 const handleExportCSV = () => {

@@ -11,18 +11,12 @@ const { fetchCategories } = useCategories()
 // Search query state
 const searchQuery = ref((route.query.q as string) || '')
 
-// Filter states
-const thicknessEnabled = ref(false)
-const thicknessMin = ref<number | undefined>()
-const thicknessMax = ref<number | undefined>()
-
-const camberEnabled = ref(false)
-const camberMin = ref<number | undefined>()
-const camberMax = ref<number | undefined>()
-
-const areaEnabled = ref(false)
-const areaMin = ref<number | undefined>()
-const areaMax = ref<number | undefined>()
+// Filter states (geometry ranges in percent of chord)
+const ranges = [
+  { key: 'thickness', label: 'Thickness', enabled: ref(false), min: ref<number | undefined>(), max: ref<number | undefined>() },
+  { key: 'camber', label: 'Camber', enabled: ref(false), min: ref<number | undefined>(), max: ref<number | undefined>() },
+  { key: 'area', label: 'Area', enabled: ref(false), min: ref<number | undefined>(), max: ref<number | undefined>() },
+]
 
 const categoryEnabled = ref(false)
 const selectedCategoryIds = ref<string[]>([])
@@ -43,47 +37,15 @@ onMounted(async () => {
     console.error('Error fetching categories:', err)
   }
 
-  // Check thickness filters
-  // URL stores percentage values (10 for 10%), convert to decimal if needed
-  if (route.query.thicknessMin || route.query.thicknessMax) {
-    thicknessEnabled.value = true
-    const minVal = route.query.thicknessMin
-      ? parseFloat(route.query.thicknessMin as string)
-      : undefined
-    const maxVal = route.query.thicknessMax
-      ? parseFloat(route.query.thicknessMax as string)
-      : undefined
-    thicknessMin.value = minVal
-    thicknessMax.value = maxVal
-  }
-
-  // Check camber filters
-  if (route.query.camberMin || route.query.camberMax) {
-    camberEnabled.value = true
-    const minVal = route.query.camberMin
-      ? parseFloat(route.query.camberMin as string)
-      : undefined
-    const maxVal = route.query.camberMax
-      ? parseFloat(route.query.camberMax as string)
-      : undefined
-
-    // Convert from database format (0.1) to display format (10) if needed
-    camberMin.value = minVal
-    camberMax.value = maxVal
-  }
-
-  // Check area coefficient filters
-  if (route.query.areaMin || route.query.areaMax) {
-    areaEnabled.value = true
-    const minVal = route.query.areaMin
-      ? parseFloat(route.query.areaMin as string)
-      : undefined
-    const maxVal = route.query.areaMax
-      ? parseFloat(route.query.areaMax as string)
-      : undefined
-
-    areaMin.value = minVal
-    areaMax.value = maxVal
+  // Check geometry filters; URL stores percentage values (10 for 10%)
+  for (const r of ranges) {
+    const minQ = route.query[`${r.key}Min`] as string
+    const maxQ = route.query[`${r.key}Max`] as string
+    if (minQ || maxQ) {
+      r.enabled.value = true
+      r.min.value = minQ ? parseFloat(minQ) : undefined
+      r.max.value = maxQ ? parseFloat(maxQ) : undefined
+    }
   }
 
   // Check category filters
@@ -95,29 +57,15 @@ onMounted(async () => {
 })
 
 // Watch checkbox toggles - disable filters when unchecked
-watch(thicknessEnabled, (enabled) => {
-  if (!enabled) {
-    thicknessMin.value = undefined
-    thicknessMax.value = undefined
-    updateURL()
-  }
-})
-
-watch(camberEnabled, (enabled) => {
-  if (!enabled) {
-    camberMin.value = undefined
-    camberMax.value = undefined
-    updateURL()
-  }
-})
-
-watch(areaEnabled, (enabled) => {
-  if (!enabled) {
-    areaMin.value = undefined
-    areaMax.value = undefined
-    updateURL()
-  }
-})
+for (const r of ranges) {
+  watch(r.enabled, (enabled) => {
+    if (!enabled) {
+      r.min.value = undefined
+      r.max.value = undefined
+      updateURL()
+    }
+  })
+}
 
 watch(categoryEnabled, (enabled) => {
   if (!enabled) {
@@ -142,39 +90,19 @@ watch(searchQuery, () => {
 })
 
 // Watch number inputs with debouncing
-watch([thicknessMin, thicknessMax], () => {
-  if (thicknessEnabled.value) {
-    // Only update if at least one value is set
-    if (thicknessMin.value !== undefined || thicknessMax.value !== undefined) {
-      debouncedUpdate()
-    } else {
-      // If both are cleared, update immediately to remove params
-      updateURL()
+for (const r of ranges) {
+  watch([r.min, r.max], () => {
+    if (r.enabled.value) {
+      // Only update if at least one value is set
+      if (r.min.value !== undefined || r.max.value !== undefined) {
+        debouncedUpdate()
+      } else {
+        // If both are cleared, update immediately to remove params
+        updateURL()
+      }
     }
-  }
-})
-
-watch([camberMin, camberMax], () => {
-  if (camberEnabled.value) {
-    // Only update if at least one value is set
-    if (camberMin.value !== undefined || camberMax.value !== undefined) {
-      debouncedUpdate()
-    } else {
-      // If both are cleared, update immediately to remove params
-      updateURL()
-    }
-  }
-})
-
-watch([areaMin, areaMax], () => {
-  if (areaEnabled.value) {
-    if (areaMin.value !== undefined || areaMax.value !== undefined) {
-      debouncedUpdate()
-    } else {
-      updateURL()
-    }
-  }
-})
+  })
+}
 
 // Checkbox list: ticking any category enables the category filter
 watch(selectedCategoryIds, (ids) => {
@@ -195,34 +123,14 @@ const updateURL = () => {
     query.q = searchQuery.value.trim()
   }
 
-  // Add thickness filters if enabled (store as percentage in URL)
-  if (thicknessEnabled.value) {
-    if (thicknessMin.value !== undefined && thicknessMin.value !== null) {
-      query.thicknessMin = thicknessMin.value.toString()
-    }
-    if (thicknessMax.value !== undefined && thicknessMax.value !== null) {
-      query.thicknessMax = thicknessMax.value.toString()
-    }
-  }
-
-  // Add camber filters if enabled (store as percentage in URL)
-  if (camberEnabled.value) {
-    if (camberMin.value !== undefined && camberMin.value !== null) {
-      query.camberMin = camberMin.value.toString()
-    }
-    if (camberMax.value !== undefined && camberMax.value !== null) {
-      query.camberMax = camberMax.value.toString()
-    }
-  }
-
-  // Add area coefficient filters if enabled (store as percentage in URL)
-  if (areaEnabled.value) {
-    if (areaMin.value !== undefined && areaMin.value !== null) {
-      query.areaMin = areaMin.value.toString()
-    }
-    if (areaMax.value !== undefined && areaMax.value !== null) {
-      query.areaMax = areaMax.value.toString()
-    }
+  // Add geometry filters if enabled (store as percentage in URL)
+  for (const r of ranges) {
+    if (!r.enabled.value)
+      continue
+    if (r.min.value !== undefined && r.min.value !== null)
+      query[`${r.key}Min`] = r.min.value.toString()
+    if (r.max.value !== undefined && r.max.value !== null)
+      query[`${r.key}Max`] = r.max.value.toString()
   }
 
   // Add category filters if enabled
@@ -251,34 +159,22 @@ const handleKeydown = (event: KeyboardEvent) => {
 // Check if any filters are active
 const hasActiveFilters = computed(() => {
   return searchQuery.value.trim() !== '' ||
-    thicknessEnabled.value ||
-    camberEnabled.value ||
-    areaEnabled.value ||
+    ranges.some(r => r.enabled.value) ||
     categoryEnabled.value
 })
 
 // Clear all filters
 const clearFilters = () => {
   searchQuery.value = ''
-  thicknessEnabled.value = false
-  thicknessMin.value = undefined
-  thicknessMax.value = undefined
-  camberEnabled.value = false
-  camberMin.value = undefined
-  camberMax.value = undefined
-  areaEnabled.value = false
-  areaMin.value = undefined
-  areaMax.value = undefined
+  for (const r of ranges) {
+    r.enabled.value = false
+    r.min.value = undefined
+    r.max.value = undefined
+  }
   categoryEnabled.value = false
   selectedCategoryIds.value = []
   updateURL()
 }
-
-const ranges = [
-  { key: 'thickness', label: 'Thickness', enabled: thicknessEnabled, min: thicknessMin, max: thicknessMax },
-  { key: 'camber', label: 'Camber', enabled: camberEnabled, min: camberMin, max: camberMax },
-  { key: 'area', label: 'Area', enabled: areaEnabled, min: areaMin, max: areaMax },
-]
 
 function formatRange(min?: number, max?: number) {
   if (min !== undefined && max !== undefined)

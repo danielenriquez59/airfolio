@@ -1,4 +1,4 @@
-import type { Chart } from 'chart.js'
+import { CategoryScale, Chart, Filler, Legend, LineElement, LinearScale, PointElement, Title, Tooltip } from 'chart.js'
 
 // Values mirror tailwind.config.js tokens (gray = slate, primary = blue)
 export const chartColors = {
@@ -61,4 +61,21 @@ export function applyChartDefaults(chart: typeof Chart) {
   chart.defaults.font.size = chartFonts.sans.size
   chart.defaults.color = chartColors.tick
   chart.defaults.borderColor = chartColors.grid
+}
+
+let registered = false
+/** Register every Chart.js piece the chart components use; the zoom plugin touches window, so it loads on the client only */
+export function registerCharts() {
+  if (registered)
+    return
+  registered = true
+  Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+  applyChartDefaults(Chart)
+  if (process.client)
+    import('chartjs-plugin-zoom').then(zoomPlugin => Chart.register(zoomPlugin.default))
+}
+
+/** Reset zoom on vue-chartjs component instances (null entries are skipped) */
+export function resetChartZoom(charts: ({ chart?: unknown } | null | undefined)[]) {
+  charts.forEach(c => (c?.chart as any)?.resetZoom?.())
 }

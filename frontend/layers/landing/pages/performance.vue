@@ -65,18 +65,19 @@ const dataContext = ref<{
 const includeName = ref<string>('')
 const excludeName = ref<string>('')
 
-// Geometry filter states
-const thicknessEnabled = ref(false)
-const thicknessMin = ref<number | undefined>()
-const thicknessMax = ref<number | undefined>()
+const nameFilters = [
+  { id: 'perf-include-name', label: 'Include names containing', placeholder: 'e.g., NACA', model: includeName },
+  { id: 'perf-exclude-name', label: 'Exclude names containing', placeholder: 'e.g., TEST', model: excludeName },
+]
 
-const camberEnabled = ref(false)
-const camberMin = ref<number | undefined>()
-const camberMax = ref<number | undefined>()
-
-const areaEnabled = ref(false)
-const areaMin = ref<number | undefined>()
-const areaMax = ref<number | undefined>()
+// Geometry filter states (thickness, camber, area), same shape as SearchBar's ranges
+const ranges = PERFORMANCE_RANGE_KEYS.map(key => ({
+  key,
+  label: key[0].toUpperCase() + key.slice(1),
+  enabled: ref(false),
+  min: ref<number | undefined>(),
+  max: ref<number | undefined>(),
+}))
 
 // Analysis parameters
 const reynoldsNumber = ref<number>(500)
@@ -115,198 +116,50 @@ const percentageToDecimal = (value: number): number => value / 100
 const decimalToPercentage = (value: number): number => value * 100
 
 /**
- * Load geometry filters and flow conditions from URL params
+ * Load geometry filters, flow conditions, selection and performance filters from URL params
  */
 const loadParamsFromURL = () => {
-  const query = route.query
-
-  // Geometry filters
-  if (query.includeName) {
-    includeName.value = query.includeName as string
+  const q = readPerformanceQuery(route.query)
+  includeName.value = q.includeName
+  excludeName.value = q.excludeName
+  for (const r of ranges) {
+    r.enabled.value = q.ranges[r.key].enabled
+    r.min.value = q.ranges[r.key].min
+    r.max.value = q.ranges[r.key].max
   }
-  if (query.excludeName) {
-    excludeName.value = query.excludeName as string
-  }
-  if (query.thicknessEnabled === 'true') {
-    thicknessEnabled.value = true
-    if (query.thicknessMin) {
-      thicknessMin.value = parseFloat(query.thicknessMin as string)
-    }
-    if (query.thicknessMax) {
-      thicknessMax.value = parseFloat(query.thicknessMax as string)
-    }
-  }
-  if (query.camberEnabled === 'true') {
-    camberEnabled.value = true
-    if (query.camberMin) {
-      camberMin.value = parseFloat(query.camberMin as string)
-    }
-    if (query.camberMax) {
-      camberMax.value = parseFloat(query.camberMax as string)
-    }
-  }
-  if (query.areaEnabled === 'true') {
-    areaEnabled.value = true
-    if (query.areaMin) {
-      areaMin.value = parseFloat(query.areaMin as string)
-    }
-    if (query.areaMax) {
-      areaMax.value = parseFloat(query.areaMax as string)
-    }
-  }
-
-  // Flow conditions
-  if (query.Re) {
-    reynoldsNumber.value = parseFloat(query.Re as string) / 1000 // Convert from actual Re to thousands
-  }
-  if (query.Mach) {
-    machNumber.value = parseFloat(query.Mach as string)
-  }
-  if (query.alphaMin) {
-    alphaMin.value = parseFloat(query.alphaMin as string)
-  }
-  if (query.alphaMax) {
-    alphaMax.value = parseFloat(query.alphaMax as string)
-  }
-  if (query.nCrit) {
-    nCrit.value = parseFloat(query.nCrit as string)
-  }
-
-  // Selection mode
-  if (query.selectionMode === 'specific' || query.selectionMode === 'all') {
-    selectionMode.value = query.selectionMode as 'all' | 'specific'
-  }
-
-  // Selected airfoil IDs (for specific mode)
-  if (query.selectedIds) {
-    const ids = (query.selectedIds as string).split(',').filter(Boolean)
-    preAnalysisSelectedAirfoils.value = ids
-  }
-}
-
-/**
- * Load performance filter state from URL
- */
-const loadPerformanceFiltersFromURL = () => {
-  const query = route.query
-
-  if (query.maxCMRoughness) {
-    updateFilter('maxCMRoughness', parseFloat(query.maxCMRoughness as string))
-  }
-  if (query.minCMAtZero) {
-    updateFilter('minCMAtZero', parseFloat(query.minCMAtZero as string))
-  }
-  if (query.minMaxLD) {
-    updateFilter('minMaxLD', parseFloat(query.minMaxLD as string))
-  }
-  if (query.maxMaxLD) {
-    updateFilter('maxMaxLD', parseFloat(query.maxMaxLD as string))
-  }
-  if (query.minCLMax) {
-    updateFilter('minCLMax', parseFloat(query.minCLMax as string))
-  }
-  if (query.maxCLMax) {
-    updateFilter('maxCLMax', parseFloat(query.maxCLMax as string))
-  }
-  if (query.targetCL) {
-    updateFilter('targetCL', parseFloat(query.targetCL as string))
-  }
-  if (query.targetAOA) {
-    updateFilter('targetAOA', parseFloat(query.targetAOA as string))
-  }
-
-  // Load selection from URL
-  if (query.selected) {
-    const selected = (query.selected as string).split(',').filter(Boolean)
-    setSelectedAirfoils(selected)
-  }
+  reynoldsNumber.value = q.Re
+  machNumber.value = q.Mach
+  alphaMin.value = q.alphaMin
+  alphaMax.value = q.alphaMax
+  nCrit.value = q.nCrit
+  selectionMode.value = q.selectionMode
+  preAnalysisSelectedAirfoils.value = [...q.selectedIds]
+  for (const [key, value] of Object.entries(q.filters))
+    updateFilter(key as keyof typeof q.filters, value)
+  if (q.selected)
+    setSelectedAirfoils([...q.selected])
 }
 
 /**
  * Update URL with current state (deep-linking)
  */
 const updateURL = () => {
-  const query: Record<string, string> = {}
-
-  // Keep geometry and flow params
-  if (includeName.value.trim()) {
-    query.includeName = includeName.value.trim()
-  }
-  if (excludeName.value.trim()) {
-    query.excludeName = excludeName.value.trim()
-  }
-  if (thicknessEnabled.value) {
-    if (thicknessMin.value !== undefined) {
-      query.thicknessMin = thicknessMin.value.toString()
-    }
-    if (thicknessMax.value !== undefined) {
-      query.thicknessMax = thicknessMax.value.toString()
-    }
-    query.thicknessEnabled = 'true'
-  }
-  if (camberEnabled.value) {
-    if (camberMin.value !== undefined) {
-      query.camberMin = camberMin.value.toString()
-    }
-    if (camberMax.value !== undefined) {
-      query.camberMax = camberMax.value.toString()
-    }
-    query.camberEnabled = 'true'
-  }
-  if (areaEnabled.value) {
-    if (areaMin.value !== undefined) {
-      query.areaMin = areaMin.value.toString()
-    }
-    if (areaMax.value !== undefined) {
-      query.areaMax = areaMax.value.toString()
-    }
-    query.areaEnabled = 'true'
-  }
-  
-  query.Re = (reynoldsNumber.value * 1000).toString()
-  query.Mach = machNumber.value.toString()
-  query.alphaMin = alphaMin.value.toString()
-  query.alphaMax = alphaMax.value.toString()
-  query.nCrit = nCrit.value.toString()
-
-  // Serialize selection mode and selected IDs
-  query.selectionMode = selectionMode.value
-  if (selectionMode.value === 'specific' && preAnalysisSelectedAirfoils.value.length > 0) {
-    query.selectedIds = preAnalysisSelectedAirfoils.value.join(',')
-  }
-
-  // Serialize performance filters
-  if (state.filters.maxCMRoughness !== null) {
-    query.maxCMRoughness = state.filters.maxCMRoughness.toString()
-  }
-  if (state.filters.minCMAtZero !== null) {
-    query.minCMAtZero = state.filters.minCMAtZero.toString()
-  }
-  if (state.filters.minMaxLD !== null) {
-    query.minMaxLD = state.filters.minMaxLD.toString()
-  }
-  if (state.filters.maxMaxLD !== null) {
-    query.maxMaxLD = state.filters.maxMaxLD.toString()
-  }
-  if (state.filters.minCLMax !== null) {
-    query.minCLMax = state.filters.minCLMax.toString()
-  }
-  if (state.filters.maxCLMax !== null) {
-    query.maxCLMax = state.filters.maxCLMax.toString()
-  }
-  if (state.filters.targetCL !== null) {
-    query.targetCL = state.filters.targetCL.toString()
-  }
-  if (state.filters.targetAOA !== null) {
-    query.targetAOA = state.filters.targetAOA.toString()
-  }
-
-  // Serialize selection
-  if (state.selectedAirfoils.length > 0) {
-    query.selected = state.selectedAirfoils.join(',')
-  }
-
-  router.replace({ query })
+  router.replace({
+    query: writePerformanceQuery({
+      includeName: includeName.value,
+      excludeName: excludeName.value,
+      ranges: Object.fromEntries(ranges.map(r => [r.key, { enabled: r.enabled.value, min: r.min.value, max: r.max.value }])) as PerformanceQueryState['ranges'],
+      Re: reynoldsNumber.value,
+      Mach: machNumber.value,
+      alphaMin: alphaMin.value,
+      alphaMax: alphaMax.value,
+      nCrit: nCrit.value,
+      selectionMode: selectionMode.value,
+      selectedIds: preAnalysisSelectedAirfoils.value,
+      filters: state.filters,
+      selected: state.selectedAirfoils,
+    }),
+  })
 }
 
 // Check if we have URL params (from Performance page)
@@ -335,45 +188,34 @@ const validateNameFilter = (value: string): boolean => {
   return alphanumericRegex.test(value) && value.length <= 8
 }
 
-const includeNameValid = computed(() => validateNameFilter(includeName.value))
-const excludeNameValid = computed(() => validateNameFilter(excludeName.value))
-
 // Sanitize name filter inputs (remove non-alphanumeric, limit to 8 chars)
 const sanitizeNameInput = (value: string): string => {
   return value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)
 }
 
-// Helper function to build search params with default geometry filters when none are enabled
-const buildSearchParams = (page: number = 1, limit: number = 1): SearchParams => {
-  // If geometry filters are not enabled, use default filters (0-100% for both thickness and camber)
-  // This ensures the backend always receives geometry filter values
-  
-  return {
+// Name and enabled geometry filters; disabled geometry filters get `min`/`max` (0 and 1 for 0-100%, or undefined)
+const buildSearchParams = (min?: number, max?: number): SearchParams => {
+  const params: SearchParams = {
     includeName: includeName.value.trim() || undefined,
     excludeName: excludeName.value.trim() || undefined,
-    // Thickness: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
-    thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
-      ? percentageToDecimal(thicknessMin.value)
-      : 0, // Default to 0% (0.0) if filter not enabled
-    thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
-      ? percentageToDecimal(thicknessMax.value)
-      : 1, // Default to 100% (1.0) if filter not enabled
-    // Camber: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
-    camberMin: camberEnabled.value && camberMin.value !== undefined
-      ? percentageToDecimal(camberMin.value)
-      : 0, // Default to 0% (0.0) if filter not enabled
-    camberMax: camberEnabled.value && camberMax.value !== undefined
-      ? percentageToDecimal(camberMax.value)
-      : 1, // Default to 100% (1.0) if filter not enabled
-    // Area: use user values if enabled, otherwise default to 0-100% (0.0-1.0)
-    areaMin: areaEnabled.value && areaMin.value !== undefined
-      ? percentageToDecimal(areaMin.value)
-      : 0,
-    areaMax: areaEnabled.value && areaMax.value !== undefined
-      ? percentageToDecimal(areaMax.value)
-      : 1,
-    page,
-    limit,
+  }
+  for (const r of ranges) {
+    params[`${r.key}Min`] = r.enabled.value && r.min.value !== undefined ? percentageToDecimal(r.min.value) : min
+    params[`${r.key}Max`] = r.enabled.value && r.max.value !== undefined ? percentageToDecimal(r.max.value) : max
+  }
+  return params
+}
+
+const hasNoFilters = computed(() => ranges.every(r => !r.enabled.value) && !includeName.value.trim() && !excludeName.value.trim())
+
+// Supabase returns at most 1000 rows per request, so page through all matching airfoils
+const fetchAll = async (params: SearchParams, columns?: string) => {
+  const rows: Airfoil[] = []
+  for (let page = 1; ; page++) {
+    const { data } = await searchAirfoils({ ...params, page, limit: 1000 }, columns)
+    rows.push(...data)
+    if (data.length < 1000)
+      return rows
   }
 }
 
@@ -412,38 +254,9 @@ const loadAnalysisData = async () => {
       })
     } else {
       // Use all matching airfoils (current behavior)
-      const searchParams: SearchParams = {
-        includeName: includeName.value.trim() || undefined,
-        excludeName: excludeName.value.trim() || undefined,
-        thicknessMin: thicknessEnabled.value && thicknessMin.value !== undefined
-          ? percentageToDecimal(thicknessMin.value)
-          : undefined,
-        thicknessMax: thicknessEnabled.value && thicknessMax.value !== undefined
-          ? percentageToDecimal(thicknessMax.value)
-          : undefined,
-        camberMin: camberEnabled.value && camberMin.value !== undefined
-          ? percentageToDecimal(camberMin.value)
-          : undefined,
-        camberMax: camberEnabled.value && camberMax.value !== undefined
-          ? percentageToDecimal(camberMax.value)
-          : undefined,
-        areaMin: areaEnabled.value && areaMin.value !== undefined
-          ? percentageToDecimal(areaMin.value)
-          : undefined,
-        areaMax: areaEnabled.value && areaMax.value !== undefined
-          ? percentageToDecimal(areaMax.value)
-          : undefined,
-      }
-
-      // Supabase returns at most 1000 rows per request, so page through all matching airfoils
-      airfoilIds = []
-      airfoilNames = []
-      for (let page = 1; ; page++) {
-        const { data } = await searchAirfoils({ ...searchParams, page, limit: 1000 }, 'id, name')
-        airfoilIds.push(...data.map(a => a.id))
-        airfoilNames.push(...data.map(a => a.name))
-        if (data.length < 1000) break
-      }
+      const rows = await fetchAll(buildSearchParams(), 'id, name')
+      airfoilIds = rows.map(a => a.id)
+      airfoilNames = rows.map(a => a.name)
     }
 
     if (airfoilIds.length === 0) {
@@ -503,8 +316,7 @@ const loadAnalysisData = async () => {
 const updateAirfoilCount = useDebounceFn(async () => {
   isLoadingCount.value = true
   try {
-    const params = buildSearchParams(1, 1)
-    const result = await searchAirfoils(params, 'id')
+    const result = await searchAirfoils({ ...buildSearchParams(0, 1), page: 1, limit: 1 }, 'id')
     matchedCount.value = result.count
   } catch (error) {
     console.error('Error fetching airfoil count:', error)
@@ -527,37 +339,8 @@ const fetchAllAirfoilsInBackground = async () => {
 
   isLoadingAllAirfoils.value = true
   try {
-    // Fetch in batches to get all results (Supabase has row limits)
-    const batchSize = 1000
-    let allAirfoils: Airfoil[] = []
-    let page = 1
-    let hasMore = true
-
-    while (hasMore) {
-      // Fetch with no filters - just get all airfoils
-      const params: SearchParams = {
-        page,
-        limit: batchSize,
-        // No filters - get everything
-        thicknessMin: 0,
-        thicknessMax: 1,
-        camberMin: 0,
-        camberMax: 1,
-        areaMin: 0,
-        areaMax: 1,
-      }
-      const result = await searchAirfoils(params)
-      
-      if (result.data.length > 0) {
-        allAirfoils = [...allAirfoils, ...result.data]
-        page++
-        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
-      } else {
-        hasMore = false
-      }
-    }
-
-    allAirfoilsList.value = allAirfoils
+    // No filters - get everything
+    allAirfoilsList.value = await fetchAll({ thicknessMin: 0, thicknessMax: 1, camberMin: 0, camberMax: 1, areaMin: 0, areaMax: 1 })
   } catch (error) {
     console.error('Error fetching all airfoils in background:', error)
     // Silently fail - this is background loading, don't block UI
@@ -576,18 +359,14 @@ const fetchFilteredAirfoilsList = async () => {
     return // Already cached
   }
 
-  // Check if no filters are applied
-  const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
-                       !includeName.value.trim() && !excludeName.value.trim()
-  
   // If no filters and we have cached all airfoils, use that instead
-  if (hasNoFilters && allAirfoilsList.value.length > 0) {
+  if (hasNoFilters.value && allAirfoilsList.value.length > 0) {
     filteredAirfoilsList.value = allAirfoilsList.value
     return
   }
-  
+
   // If no filters but background load is still in progress, wait for it
-  if (hasNoFilters && isLoadingAllAirfoils.value) {
+  if (hasNoFilters.value && isLoadingAllAirfoils.value) {
     // Show loading state while waiting
     isLoadingFilteredList.value = true
     
@@ -611,26 +390,7 @@ const fetchFilteredAirfoilsList = async () => {
 
   isLoadingFilteredList.value = true
   try {
-    // Fetch in batches to get all results (Supabase has row limits)
-    const batchSize = 1000
-    let allAirfoils: Airfoil[] = []
-    let page = 1
-    let hasMore = true
-
-    while (hasMore) {
-      const params = buildSearchParams(page, batchSize)
-      const result = await searchAirfoils(params)
-      
-      if (result.data.length > 0) {
-        allAirfoils = [...allAirfoils, ...result.data]
-        page++
-        hasMore = result.data.length === batchSize && allAirfoils.length < result.count
-      } else {
-        hasMore = false
-      }
-    }
-
-    filteredAirfoilsList.value = allAirfoils
+    filteredAirfoilsList.value = await fetchAll(buildSearchParams(0, 1))
   } catch (error) {
     console.error('Error fetching filtered airfoils list:', error)
     filteredAirfoilsList.value = []
@@ -640,7 +400,7 @@ const fetchFilteredAirfoilsList = async () => {
 }
 
 // Watch filter changes to update count
-watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, camberEnabled, camberMin, camberMax, areaEnabled, areaMin, areaMax], async () => {
+watch([includeName, excludeName, ...ranges.flatMap(r => [r.enabled, r.min, r.max])], async () => {
   updateAirfoilCount()
   // Clear filtered list when filters change (will refetch if needed)
   if (selectionMode.value === 'specific') {
@@ -655,10 +415,7 @@ watch([includeName, excludeName, thicknessEnabled, thicknessMin, thicknessMax, c
 watch(selectionMode, async (newMode) => {
   if (newMode === 'specific') {
     // Check if we have cached all airfoils and no filters are applied
-    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
-                         !includeName.value.trim() && !excludeName.value.trim()
-    
-    if (hasNoFilters && allAirfoilsList.value.length > 0) {
+    if (hasNoFilters.value && allAirfoilsList.value.length > 0) {
       // Use cached data immediately - no loading needed!
       filteredAirfoilsList.value = allAirfoilsList.value
     } else {
@@ -675,10 +432,7 @@ watch(selectionMode, async (newMode) => {
 // Watch for background load completion - update filtered list if user is in specific mode with no filters
 watch([allAirfoilsList, isLoadingAllAirfoils], ([airfoils, isLoading]) => {
   if (!isLoading && airfoils.length > 0 && selectionMode.value === 'specific') {
-    const hasNoFilters = !thicknessEnabled.value && !camberEnabled.value && !areaEnabled.value &&
-                         !includeName.value.trim() && !excludeName.value.trim()
-    
-    if (hasNoFilters && filteredAirfoilsList.value.length === 0) {
+    if (hasNoFilters.value && filteredAirfoilsList.value.length === 0) {
       // Background load completed, use cached data
       filteredAirfoilsList.value = airfoils
     }
@@ -717,57 +471,8 @@ const canRunAnalysis = computed(() => {
 const handleRunAnalysis = async () => {
   if (!canRunAnalysis.value) return
 
-  // Update URL with current params
-  const queryParams: Record<string, string> = {}
-  
-  if (includeName.value.trim()) {
-    queryParams.includeName = includeName.value.trim()
-  }
-  if (excludeName.value.trim()) {
-    queryParams.excludeName = excludeName.value.trim()
-  }
-  if (thicknessEnabled.value) {
-    if (thicknessMin.value !== undefined) {
-      queryParams.thicknessMin = thicknessMin.value.toString()
-    }
-    if (thicknessMax.value !== undefined) {
-      queryParams.thicknessMax = thicknessMax.value.toString()
-    }
-    queryParams.thicknessEnabled = 'true'
-  }
-  if (camberEnabled.value) {
-    if (camberMin.value !== undefined) {
-      queryParams.camberMin = camberMin.value.toString()
-    }
-    if (camberMax.value !== undefined) {
-      queryParams.camberMax = camberMax.value.toString()
-    }
-    queryParams.camberEnabled = 'true'
-  }
-  if (areaEnabled.value) {
-    if (areaMin.value !== undefined) {
-      queryParams.areaMin = areaMin.value.toString()
-    }
-    if (areaMax.value !== undefined) {
-      queryParams.areaMax = areaMax.value.toString()
-    }
-    queryParams.areaEnabled = 'true'
-  }
-  
-  queryParams.Re = (reynoldsNumber.value * 1000).toString()
-  queryParams.Mach = machNumber.value.toString()
-  queryParams.alphaMin = alphaMin.value.toString()
-  queryParams.alphaMax = alphaMax.value.toString()
-  queryParams.nCrit = nCrit.value.toString()
+  updateURL()
 
-  // Selection mode and selected IDs
-  queryParams.selectionMode = selectionMode.value
-  if (selectionMode.value === 'specific' && preAnalysisSelectedAirfoils.value.length > 0) {
-    queryParams.selectedIds = preAnalysisSelectedAirfoils.value.join(',')
-  }
-
-  router.replace({ query: queryParams })
-  
   // Load analysis data
   await loadAnalysisData()
 }
@@ -789,7 +494,6 @@ onMounted(async () => {
   fetchAllAirfoilsInBackground()
   
   loadParamsFromURL()
-  loadPerformanceFiltersFromURL()
   // The filter watcher clears the selection on the restored filters; let it run, then put the URL ids back
   const restoredIds = preAnalysisSelectedAirfoils.value
   await nextTick()
@@ -872,101 +576,38 @@ onMounted(async () => {
               <span class="text-xs text-gray-500">Min (%)</span>
               <span class="text-xs text-gray-500">Max (%)</span>
 
-              <!-- Thickness Filter -->
-              <label class="flex h-9 cursor-pointer items-center gap-2">
-                <input
-                  v-model="thicknessEnabled"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              <template v-for="r in ranges" :key="r.key">
+                <label class="flex h-9 cursor-pointer items-center gap-2">
+                  <input
+                    v-model="r.enabled.value"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span class="text-sm font-medium text-gray-700">{{ r.label }}</span>
+                </label>
+                <VInput
+                  v-model.number="r.min.value"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                  :aria-label="`${r.label} min (%)`"
+                  :disabled="!r.enabled.value"
                 />
-                <span class="text-sm font-medium text-gray-700">Thickness</span>
-              </label>
-              <VInput
-                v-model.number="thicknessMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="0"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Thickness min (%)"
-                :disabled="!thicknessEnabled"
-              />
-              <VInput
-                v-model.number="thicknessMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="100"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Thickness max (%)"
-                :disabled="!thicknessEnabled"
-              />
-
-              <!-- Camber Filter -->
-              <label class="flex h-9 cursor-pointer items-center gap-2">
-                <input
-                  v-model="camberEnabled"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                <VInput
+                  v-model.number="r.max.value"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  placeholder="100"
+                  class="num disabled:cursor-not-allowed disabled:text-gray-400"
+                  :aria-label="`${r.label} max (%)`"
+                  :disabled="!r.enabled.value"
                 />
-                <span class="text-sm font-medium text-gray-700">Camber</span>
-              </label>
-              <VInput
-                v-model.number="camberMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="0"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Camber min (%)"
-                :disabled="!camberEnabled"
-              />
-              <VInput
-                v-model.number="camberMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="100"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Camber max (%)"
-                :disabled="!camberEnabled"
-              />
-
-              <!-- Area Coefficient Filter -->
-              <label class="flex h-9 cursor-pointer items-center gap-2">
-                <input
-                  v-model="areaEnabled"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="text-sm font-medium text-gray-700">Area</span>
-              </label>
-              <VInput
-                v-model.number="areaMin"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="0"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Area min (%)"
-                :disabled="!areaEnabled"
-              />
-              <VInput
-                v-model.number="areaMax"
-                type="number"
-                step="1"
-                min="0"
-                max="100"
-                placeholder="100"
-                class="num disabled:cursor-not-allowed disabled:text-gray-400"
-                aria-label="Area max (%)"
-                :disabled="!areaEnabled"
-              />
+              </template>
             </div>
           </fieldset>
 
@@ -974,38 +615,20 @@ onMounted(async () => {
           <fieldset class="border-t border-gray-200 pt-5">
             <legend class="sr-only">Name filters</legend>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label for="perf-include-name" class="mb-1 block text-sm font-medium text-gray-700">
-                  Include names containing
+              <div v-for="f in nameFilters" :key="f.id">
+                <label :for="f.id" class="mb-1 block text-sm font-medium text-gray-700">
+                  {{ f.label }}
                 </label>
                 <VInput
-                  id="perf-include-name"
-                  :model-value="includeName"
+                  :id="f.id"
+                  :model-value="f.model.value"
                   type="text"
                   maxlength="8"
-                  placeholder="e.g., NACA"
-                  :error="!!includeName && !includeNameValid"
-                  @update:model-value="(val: string | number | undefined) => { includeName = sanitizeNameInput(String(val || '')) }"
+                  :placeholder="f.placeholder"
+                  :error="!!f.model.value && !validateNameFilter(f.model.value)"
+                  @update:model-value="(val: string | number | undefined) => { f.model.value = sanitizeNameInput(String(val || '')) }"
                 />
-                <p v-if="includeName && !includeNameValid" class="mt-1 text-xs text-error-600">
-                  Only alphanumeric characters allowed (max 8)
-                </p>
-              </div>
-
-              <div>
-                <label for="perf-exclude-name" class="mb-1 block text-sm font-medium text-gray-700">
-                  Exclude names containing
-                </label>
-                <VInput
-                  id="perf-exclude-name"
-                  :model-value="excludeName"
-                  type="text"
-                  maxlength="8"
-                  placeholder="e.g., TEST"
-                  :error="!!excludeName && !excludeNameValid"
-                  @update:model-value="(val: string | number | undefined) => { excludeName = sanitizeNameInput(String(val || '')) }"
-                />
-                <p v-if="excludeName && !excludeNameValid" class="mt-1 text-xs text-error-600">
+                <p v-if="f.model.value && !validateNameFilter(f.model.value)" class="mt-1 text-xs text-error-600">
                   Only alphanumeric characters allowed (max 8)
                 </p>
               </div>

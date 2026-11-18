@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CombinedLoadPoint } from '~/types/schrenk.types'
+import { toCSV, triggerDownload } from '~/composables/useAirfoilDownload'
 
 interface Props {
   loadData: CombinedLoadPoint[]
@@ -36,21 +37,7 @@ const exportToCSV = (loadData: CombinedLoadPoint[]) => {
     row.ult_moment_lb_in.toFixed(0),
   ])
 
-  // Combine headers and rows
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n')
-
-  // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', 'schrenk_loads.csv')
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  triggerDownload(toCSV([headers, ...rows]), 'schrenk_loads.csv', 'text/csv;charset=utf-8;')
 }
 </script>
 

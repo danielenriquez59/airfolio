@@ -163,55 +163,33 @@ async function confirmDeleteAccount() {
       </template>
     </div>
 
-    <!-- The modal also emits when it opens, so only a close clears the target -->
-    <VModal :model-value="!!uploadToDelete" @update:model-value="open => { if (!open) uploadToDelete = undefined }">
-      <VModalHeader dismissable>
-        Delete airfoil
-      </VModalHeader>
-      <VModalBody>
-        <p class="text-sm text-gray-700">
-          Permanently delete <span class="font-semibold">{{ uploadToDelete?.airfoil.display_name || uploadToDelete?.airfoil.name }}</span>
-          from the catalog? This cannot be undone.
-        </p>
-        <div v-if="uploadDeleteError" class="mt-4 rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
-          <p class="text-sm text-error-700">
-            {{ uploadDeleteError }}
-          </p>
-        </div>
-      </VModalBody>
-      <VModalFooter>
-        <VButton type="button" color="light" :disabled="isDeleting" @click="uploadToDelete = undefined">
-          Cancel
-        </VButton>
-        <VButton type="button" color="error" :disabled="isDeleting" @click="confirmDeleteUpload">
-          {{ isDeleting ? 'Deleting…' : 'Delete airfoil' }}
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm
+      :model-value="!!uploadToDelete"
+      title="Delete airfoil"
+      :confirm-label="isDeleting ? 'Deleting…' : 'Delete airfoil'"
+      :busy="isDeleting"
+      :error="uploadDeleteError"
+      @update:model-value="uploadToDelete = undefined"
+      @confirm="confirmDeleteUpload"
+    >
+      <p class="text-sm text-gray-700">
+        Permanently delete <span class="font-semibold">{{ uploadToDelete?.airfoil.display_name || uploadToDelete?.airfoil.name }}</span>
+        from the catalog? This cannot be undone.
+      </p>
+    </VModalConfirm>
 
-    <VModal v-model="showDeleteModal">
-      <VModalHeader dismissable>
-        Delete account
-      </VModalHeader>
-      <VModalBody>
-        <p class="text-sm text-gray-700">
-          Permanently delete the account <span class="font-semibold">{{ email }}</span>? This cannot be undone.
-          Airfoils you uploaded will stay in the public catalog, with no link to you.
-        </p>
-        <div v-if="deleteError" class="mt-4 rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
-          <p class="text-sm text-error-700">
-            {{ deleteError }}
-          </p>
-        </div>
-      </VModalBody>
-      <VModalFooter>
-        <VButton type="button" color="light" :disabled="isDeleting" @click="showDeleteModal = false">
-          Cancel
-        </VButton>
-        <VButton type="button" color="error" :disabled="isDeleting" @click="confirmDeleteAccount">
-          {{ isDeleting ? 'Deleting…' : 'Delete account' }}
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm
+      v-model="showDeleteModal"
+      title="Delete account"
+      :confirm-label="isDeleting ? 'Deleting…' : 'Delete account'"
+      :busy="isDeleting"
+      :error="deleteError"
+      @confirm="confirmDeleteAccount"
+    >
+      <p class="text-sm text-gray-700">
+        Permanently delete the account <span class="font-semibold">{{ email }}</span>? This cannot be undone.
+        Airfoils you uploaded will stay in the public catalog, with no link to you.
+      </p>
+    </VModalConfirm>
   </div>
 </template>

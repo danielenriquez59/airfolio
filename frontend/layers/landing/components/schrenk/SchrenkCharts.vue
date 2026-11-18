@@ -1,39 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
 import type { CalculationResult } from '~/types/schrenk.types'
 import { inlineTabButtonClasses, copiedButtonClasses, tabButtonClasses } from '~/layers/ui/utils/buttons'
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-)
-applyChartDefaults(ChartJS)
-
-// Register zoom plugin only on client side
-if (process.client) {
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default)
-  })
-}
+registerCharts()
 
 interface Props {
   data: CalculationResult

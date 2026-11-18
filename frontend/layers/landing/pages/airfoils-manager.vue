@@ -617,38 +617,21 @@ watch(searchQuery, () => {
     </div>
 
     <!-- Delete confirmation modal -->
-    <VModal v-model="showDeleteModal">
-      <VModalHeader dismissable>
-        Delete Airfoil
-      </VModalHeader>
-      <VModalBody>
-        <p class="text-sm text-gray-700">
-          Permanently delete
-          <span class="font-semibold">{{ deleteTarget ? getDisplayName(deleteTarget) : '' }}</span>
-          and all related performance cache? This cannot be undone.
-        </p>
-        <div v-if="deleteError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-800">{{ deleteError }}</p>
-        </div>
-      </VModalBody>
-      <VModalFooter>
-        <VButton
-          type="button"
-          color="light"
-          :disabled="isDeleting"
-          @click="showDeleteModal = false"
-        >
-          Cancel
-        </VButton>
-        <VButton
-          type="button"
-          color="error"
-          :disabled="isDeleting"
-          @click="confirmDeleteAirfoil"
-        >
-          {{ isDeleting ? 'Deleting...' : 'Delete Airfoil' }}
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm
+      v-model="showDeleteModal"
+      title="Delete Airfoil"
+      :confirm-label="isDeleting ? 'Deleting...' : 'Delete Airfoil'"
+      :busy="isDeleting"
+      @confirm="confirmDeleteAirfoil"
+    >
+      <p class="text-sm text-gray-700">
+        Permanently delete
+        <span class="font-semibold">{{ deleteTarget ? getDisplayName(deleteTarget) : '' }}</span>
+        and all related performance cache? This cannot be undone.
+      </p>
+      <div v-if="deleteError" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <p class="text-sm text-red-800">{{ deleteError }}</p>
+      </div>
+    </VModalConfirm>
   </div>
 </template>

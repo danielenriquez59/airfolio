@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { Scatter } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title as ChartTitle,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
+import { Chart as ChartJS } from 'chart.js'
 
 // Plugin to draw a horizontal line at y=0
 const zeroLinePlugin = {
@@ -35,25 +26,8 @@ const zeroLinePlugin = {
   },
 }
 
-// Register Chart.js components
-ChartJS.register(
-  LinearScale,
-  PointElement,
-  LineElement,
-  ChartTitle,
-  Tooltip,
-  Legend,
-  Filler,
-  zeroLinePlugin
-)
-applyChartDefaults(ChartJS)
-
-// Register zoom plugin only on client side
-if (process.client) {
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default)
-  })
-}
+registerCharts()
+ChartJS.register(zeroLinePlugin)
 
 interface GeometryData {
   name: string
@@ -380,14 +354,7 @@ const chartOptions = computed(() => {
 })
 
 // Reset zoom function
-const resetZoom = () => {
-  if (chartRef.value && chartRef.value.chart) {
-    const chart = chartRef.value.chart as any
-    if (chart && typeof chart.resetZoom === 'function') {
-      chart.resetZoom()
-    }
-  }
-}
+const resetZoom = () => resetChartZoom([chartRef.value])
 
 // Toggle marker visibility
 const toggleMarkers = () => {

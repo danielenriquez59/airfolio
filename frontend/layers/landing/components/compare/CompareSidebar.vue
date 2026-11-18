@@ -14,7 +14,7 @@ interface Props {
     alphaMax?: number
     source?: string
   }
-  filterRanges?: {
+  filterRanges: {
     smoothness_CM: { min: number; max: number }
     cmAtZero: { min: number; max: number }
     maxLD: { min: number; max: number }
@@ -32,166 +32,98 @@ const emit = defineEmits<{
   'update-performance-mode': [mode: 'performance' | 'detail']
 }>()
 
-// Filter input refs
-const maxCMRoughness = ref(props.filters.maxCMRoughness)
-const minCMAtZero = ref(props.filters.minCMAtZero)
-const minMaxLD = ref(props.filters.minMaxLD)
-const maxMaxLD = ref(props.filters.maxMaxLD)
-const minCLMax = ref(props.filters.minCLMax)
-const maxCLMax = ref(props.filters.maxCLMax)
-const minLDWidth = ref(props.filters.minLDWidth)
-const targetCL = ref(props.filters.targetCL)
-const targetAOA = ref(props.filters.targetAOA)
+// Each checkbox enables a group of filter values
+const groups = {
+  maxCMRoughness: ['maxCMRoughness'],
+  minCMAtZero: ['minCMAtZero'],
+  maxLD: ['minMaxLD', 'maxMaxLD'],
+  clMax: ['minCLMax', 'maxCLMax'],
+  ldWidth: ['minLDWidth'],
+  // Design CL and α are paired - enabled if EITHER has a value initially
+  targetDesign: ['targetCL', 'targetAOA'],
+} as const
+type Group = keyof typeof groups
+type FilterKey = typeof groups[Group][number]
+type RangeKey = keyof Props['filterRanges']
+const groupNames = Object.keys(groups) as Group[]
+const filterKeys = groupNames.flatMap(g => groups[g]) as FilterKey[]
+
+// Filter input values
+const values = reactive(Object.fromEntries(filterKeys.map(k => [k, props.filters[k]])) as Record<FilterKey, number | null>)
 
 // Track which filters are enabled - INITIALIZE ONCE, don't recalculate from props
-const filterEnabled = reactive({
-  maxCMRoughness: props.filters.maxCMRoughness !== null,
-  minCMAtZero: props.filters.minCMAtZero !== null,
-  maxLD: props.filters.minMaxLD !== null || props.filters.maxMaxLD !== null,
-  clMax: props.filters.minCLMax !== null || props.filters.maxCLMax !== null,
-  ldWidth: props.filters.minLDWidth !== null,
-  // Design CL and α are paired - enabled if EITHER has a value initially
-  targetDesign: props.filters.targetCL !== null || props.filters.targetAOA !== null,
-})
+const filterEnabled = reactive(Object.fromEntries(groupNames.map(g => [g, groups[g].some(k => props.filters[k] !== null)])) as Record<Group, boolean>)
 
-// Computed properties for range sliders (handle null values)
-const maxCMRoughnessSlider = computed({
-  get: () => maxCMRoughness.value ?? (props.filterRanges?.smoothness_CM.max ?? 0),
-  set: (val) => { maxCMRoughness.value = val }
-})
-
-const minCMAtZeroSlider = computed({
-  get: () => minCMAtZero.value ?? (props.filterRanges?.cmAtZero.min ?? 0),
-  set: (val) => { minCMAtZero.value = val }
-})
-
-const minMaxLDSlider = computed({
-  get: () => minMaxLD.value ?? (props.filterRanges?.maxLD.min ?? 0),
-  set: (val) => {
-    minMaxLD.value = val
-    // Ensure max is always >= min
-    if (maxMaxLD.value !== null && val > maxMaxLD.value) {
-      maxMaxLD.value = val
-    }
-  }
-})
-
-const maxMaxLDSlider = computed({
-  get: () => maxMaxLD.value ?? (props.filterRanges?.maxLD.max ?? 0),
-  set: (val) => {
-    maxMaxLD.value = val
+// Range sliders: [value, data range, end shown while unset, paired value kept on the right side of it]
+const sliderSpecs: [FilterKey, RangeKey, 'min' | 'max', FilterKey?][] = [
+  ['maxCMRoughness', 'smoothness_CM', 'max'],
+  ['minCMAtZero', 'cmAtZero', 'min'],
+  ['minMaxLD', 'maxLD', 'min', 'maxMaxLD'],
+  ['maxMaxLD', 'maxLD', 'max', 'minMaxLD'],
+  ['minCLMax', 'clMax', 'min', 'maxCLMax'],
+  ['maxCLMax', 'clMax', 'max', 'minCLMax'],
+  ['minLDWidth', 'ldWidth', 'min'],
+]
+const slider = reactive(Object.fromEntries(sliderSpecs.map(([k, range, end, pair]) => [k, computed({
+  get: () => values[k] ?? props.filterRanges[range][end],
+  set: (val: number) => {
+    values[k] = val
     // Ensure min is always <= max
-    if (minMaxLD.value !== null && val < minMaxLD.value) {
-      minMaxLD.value = val
-    }
-  }
-})
+    const other = pair ? values[pair] : null
+    if (pair && other !== null && (end === 'min' ? val > other : val < other))
+      values[pair] = val
+  },
+})])) as Record<string, number>)
 
-const minCLMaxSlider = computed({
-  get: () => minCLMax.value ?? (props.filterRanges?.clMax.min ?? 0),
-  set: (val) => {
-    minCLMax.value = val
-    // Ensure max is always >= min
-    if (maxCLMax.value !== null && val > maxCLMax.value) {
-      maxCLMax.value = val
-    }
-  }
-})
+// Filter blocks in display order
+const sliders: { group: Group; label: string; tip?: string; range: RangeKey; step: string; digits: number; inputs: [FilterKey, string][] }[] = [
+  { group: 'maxLD', label: 'Max L/D Range', range: 'maxLD', step: '0.1', digits: 1, inputs: [['minMaxLD', 'Max L/D minimum'], ['maxMaxLD', 'Max L/D maximum']] },
+  { group: 'ldWidth', label: 'L/D Width', tip: 'Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.', range: 'ldWidth', step: '0.1', digits: 1, inputs: [['minLDWidth', 'L/D width minimum']] },
+  { group: 'clMax', label: 'CL Max Range', range: 'clMax', step: '0.01', digits: 2, inputs: [['minCLMax', 'CL max minimum'], ['maxCLMax', 'CL max maximum']] },
+  { group: 'minCMAtZero', label: 'Min CM at α = 0°', range: 'cmAtZero', step: '0.01', digits: 3, inputs: [['minCMAtZero', 'Min CM at alpha 0']] },
+  { group: 'maxCMRoughness', label: 'Max CM Curve Wiggliness', tip: 'Lower values = smoother moment curve.', range: 'smoothness_CM', step: '0.01', digits: 3, inputs: [['maxCMRoughness', 'Max CM curve wiggliness']] },
+]
 
-const maxCLMaxSlider = computed({
-  get: () => maxCLMax.value ?? (props.filterRanges?.clMax.max ?? 0),
-  set: (val) => {
-    maxCLMax.value = val
-    // Ensure min is always <= max
-    if (minCLMax.value !== null && val < minCLMax.value) {
-      minCLMax.value = val
-    }
-  }
-})
-
-const minLDWidthSlider = computed({
-  get: () => minLDWidth.value ?? (props.filterRanges?.ldWidth.min ?? 0),
-  set: (val) => { minLDWidth.value = val }
-})
+// Value shown next to a filter's label
+function summary(s: typeof sliders[number]) {
+  const [lo, hi] = s.inputs.map(([k]) => values[k])
+  const r = props.filterRanges[s.range]
+  if (s.inputs.length === 2)
+    return (lo !== null || hi !== null) ? `${(lo !== null ? lo : r.min).toFixed(s.digits)} - ${(hi !== null ? hi : r.max).toFixed(s.digits)}` : 'No limit'
+  if (s.group === 'ldWidth')
+    return lo !== null ? `≥ ${lo.toFixed(1)}°` : 'No limit'
+  return (lo !== null && lo !== undefined) ? lo.toFixed(3) : 'No limit'
+}
 
 // Watch filter changes from parent - UPDATE VALUES ONLY, not enabled state
 watch(
   () => props.filters,
   (newFilters) => {
-    maxCMRoughness.value = newFilters.maxCMRoughness
-    minCMAtZero.value = newFilters.minCMAtZero
-    minMaxLD.value = newFilters.minMaxLD
-    maxMaxLD.value = newFilters.maxMaxLD
-    minCLMax.value = newFilters.minCLMax
-    maxCLMax.value = newFilters.maxCLMax
-    minLDWidth.value = newFilters.minLDWidth
-    targetCL.value = newFilters.targetCL
-    targetAOA.value = newFilters.targetAOA
-
+    for (const k of filterKeys)
+      values[k] = newFilters[k]
     // DO NOT recalculate enabled state from values - let user control it via checkbox
     // Only update enabled state if ALL values for a filter become null (filter was cleared externally)
-    if (newFilters.maxCMRoughness === null) filterEnabled.maxCMRoughness = false
-    if (newFilters.minCMAtZero === null) filterEnabled.minCMAtZero = false
-    if (newFilters.minMaxLD === null && newFilters.maxMaxLD === null) filterEnabled.maxLD = false
-    if (newFilters.minCLMax === null && newFilters.maxCLMax === null) filterEnabled.clMax = false
-    if (newFilters.minLDWidth === null) filterEnabled.ldWidth = false
-    if (newFilters.targetCL === null && newFilters.targetAOA === null) filterEnabled.targetDesign = false
+    for (const g of groupNames) {
+      if (groups[g].every(k => newFilters[k] === null))
+        filterEnabled[g] = false
+    }
   },
-  { deep: true }
+  { deep: true },
 )
 
 // Emit filter updates (only when enabled)
-watch(maxCMRoughness, (val) => {
-  emit('update-filter', 'maxCMRoughness', filterEnabled.maxCMRoughness ? val : null)
-})
-watch(minCMAtZero, (val) => {
-  emit('update-filter', 'minCMAtZero', filterEnabled.minCMAtZero ? val : null)
-})
-watch(minMaxLD, (val) => {
-  emit('update-filter', 'minMaxLD', filterEnabled.maxLD ? val : null)
-})
-watch(maxMaxLD, (val) => {
-  emit('update-filter', 'maxMaxLD', filterEnabled.maxLD ? val : null)
-})
-watch(minCLMax, (val) => {
-  emit('update-filter', 'minCLMax', filterEnabled.clMax ? val : null)
-})
-watch(maxCLMax, (val) => {
-  emit('update-filter', 'maxCLMax', filterEnabled.clMax ? val : null)
-})
-watch(minLDWidth, (val) => {
-  emit('update-filter', 'minLDWidth', filterEnabled.ldWidth ? val : null)
-})
-watch(targetCL, (val) => {
-  emit('update-filter', 'targetCL', filterEnabled.targetDesign ? val : null)
-})
-watch(targetAOA, (val) => {
-  emit('update-filter', 'targetAOA', filterEnabled.targetDesign ? val : null)
-})
+for (const g of groupNames) {
+  for (const k of groups[g])
+    watch(() => values[k], val => emit('update-filter', k, filterEnabled[g] ? val : null))
+}
 
-// Watch enabled state changes
-watch(() => filterEnabled.maxCMRoughness, (enabled) => {
-  emit('update-filter', 'maxCMRoughness', enabled ? maxCMRoughness.value : null)
-})
-watch(() => filterEnabled.minCMAtZero, (enabled) => {
-  emit('update-filter', 'minCMAtZero', enabled ? minCMAtZero.value : null)
-})
-watch(() => filterEnabled.maxLD, (enabled) => {
-  emit('update-filter', 'minMaxLD', enabled ? minMaxLD.value : null)
-  emit('update-filter', 'maxMaxLD', enabled ? maxMaxLD.value : null)
-})
-watch(() => filterEnabled.clMax, (enabled) => {
-  emit('update-filter', 'minCLMax', enabled ? minCLMax.value : null)
-  emit('update-filter', 'maxCLMax', enabled ? maxCLMax.value : null)
-})
-watch(() => filterEnabled.ldWidth, (enabled) => {
-  emit('update-filter', 'minLDWidth', enabled ? minLDWidth.value : null)
-})
-// Design CL and α are paired - update both together
-watch(() => filterEnabled.targetDesign, (enabled) => {
-  emit('update-filter', 'targetCL', enabled ? targetCL.value : null)
-  emit('update-filter', 'targetAOA', enabled ? targetAOA.value : null)
-})
+// Watch enabled state changes; paired values update together
+for (const g of groupNames) {
+  watch(() => filterEnabled[g], (enabled) => {
+    for (const k of groups[g])
+      emit('update-filter', k, enabled ? values[k] : null)
+  })
+}
 
 const handleResetFilters = () => {
   emit('reset-filters')
@@ -267,8 +199,8 @@ const handleResetFilters = () => {
             <div>
               <label for="sidebar-design-cl" class="block text-sm font-medium text-gray-700 mb-1">Design CL</label>
               <VInput
-                :model-value="targetCL ?? undefined"
-                @update:model-value="targetCL = $event as number | null"
+                :model-value="values.targetCL ?? undefined"
+                @update:model-value="values.targetCL = $event as number | null"
                 id="sidebar-design-cl"
                 type="number"
                 step="0.01"
@@ -286,8 +218,8 @@ const handleResetFilters = () => {
             <div>
               <label for="sidebar-design-alpha" class="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">Design α (deg)</label>
               <VInput
-                :model-value="targetAOA ?? undefined"
-                @update:model-value="targetAOA = $event as number | null"
+                :model-value="values.targetAOA ?? undefined"
+                @update:model-value="values.targetAOA = $event as number | null"
                 id="sidebar-design-alpha"
                 type="number"
                 step="0.5"
@@ -303,118 +235,48 @@ const handleResetFilters = () => {
           </div>
         </div>
 
-        <!-- Max L/D Range -->
-        <div v-if="filterRanges" class="py-4">
+        <div v-for="s in sliders" :key="s.group" class="py-4">
           <div class="relative mb-2 flex items-start justify-between gap-2">
             <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
               <input
                 type="checkbox"
-                v-model="filterEnabled.maxLD"
+                v-model="filterEnabled[s.group]"
                 class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              Max L/D Range
-            </label>
-            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
-              <template v-if="minMaxLD !== null || maxMaxLD !== null">
-                {{ minMaxLD !== null ? minMaxLD.toFixed(1) : filterRanges.maxLD.min.toFixed(1) }} - {{ maxMaxLD !== null ? maxMaxLD.toFixed(1) : filterRanges.maxLD.max.toFixed(1) }}
-              </template>
-              <template v-else>No limit</template>
-            </span>
-          </div>
-          <div class="dual-range-slider">
-            <input
-              v-model.number="minMaxLDSlider"
-              aria-label="Max L/D minimum"
-              type="range"
-              :min="filterRanges.maxLD.min"
-              :max="filterRanges.maxLD.max"
-              step="0.1"
-              :disabled="!filterEnabled.maxLD"
-              class="dual-range-input"
-            />
-            <input
-              v-model.number="maxMaxLDSlider"
-              aria-label="Max L/D maximum"
-              type="range"
-              :min="filterRanges.maxLD.min"
-              :max="filterRanges.maxLD.max"
-              step="0.1"
-              :disabled="!filterEnabled.maxLD"
-              class="dual-range-input"
-            />
-          </div>
-          <div class="flex justify-between mt-1">
-            <span class="num text-xs text-gray-500">{{ filterRanges.maxLD.min.toFixed(1) }}</span>
-            <span class="num text-xs text-gray-500">{{ filterRanges.maxLD.max.toFixed(1) }}</span>
-          </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.maxLD"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Max L/D Range
-          </label>
-          <div class="grid grid-cols-2 gap-2">
-            <VInput
-              :model-value="minMaxLD ?? undefined"
-              @update:model-value="minMaxLD = $event as number | null"
-              aria-label="Max L/D minimum"
-              type="number"
-              step="0.1"
-              placeholder="Min"
-              size="sm"
-              wrapper-class="w-full"
-              :disabled="!filterEnabled.maxLD"
-            />
-            <VInput
-              :model-value="maxMaxLD ?? undefined"
-              @update:model-value="maxMaxLD = $event as number | null"
-              aria-label="Max L/D maximum"
-              type="number"
-              step="0.1"
-              placeholder="Max"
-              size="sm"
-              wrapper-class="w-full"
-              :disabled="!filterEnabled.maxLD"
-            />
-          </div>
-        </div>
-
-        <!-- L/D Width -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="relative mb-2 flex items-start justify-between gap-2">
-            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.ldWidth"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              L/D Width
-              <div class="group">
+              {{ s.label }}
+              <div v-if="s.tip" class="group">
                 <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
                 <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  Width of L/D curve at 80% of max L/D. Wider is more forgiving on trim AoA.
+                  {{ s.tip }}
                 </div>
               </div>
             </label>
             <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
-              <template v-if="minLDWidth !== null">
-                ≥ {{ minLDWidth.toFixed(1) }}°
-              </template>
-              <template v-else>No limit</template>
+              {{ summary(s) }}
             </span>
           </div>
+          <div v-if="s.inputs.length === 2" class="dual-range-slider">
+            <input
+              v-for="[k, aria] in s.inputs"
+              :key="k"
+              v-model.number="slider[k]"
+              :aria-label="aria"
+              type="range"
+              :min="filterRanges[s.range].min"
+              :max="filterRanges[s.range].max"
+              :step="s.step"
+              :disabled="!filterEnabled[s.group]"
+              class="dual-range-input"
+            />
+          </div>
           <!-- Min Width slider -->
-          <div class="space-y-1 mt-2">
+          <div v-else-if="s.group === 'ldWidth'" class="space-y-1 mt-2">
             <div class="flex justify-between text-xs text-gray-600">
               <span>Min Width</span>
-              <span>{{ minLDWidth !== null ? minLDWidth.toFixed(1) + '°' : filterRanges.ldWidth.min.toFixed(1) + '°' }}</span>
+              <span>{{ values.minLDWidth !== null ? values.minLDWidth.toFixed(1) + '°' : filterRanges.ldWidth.min.toFixed(1) + '°' }}</span>
             </div>
             <input
-              v-model.number="minLDWidthSlider"
+              v-model.number="slider.minLDWidth"
               aria-label="L/D width minimum"
               type="range"
               :min="filterRanges.ldWidth.min"
@@ -428,226 +290,21 @@ const handleResetFilters = () => {
               <span class="num text-xs text-gray-500">{{ filterRanges.ldWidth.max.toFixed(1) }}°</span>
             </div>
           </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.ldWidth"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            L/D Width
-          </label>
-          <VInput
-            :model-value="minLDWidth ?? undefined"
-            @update:model-value="minLDWidth = $event as number | null"
-            aria-label="L/D width minimum"
-            type="number"
-            step="0.1"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.ldWidth"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            Width of L/D curve at 80% of max L/D
-          </p>
-        </div>
-
-        <!-- CL Max Range -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="relative mb-2 flex items-start justify-between gap-2">
-            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.clMax"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              CL Max Range
-            </label>
-            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
-              <template v-if="minCLMax !== null || maxCLMax !== null">
-                {{ minCLMax !== null ? minCLMax.toFixed(2) : filterRanges.clMax.min.toFixed(2) }} - {{ maxCLMax !== null ? maxCLMax.toFixed(2) : filterRanges.clMax.max.toFixed(2) }}
-              </template>
-              <template v-else>No limit</template>
-            </span>
-          </div>
-          <div class="dual-range-slider">
-            <input
-              v-model.number="minCLMaxSlider"
-              aria-label="CL max minimum"
-              type="range"
-              :min="filterRanges.clMax.min"
-              :max="filterRanges.clMax.max"
-              step="0.01"
-              :disabled="!filterEnabled.clMax"
-              class="dual-range-input"
-            />
-            <input
-              v-model.number="maxCLMaxSlider"
-              aria-label="CL max maximum"
-              type="range"
-              :min="filterRanges.clMax.min"
-              :max="filterRanges.clMax.max"
-              step="0.01"
-              :disabled="!filterEnabled.clMax"
-              class="dual-range-input"
-            />
-          </div>
-          <div class="flex justify-between mt-1">
-            <span class="num text-xs text-gray-500">{{ filterRanges.clMax.min.toFixed(2) }}</span>
-            <span class="num text-xs text-gray-500">{{ filterRanges.clMax.max.toFixed(2) }}</span>
-          </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.clMax"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            CL Max Range
-          </label>
-          <div class="grid grid-cols-2 gap-2">
-            <VInput
-              :model-value="minCLMax ?? undefined"
-              @update:model-value="minCLMax = $event as number | null"
-              aria-label="CL max minimum"
-              type="number"
-              step="0.01"
-              placeholder="Min"
-              size="sm"
-              wrapper-class="w-full"
-              :disabled="!filterEnabled.clMax"
-            />
-            <VInput
-              :model-value="maxCLMax ?? undefined"
-              @update:model-value="maxCLMax = $event as number | null"
-              aria-label="CL max maximum"
-              type="number"
-              step="0.01"
-              placeholder="Max"
-              size="sm"
-              wrapper-class="w-full"
-              :disabled="!filterEnabled.clMax"
-            />
-          </div>
-        </div>
-
-        <!-- Min CM at α = 0° -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="relative mb-2 flex items-start justify-between gap-2">
-            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.minCMAtZero"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              Min CM at α = 0°
-            </label>
-            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
-              {{ minCMAtZero !== null && minCMAtZero !== undefined ? minCMAtZero.toFixed(3) : 'No limit' }}
-            </span>
-          </div>
           <input
-            v-model.number="minCMAtZeroSlider"
-            aria-label="Min CM at alpha 0"
+            v-else
+            v-model.number="slider[s.inputs[0][0]]"
+            :aria-label="s.inputs[0][1]"
             type="range"
-            :min="filterRanges.cmAtZero.min"
-            :max="filterRanges.cmAtZero.max"
-            step="0.01"
-            :disabled="!filterEnabled.minCMAtZero"
+            :min="filterRanges[s.range].min"
+            :max="filterRanges[s.range].max"
+            :step="s.step"
+            :disabled="!filterEnabled[s.group]"
             class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <div class="flex justify-between mt-1">
-            <span class="num text-xs text-gray-500">{{ filterRanges.cmAtZero.min.toFixed(3) }}</span>
-            <span class="num text-xs text-gray-500">{{ filterRanges.cmAtZero.max.toFixed(3) }}</span>
+          <div v-if="s.group !== 'ldWidth'" class="flex justify-between mt-1">
+            <span class="num text-xs text-gray-500">{{ filterRanges[s.range].min.toFixed(s.digits) }}</span>
+            <span class="num text-xs text-gray-500">{{ filterRanges[s.range].max.toFixed(s.digits) }}</span>
           </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.minCMAtZero"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Min CM at α = 0°
-          </label>
-          <VInput
-            :model-value="minCMAtZero ?? undefined"
-            @update:model-value="minCMAtZero = $event as number | null"
-            aria-label="Min CM at alpha 0"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.minCMAtZero"
-          />
-        </div>
-
-        <!-- Max CM Roughness -->
-        <div v-if="filterRanges" class="py-4">
-          <div class="relative mb-2 flex items-start justify-between gap-2">
-            <label class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-700">
-              <input
-                type="checkbox"
-                v-model="filterEnabled.maxCMRoughness"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              Max CM Curve Wiggliness
-              <div class="group">
-                <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-                <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  Lower values = smoother moment curve.
-                </div>
-              </div>
-            </label>
-            <span class="num shrink-0 whitespace-nowrap text-sm font-medium text-primary-700">
-              {{ maxCMRoughness !== null && maxCMRoughness !== undefined ? maxCMRoughness.toFixed(3) : 'No limit' }}
-            </span>
-          </div>
-          <input
-            v-model.number="maxCMRoughnessSlider"
-            aria-label="Max CM curve wiggliness"
-            type="range"
-            :min="filterRanges.smoothness_CM.min"
-            :max="filterRanges.smoothness_CM.max"
-            step="0.01"
-            :disabled="!filterEnabled.maxCMRoughness"
-            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <div class="flex justify-between mt-1">
-            <span class="num text-xs text-gray-500">{{ filterRanges.smoothness_CM.min.toFixed(3) }}</span>
-            <span class="num text-xs text-gray-500">{{ filterRanges.smoothness_CM.max.toFixed(3) }}</span>
-          </div>
-        </div>
-        <div v-else class="py-4">
-          <label class="relative flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-            <input
-              type="checkbox"
-              v-model="filterEnabled.maxCMRoughness"
-              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Max CM Curve Wiggliness
-            <div class="group">
-              <Icon name="heroicons:question-mark-circle" class="h-4 w-4 text-gray-400 cursor-help" />
-              <div class="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100">
-                Lower values = smoother moment curve.
-              </div>
-            </div>
-          </label>
-          <VInput
-            :model-value="maxCMRoughness ?? undefined"
-            @update:model-value="maxCMRoughness = $event as number | null"
-            aria-label="Max CM curve wiggliness"
-            type="number"
-            step="0.01"
-            placeholder="No limit"
-            size="sm"
-            wrapper-class="w-full"
-            :disabled="!filterEnabled.maxCMRoughness"
-          />
         </div>
 
         <!-- Rendering Mode -->

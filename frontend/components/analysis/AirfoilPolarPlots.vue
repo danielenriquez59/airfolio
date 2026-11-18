@@ -1,35 +1,7 @@
 <script setup lang="ts">
 import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
 import { tabButtonClasses, toggleButtonClasses } from '~/layers/ui/utils/buttons'
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-)
-applyChartDefaults(ChartJS)
-
-// Register zoom plugin only on client side
-if (process.client) {
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default)
-  })
-}
+registerCharts()
 
 interface PerformanceDataPoint {
   name: string // condition label from cache
@@ -206,17 +178,7 @@ const cmChartRef = ref<InstanceType<typeof Line> | null>(null)
 const ldChartRef = ref<InstanceType<typeof Line> | null>(null)
 
 // Reset zoom on all charts
-const resetZoom = () => {
-  const charts = [clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value]
-  charts.forEach((chartRef) => {
-    if (chartRef && chartRef.chart) {
-      const chart = chartRef.chart as any
-      if (chart && typeof chart.resetZoom === 'function') {
-        chart.resetZoom()
-      }
-    }
-  })
-}
+const resetZoom = () => resetChartZoom([clChartRef.value, cdChartRef.value, cmChartRef.value, ldChartRef.value])
 
 // A zoom window from the old x-axis would be stale
 watch(xAxis, resetZoom, { flush: 'post' })

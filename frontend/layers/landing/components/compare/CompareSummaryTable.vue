@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
+import { useSortedRows } from '~/composables/useSortedRows'
+import { toCSV, triggerDownload } from '~/composables/useAirfoilDownload'
 
 interface SummaryRow {
   name: string
@@ -29,8 +31,8 @@ interface Props {
 const props = defineProps<Props>()
 
 // Sort state - default to sorting by Max L/D in descending order
-const sortColumn = ref<string | null>('maxLD')
-const sortDirection = ref<'asc' | 'desc'>('desc')
+const { sortColumn, sortDirection, sortedData, handleSort } = useSortedRows(
+  () => props.summaryData, (row, col) => row[col as keyof SummaryRow], 'maxLD', 'desc')
 
 /**
  * Format number for display
@@ -38,67 +40,6 @@ const sortDirection = ref<'asc' | 'desc'>('desc')
 const formatNumber = (value: number | undefined | null, decimals = 3): string => {
   if (value === undefined || value === null || !isFinite(value)) return 'N/A'
   return value.toFixed(decimals)
-}
-
-/**
- * Check if a value is valid (not N/A)
- */
-const isValidValue = (value: any): boolean => {
-  return value !== undefined && value !== null && isFinite(value)
-}
-
-/**
- * Computed sorted data
- */
-const sortedData = computed(() => {
-  if (!sortColumn.value) {
-    return props.summaryData
-  }
-
-  const sorted = [...props.summaryData].sort((a, b) => {
-    const keyA = sortColumn.value as keyof SummaryRow
-    const valA = a[keyA]
-    const valB = b[keyA]
-
-    // Handle N/A values - they always go to the bottom
-    const isValidA = isValidValue(valA)
-    const isValidB = isValidValue(valB)
-
-    if (!isValidA && !isValidB) return 0
-    if (!isValidA) return 1
-    if (!isValidB) return -1
-
-    // Compare based on type
-    let result = 0
-    if (typeof valA === 'string') {
-      result = valA.localeCompare(valB as string, undefined, { sensitivity: 'base' })
-    } else {
-      result = (valA as number) - (valB as number)
-    }
-
-    return sortDirection.value === 'asc' ? result : -result
-  })
-
-  return sorted
-})
-
-/**
- * Handle column sort click
- */
-const handleSort = (column: string) => {
-  if (sortColumn.value === column) {
-    // Toggle direction or remove sort
-    if (sortDirection.value === 'asc') {
-      sortDirection.value = 'desc'
-    } else {
-      sortColumn.value = null
-      sortDirection.value = 'asc'
-    }
-  } else {
-    // Set new sort column
-    sortColumn.value = column
-    sortDirection.value = 'asc'
-  }
 }
 
 /**
@@ -125,41 +66,12 @@ const exportToCSV = () => {
     'Camber Location (%)',
   ]
 
-  const rows = sortedData.value.map((row) => [
+  const rows = sortedData.value.map(row => [
     row.name,
-    ...(props.designAlpha !== null && props.designAlpha !== undefined ? [formatNumber(row.ldAtDesignAlpha, 3)] : []),
-    formatNumber(row.maxLD, 3),
-    formatNumber(row.maxLDAlpha, 2),
-    formatNumber(row.ldWidth, 2),
-    formatNumber(row.clMax, 3),
-    formatNumber(row.clMaxAlpha, 2),
-    formatNumber(row.clAtZero, 3),
-    formatNumber(row.minCD, 4),
-    formatNumber(row.cmAtZero, 3),
-    formatNumber(row.ldAtZero, 3),
-    formatNumber(row.smoothness_CM, 3),
-    formatNumber(row.avg_confidence, 3),
-    formatNumber(row.thickness, 2),
-    formatNumber(row.thickness_location, 2),
-    formatNumber(row.camber, 2),
-    formatNumber(row.camber_location, 2),
+    ...columns.value.map(col => formatNumber(row[col.key] as number | undefined, col.decimals)),
   ])
 
-  // Combine headers and rows
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n')
-
-  // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', 'airfoil_comparison_summary.csv')
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  triggerDownload(toCSV([headers, ...rows]), 'airfoil_comparison_summary.csv', 'text/csv;charset=utf-8;')
 }
 
 /** Numeric columns in display order (label, row key, decimals) */

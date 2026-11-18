@@ -1,17 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Scatter } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  LinearScale,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
 
-ChartJS.register(LinearScale, PointElement, Title, Tooltip, Legend)
-applyChartDefaults(ChartJS)
+registerCharts()
 
 interface SummaryRow {
   name: string

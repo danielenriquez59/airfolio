@@ -12,8 +12,8 @@ export const formatCoord = (num: number): string => {
 /**
  * Trigger browser download for a text file
  */
-export const triggerDownload = (content: string, filename: string) => {
-  const blob = new Blob([content], { type: 'text/plain' })
+export const triggerDownload = (content: string, filename: string, type = 'text/plain') => {
+  const blob = new Blob([content], { type })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -23,6 +23,10 @@ export const triggerDownload = (content: string, filename: string) => {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+
+/** CSV text with every cell double-quoted, rows joined by \n */
+export const toCSV = (rows: unknown[][]): string =>
+  rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
 
 /**
  * Remove adjacent duplicate points from coordinate array
@@ -127,6 +131,14 @@ export const buildLednicerString = (
   return lines.join('\n')
 }
 
+/** The four coordinate arrays, or throw if any is missing */
+const requireGeometry = (airfoil: Airfoil): [number[], number[], number[], number[]] => {
+  const { upper_x_coordinates: ux, upper_y_coordinates: uy, lower_x_coordinates: lx, lower_y_coordinates: ly } = airfoil
+  if (!ux || !uy || !lx || !ly)
+    throw new Error('Airfoil geometry data is missing')
+  return [ux, uy, lx, ly]
+}
+
 export const useAirfoilDownload = () => {
   /**
    * Download airfoil in Lednicer format
@@ -138,22 +150,7 @@ export const useAirfoilDownload = () => {
    * {lower coordinates - ascending X (LE to TE)}
    */
   const downloadLednicer = (airfoil: Airfoil) => {
-    if (
-      !airfoil.upper_x_coordinates ||
-      !airfoil.upper_y_coordinates ||
-      !airfoil.lower_x_coordinates ||
-      !airfoil.lower_y_coordinates
-    ) {
-      throw new Error('Airfoil geometry data is missing')
-    }
-
-    const content = buildLednicerString(
-      airfoil.name,
-      airfoil.upper_x_coordinates,
-      airfoil.upper_y_coordinates,
-      airfoil.lower_x_coordinates,
-      airfoil.lower_y_coordinates
-    )
+    const content = buildLednicerString(airfoil.name, ...requireGeometry(airfoil))
     const filename = `${sanitizeFilename(airfoil.name)}_lednicer.dat`
     triggerDownload(content, filename)
   }
@@ -167,22 +164,7 @@ export const useAirfoilDownload = () => {
    * Points ordered from upper trailing edge wrapping to leading edge to lower trailing edge
    */
   const downloadSelig = (airfoil: Airfoil) => {
-    if (
-      !airfoil.upper_x_coordinates ||
-      !airfoil.upper_y_coordinates ||
-      !airfoil.lower_x_coordinates ||
-      !airfoil.lower_y_coordinates
-    ) {
-      throw new Error('Airfoil geometry data is missing')
-    }
-
-    const content = buildSeligString(
-      airfoil.name,
-      airfoil.upper_x_coordinates,
-      airfoil.upper_y_coordinates,
-      airfoil.lower_x_coordinates,
-      airfoil.lower_y_coordinates
-    )
+    const content = buildSeligString(airfoil.name, ...requireGeometry(airfoil))
     const filename = `${sanitizeFilename(airfoil.name)}_selig.dat`
     triggerDownload(content, filename)
   }
@@ -240,32 +222,14 @@ export const useAirfoilDownload = () => {
    * {lower coordinates - LE to TE}
    */
   const downloadOpenVSP = (airfoil: Airfoil) => {
-    if (
-      !airfoil.upper_x_coordinates ||
-      !airfoil.upper_y_coordinates ||
-      !airfoil.lower_x_coordinates ||
-      !airfoil.lower_y_coordinates
-    ) {
-      throw new Error('Airfoil geometry data is missing')
-    }
+    const [ux, uy, lx, ly] = requireGeometry(airfoil)
 
     // Both surfaces LE to TE (ascending X), adjacent duplicates removed
-    const upperCoords = removeDuplicates(sortLowerCoordinates(
-      airfoil.upper_x_coordinates,
-      airfoil.upper_y_coordinates
-    ))
-    const lowerCoords = removeDuplicates(sortLowerCoordinates(
-      airfoil.lower_x_coordinates,
-      airfoil.lower_y_coordinates
-    ))
+    const upperCoords = removeDuplicates(sortLowerCoordinates(ux, uy))
+    const lowerCoords = removeDuplicates(sortLowerCoordinates(lx, ly))
 
     // Check if symmetric
-    const symFlag = isSymmetric(
-      airfoil.upper_x_coordinates,
-      airfoil.upper_y_coordinates,
-      airfoil.lower_x_coordinates,
-      airfoil.lower_y_coordinates
-    ) ? 1 : 0
+    const symFlag = isSymmetric(ux, uy, lx, ly) ? 1 : 0
 
     // Build file content
     const lines: string[] = []

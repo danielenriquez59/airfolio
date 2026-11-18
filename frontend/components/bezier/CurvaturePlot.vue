@@ -1,28 +1,13 @@
 <script setup lang="ts">
 import { Scatter } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-} from 'chart.js'
 import type { BezierControlPoints, CurvatureData } from '~/composables/useBezierFit'
 import { bezierCurvature, discreteCurvature } from '~/composables/useBezierFit'
 
-ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend)
-applyChartDefaults(ChartJS)
+registerCharts()
 
 // Same meaning as BezierFitPlot: originals in greys, fitted upper/lower in two palette colours
 const FIT_UPPER = seriesPalette[1]
 const FIT_LOWER = seriesPalette[0]
-
-if (process.client) {
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default)
-  })
-}
 
 interface Props {
   upperX: number[]
@@ -153,9 +138,7 @@ const chartOptions = computed(() => {
   }
 })
 
-const resetZoom = () => {
-  chartRef.value?.chart?.resetZoom?.()
-}
+const resetZoom = () => resetChartZoom([chartRef.value])
 </script>
 
 <template>

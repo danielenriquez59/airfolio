@@ -440,30 +440,23 @@ const handleExportSelig = () => exportCoordinates(coordinates(params.value, 400)
       </div>
     </div>
 
-    <!-- The modal also emits when it opens, so only a close clears the pending action -->
-    <VModal :model-value="!!pending" @update:model-value="open => { if (!open) pending = undefined }">
-      <VModalHeader dismissable>
-        {{ pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot' }}
-      </VModalHeader>
-      <VModalBody>
-        <p class="text-sm text-gray-700">
-          <template v-if="pending?.action === 'load'">
-            Load <span class="font-semibold">{{ pending.snapshot.name }}</span> into the editor? The current design is not in any snapshot and will be lost.
-          </template>
-          <template v-else>
-            Delete <span class="font-semibold">{{ pending?.snapshot.name }}</span>? This cannot be undone.
-          </template>
-        </p>
-      </VModalBody>
-      <VModalFooter>
-        <VButton type="button" color="light" @click="pending = undefined">
-          Cancel
-        </VButton>
-        <VButton type="button" :color="pending?.action === 'load' ? 'primary' : 'error'" @click="confirmPending">
-          {{ pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot' }}
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm
+      :model-value="!!pending"
+      :title="pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot'"
+      :confirm-label="pending?.action === 'load' ? 'Load snapshot' : 'Delete snapshot'"
+      :confirm-color="pending?.action === 'load' ? 'primary' : 'error'"
+      @update:model-value="pending = undefined"
+      @confirm="confirmPending"
+    >
+      <p class="text-sm text-gray-700">
+        <template v-if="pending?.action === 'load'">
+          Load <span class="font-semibold">{{ pending.snapshot.name }}</span> into the editor? The current design is not in any snapshot and will be lost.
+        </template>
+        <template v-else>
+          Delete <span class="font-semibold">{{ pending?.snapshot.name }}</span>? This cannot be undone.
+        </template>
+      </p>
+    </VModalConfirm>
 
     <VPanel title="About the Airfoil Designer" class="mt-6">
       <div class="max-w-3xl space-y-3 text-sm leading-relaxed text-gray-700">

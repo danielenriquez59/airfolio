@@ -3,6 +3,8 @@ import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
 import { formatCategoryName, isValidCategory } from '~/utils/categoryUtils'
 import { groupAircraftUsage } from '~/utils/aircraftUsage'
+import { formatCondition } from '~/utils/formatCondition'
+import { triggerDownload } from '~/composables/useAirfoilDownload'
 import AirfoilPolarPlots from '~/components/analysis/AirfoilPolarPlots.vue'
 import AirfoilPerformanceCache from '~/layers/landing/components/airfoils/AirfoilPerformanceCache.vue'
 import AirfoilAircraftList from '~/layers/landing/components/airfoils/AirfoilAircraftList.vue'
@@ -182,15 +184,8 @@ const copyCSVToClipboard = async () => {
 }
 
 const downloadCSV = () => {
-  const csv = generateCSV()
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
   const name = airfoil.value ? (airfoil.value.display_name || airfoil.value.name) : 'airfoil'
-  link.download = `${name}_performance.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  triggerDownload(generateCSV(), `${name}_performance.csv`, 'text/csv;charset=utf-8;')
 }
 
 // Sync initial tooltip state when component is ready
@@ -305,52 +300,6 @@ const handleRerunGeometryParams = async () => {
 // Helper function to create URL-friendly slug from airfoil name
 const createSlug = (name: string): string => {
   return encodeURIComponent(name)
-}
-
-/**
- * Format condition inputs into readable string (same as in AirfoilPerformanceCache)
- */
-const formatCondition = (inputs: any): string => {
-  if (!inputs || typeof inputs !== 'object') return 'Unknown conditions'
-  
-  const parts: string[] = []
-  
-  if (inputs.Re !== undefined && inputs.Re !== null) {
-    const re = inputs.Re
-    if (re >= 1000) {
-      parts.push(`Re ${(re / 1000).toFixed(0)}k`)
-    } else {
-      parts.push(`Re ${re.toFixed(0)}`)
-    }
-  }
-  
-  if (inputs.Mach !== undefined && inputs.Mach !== null) {
-    parts.push(`Mach ${inputs.Mach.toFixed(1)}`)
-  }
-  
-  if (inputs.n_crit !== undefined && inputs.n_crit !== null) {
-    parts.push(`Ncrit ${inputs.n_crit.toFixed(0)}`)
-  }
-  
-  // Alpha range - format as "AoA Range [start, end]"
-  if (inputs.alpha_range && Array.isArray(inputs.alpha_range) && inputs.alpha_range.length === 3) {
-    const [start, end] = inputs.alpha_range
-    parts.push(`AoA Range [${start.toFixed(0)}, ${end.toFixed(0)}]`)
-  }
-  
-  // Control surface fraction - only show if not 0
-  const csFrac = inputs.control_surface_fraction ?? 0
-  if (csFrac !== 0) {
-    parts.push(`Control Fraction ${csFrac.toFixed(1)}`)
-  }
-  
-  // Control surface deflection - only show if not 0
-  const csDef = inputs.control_surface_deflection ?? 0
-  if (csDef !== 0) {
-    parts.push(`Control Deflection ${csDef.toFixed(1)}`)
-  }
-  
-  return parts.join(', ')
 }
 
 /**
@@ -893,40 +842,20 @@ useHead({
     </VModal>
 
     <!-- Admin: delete confirmation modal -->
-    <VModal v-if="isAdmin" v-model="showDeleteModal">
-      <VModalHeader dismissable>
-        Delete Airfoil
-      </VModalHeader>
-      <VModalBody>
-        <p class="text-sm text-gray-700">
-          Permanently delete
-          <span class="font-semibold">{{ getDisplayName(airfoil) }}</span>
-          and all related performance cache? This cannot be undone.
-        </p>
-        <div v-if="deleteError" class="mt-4 rounded-lg border border-error-200 bg-error-50 p-3" role="alert">
-          <p class="text-sm text-error-700">
-            {{ deleteError }}
-          </p>
-        </div>
-      </VModalBody>
-      <VModalFooter>
-        <VButton
-          type="button"
-          color="light"
-          :disabled="isDeleting"
-          @click="showDeleteModal = false"
-        >
-          Cancel
-        </VButton>
-        <VButton
-          type="button"
-          color="error"
-          :disabled="isDeleting"
-          @click="confirmDeleteAirfoil"
-        >
-          {{ isDeleting ? 'Deleting…' : 'Delete Airfoil' }}
-        </VButton>
-      </VModalFooter>
-    </VModal>
+    <VModalConfirm
+      v-if="isAdmin"
+      v-model="showDeleteModal"
+      title="Delete Airfoil"
+      :confirm-label="isDeleting ? 'Deleting…' : 'Delete Airfoil'"
+      :busy="isDeleting"
+      :error="deleteError"
+      @confirm="confirmDeleteAirfoil"
+    >
+      <p class="text-sm text-gray-700">
+        Permanently delete
+        <span class="font-semibold">{{ getDisplayName(airfoil) }}</span>
+        and all related performance cache? This cannot be undone.
+      </p>
+    </VModalConfirm>
   </div>
 </template>

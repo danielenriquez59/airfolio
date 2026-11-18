@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CSTParameters } from '~/composables/useCSTParameters'
 import type { Database } from '~/types/database.types'
-import { useDebounceFn } from '@vueuse/core'
+import SparAirfoilSelector from '~/layers/landing/components/spar/SparAirfoilSelector.vue'
 
 type Airfoil = Database['public']['Tables']['airfoils']['Row']
 
@@ -17,59 +17,12 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const { searchAirfoilsByPrefix } = useAirfoilAutocomplete()
 const { fetchAirfoilGeometry } = useAirfoils()
 const { fitCSTNormalised } = useCSTParameters()
 
 // Airfoil fit state
-const airfoilSearchQuery = ref('')
-const airfoilSearchResults = ref<Airfoil[]>([])
 const selectedAirfoil = ref<Airfoil | null>(null)
-const isSearching = ref(false)
-const showDropdown = ref(false)
 const isFitting = ref(false)
-
-// Debounced airfoil search
-const debouncedAirfoilSearch = useDebounceFn(async (query: string) => {
-  if (!query || query.length < 2) {
-    airfoilSearchResults.value = []
-    showDropdown.value = false
-    return
-  }
-
-  isSearching.value = true
-  try {
-    const results = await searchAirfoilsByPrefix(query, 15)
-    airfoilSearchResults.value = results
-    showDropdown.value = results.length > 0
-  } catch (err) {
-    console.error('Error searching airfoils:', err)
-    airfoilSearchResults.value = []
-    showDropdown.value = false
-  } finally {
-    isSearching.value = false
-  }
-}, 300)
-
-watch(airfoilSearchQuery, (newQuery) => {
-  if (selectedAirfoil.value && newQuery !== selectedAirfoil.value.name) {
-    selectedAirfoil.value = null
-  }
-  debouncedAirfoilSearch(newQuery)
-})
-
-const selectAirfoil = (airfoil: Airfoil) => {
-  selectedAirfoil.value = airfoil
-  airfoilSearchQuery.value = airfoil.name
-  showDropdown.value = false
-}
-
-const clearAirfoilSelection = () => {
-  selectedAirfoil.value = null
-  airfoilSearchQuery.value = ''
-  airfoilSearchResults.value = []
-  showDropdown.value = false
-}
 
 const handleFitToAirfoil = async (weights = props.parameters.order + 1) => {
   if (!selectedAirfoil.value) return
@@ -148,20 +101,11 @@ const handleWeightChange = (index: number, isUpper: boolean, value: string | num
   emit('update:parameters', newParams)
 }
 
-const handleLEWeightChange = (value: string | number) => {
+const handleEdgeChange = (key: 'leWeight' | 'teThickness', value: string | number) => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value
   if (isNaN(numValue)) return
 
-  const newParams = { ...props.parameters, leWeight: numValue }
-  emit('update:parameters', newParams)
-}
-
-const handleTEThicknessChange = (value: string | number) => {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(numValue)) return
-
-  const newParams = { ...props.parameters, teThickness: numValue }
-  emit('update:parameters', newParams)
+  emit('update:parameters', { ...props.parameters, [key]: numValue })
 }
 
 </script>
@@ -170,61 +114,15 @@ const handleTEThicknessChange = (value: string | number) => {
   <div class="space-y-6">
     <!-- Fit to Airfoil -->
     <VPanel title="Fit to airfoil" description="Fit the weights to an existing airfoil from the catalog.">
-      <label for="cst-fit-search" class="sr-only">Airfoil to fit</label>
       <div class="flex items-center gap-2">
-        <div class="relative min-w-0 flex-1">
-          <input
-            id="cst-fit-search"
-            v-model="airfoilSearchQuery"
-            type="text"
-            autocomplete="off"
-            placeholder="Search airfoil name..."
-            class="block h-9 w-full rounded-lg border border-gray-300 bg-white pl-3 pr-9 text-sm text-gray-900 placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            @focus="showDropdown = airfoilSearchResults.length > 0"
-            @blur="showDropdown = false"
-          >
-          <div class="absolute inset-y-0 right-0 flex items-center pr-2">
-            <Icon v-if="isSearching" name="heroicons:arrow-path" class="h-4 w-4 animate-spin text-gray-400" aria-hidden="true" />
-            <button
-              v-else-if="selectedAirfoil || airfoilSearchQuery"
-              type="button"
-              class="rounded text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-              aria-label="Clear airfoil search"
-              @click="clearAirfoilSelection"
-            >
-              <Icon name="heroicons:x-mark-20-solid" class="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-          <!-- Dropdown Results -->
-          <Transition
-            enter-active-class="transition ease-out duration-100"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="transition ease-in duration-75"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-          >
-            <div
-              v-if="showDropdown && airfoilSearchResults.length > 0"
-              class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-            >
-              <ul class="py-1">
-                <li
-                  v-for="airfoil in airfoilSearchResults"
-                  :key="airfoil.id"
-                  class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50"
-                  @mousedown.prevent="selectAirfoil(airfoil)"
-                >
-                  <div class="font-medium text-gray-900">{{ airfoil.name }}</div>
-                  <div v-if="airfoil.thickness_pct" class="text-xs text-gray-500">
-                    Thickness: <span class="num">{{ (airfoil.thickness_pct * 100).toFixed(1) }}%</span>
-                    <span v-if="airfoil.camber_pct" class="ml-2">Camber: <span class="num">{{ (airfoil.camber_pct * 100).toFixed(1) }}%</span></span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </Transition>
-        </div>
+        <SparAirfoilSelector
+          v-model="selectedAirfoil"
+          class="min-w-0 flex-1"
+          input-id="cst-fit-search"
+          label="Airfoil to fit"
+          hide-label
+          :show-selection-summary="false"
+        />
         <VButton
           type="button"
           color="light"
@@ -297,46 +195,32 @@ const handleTEThicknessChange = (value: string | number) => {
       <!-- LE Mod Weight & TE Thickness -->
       <div class="mt-5 space-y-1.5 border-t border-gray-200 pt-4">
         <h3 class="data-label mb-2">Leading / trailing edge</h3>
-        <div class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2">
-          <label for="cst-le" class="text-xs text-gray-500" title="LE modification weight">LE</label>
+        <div
+          v-for="edge in ([
+            { key: 'leWeight', id: 'cst-le', label: 'LE', title: 'LE modification weight', aria: 'LE mod weight', min: '-2.0', max: '2.0', step: '0.001' },
+            { key: 'teThickness', id: 'cst-te', label: 'TE', title: 'TE thickness (Δζ)', aria: 'TE thickness (Δζ)', min: '0', max: '0.02', step: '0.0001' },
+          ] as const)"
+          :key="edge.key"
+          class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2"
+        >
+          <label :for="edge.id" class="text-xs text-gray-500" :title="edge.title">{{ edge.label }}</label>
           <input
             type="range"
-            min="-2.0"
-            max="2.0"
-            step="0.001"
-            :value="parameters.leWeight"
-            aria-label="LE mod weight"
+            :min="edge.min"
+            :max="edge.max"
+            :step="edge.step"
+            :value="parameters[edge.key]"
+            :aria-label="edge.aria"
             class="w-full cursor-pointer accent-primary-600"
-            @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
+            @input="handleEdgeChange(edge.key, ($event.target as HTMLInputElement).value)"
           >
           <input
-            id="cst-le"
+            :id="edge.id"
             type="number"
             step="0.0001"
-            :value="parameters.leWeight"
+            :value="parameters[edge.key]"
             class="num h-8 w-full rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            @input="handleLEWeightChange(($event.target as HTMLInputElement).value)"
-          >
-        </div>
-        <div class="grid grid-cols-[2rem_1fr_7rem] items-center gap-2">
-          <label for="cst-te" class="text-xs text-gray-500" title="TE thickness (Δζ)">TE</label>
-          <input
-            type="range"
-            min="0"
-            max="0.02"
-            step="0.0001"
-            :value="parameters.teThickness"
-            aria-label="TE thickness (Δζ)"
-            class="w-full cursor-pointer accent-primary-600"
-            @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
-          >
-          <input
-            id="cst-te"
-            type="number"
-            step="0.0001"
-            :value="parameters.teThickness"
-            class="num h-8 w-full rounded-lg border border-gray-300 px-2 text-right text-xs focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            @input="handleTEThicknessChange(($event.target as HTMLInputElement).value)"
+            @input="handleEdgeChange(edge.key, ($event.target as HTMLInputElement).value)"
           >
         </div>
         <p class="pt-1 text-xs text-gray-500">LE = leading-edge mod weight · TE = trailing-edge thickness (Δζ)</p>
