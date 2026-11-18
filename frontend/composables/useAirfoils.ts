@@ -89,45 +89,6 @@ export const useAirfoils = () => {
   }
 
   /**
-   * Fetch airfoil metadata only (without heavy geometry data)
-   * Useful for lists and cards
-   */
-  const fetchAirfoilMetadata = async (id: string) => {
-    const { data, error } = await supabase
-      .from('airfoils')
-      .select('id, name, description, thickness_pct, thickness_loc_pct, camber_pct, camber_loc_pct, source_url, created_at')
-      .eq('id', id)
-      .single()
-
-    if (error) {
-      console.error('Error fetching airfoil metadata:', error)
-      throw error
-    }
-
-    return data
-  }
-
-  /**
-   * Get paginated list of all airfoils
-   */
-  const fetchAirfoils = async (page = 1, limit = 20): Promise<Airfoil[]> => {
-    const offset = (page - 1) * limit
-
-    const { data, error } = await supabase
-      .from('airfoils')
-      .select('*')
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
-
-    if (error) {
-      console.error('Error fetching airfoils:', error)
-      throw error
-    }
-
-    return data || []
-  }
-
-  /**
    * Fetch slim airfoil rows for selection UIs (no coordinate payloads).
    */
   const fetchAirfoilListItems = async (): Promise<AirfoilListItem[]> => {
@@ -362,8 +323,6 @@ export const useAirfoils = () => {
     fetchAirfoil,
     fetchAirfoilByName,
     fetchAirfoilGeometry,
-    fetchAirfoilMetadata,
-    fetchAirfoils,
     fetchAirfoilListItems,
     fetchAirfoilsByIds,
     fetchRandomAirfoils,

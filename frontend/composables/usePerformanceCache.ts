@@ -1,11 +1,8 @@
 /**
  * Composable for performance cache operations
- * Loads comparison results through the backend and reads saved results for one airfoil
+ * Loads comparison results through the backend
  */
-import type { Database } from '~/types/database.types'
 import type { AnalysisConditions } from '~/composables/useAnalysis'
-
-type PerformanceCache = Database['public']['Tables']['performance_cache']['Row']
 
 export interface CachedPerformanceData {
   airfoilId: string
@@ -22,7 +19,6 @@ export interface CachedPerformanceData {
 }
 
 export const usePerformanceCache = () => {
-  const supabase = useSupabaseClient<Database>()
   const { submitAnalysis } = useAnalysis()
 
   /**
@@ -67,33 +63,8 @@ export const usePerformanceCache = () => {
     return results
   }
 
-  /**
-   * Fetch all cached entries for a single airfoil
-   */
-  const fetchAllCachedEntries = async (
-    airfoilId: string
-  ): Promise<PerformanceCache[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('performance_cache')
-        .select('*')
-        .eq('airfoil_id', airfoilId)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        throw error
-      }
-
-      return data || []
-    } catch (err: any) {
-      console.error('Error fetching cached entries:', err)
-      return []
-    }
-  }
-
   return {
     runAnalysisIfNeeded,
-    fetchAllCachedEntries,
   }
 }
 

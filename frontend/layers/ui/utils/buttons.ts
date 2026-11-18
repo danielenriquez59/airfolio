@@ -1,9 +1,5 @@
 import { tv } from 'tailwind-variants'
 
-export const variants = ['primary', 'tertiary', 'ghost'] as const
-export const colors = ['primary', 'secondary', 'success', 'error', 'warning', 'light', 'dark', 'neutral'] as const
-export const sizes = ['xs', 'sm', 'md', 'lg'] as const
-
 const filledDisabled = 'disabled:bg-gray-200 disabled:text-gray-500 disabled:border-gray-200'
 const focusRing = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2'
 

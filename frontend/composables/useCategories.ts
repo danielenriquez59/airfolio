@@ -136,26 +136,6 @@ export const useCategories = () => {
   }
 
   /**
-   * Fetch airfoils filtered by category
-   */
-  const fetchAirfoilsByCategory = async (
-    categoryId: string
-  ): Promise<Airfoil[]> => {
-    const { data, error } = await supabase
-      .from('airfoils')
-      .select('*')
-      .eq('category', categoryId)
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.error('Error fetching airfoils by category:', error)
-      throw error
-    }
-
-    return data || []
-  }
-
-  /**
    * Get count of airfoils per category
    */
   const getCategoryCounts = async (): Promise<
@@ -245,7 +225,6 @@ export const useCategories = () => {
     deleteCategory,
     assignCategoryToAirfoils,
     removeCategory,
-    fetchAirfoilsByCategory,
     getCategoryCounts,
     fetchAllAirfoils,
     updateDescriptions,

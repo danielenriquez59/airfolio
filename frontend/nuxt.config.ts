@@ -24,12 +24,10 @@ export default defineNuxtConfig({
   },
 
   modules: [
-    '@nuxt/content',
     '@nuxt/icon',
     '@nuxtjs/tailwindcss',
     '@nuxtjs/google-fonts',
     '@nuxtjs/fontaine',
-    '@pinia/nuxt',
     '@vueuse/nuxt',
     '@nuxtjs/supabase',
     '@nuxtjs/sitemap',
@@ -64,14 +62,6 @@ export default defineNuxtConfig({
       'Inter': [400, 500, 600, 700],
       'JetBrains Mono': [400, 500, 600],
     },
-  },
-  content: {
-    highlight: {
-      theme: {
-        default: 'github-dark',
-      },
-    },
-    preload: ['json', 'js', 'ts', 'html', 'css', 'vue', 'diff', 'shell', 'markdown', 'yaml', 'bash', 'ini'],
   },
 
   vite: {

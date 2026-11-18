@@ -422,7 +422,6 @@ export function smoothAirfoilCST(
 export const useCSTParameters = () => {
   return {
     generateCSTCoordinates,
-    fitCSTParameters,
     fitCSTNormalised,
     fitCSTAirfoil,
     smoothAirfoilCST,

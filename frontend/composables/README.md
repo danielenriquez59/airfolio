@@ -12,8 +12,6 @@ Main airfoil CRUD operations.
 const { 
   fetchAirfoil, 
   fetchAirfoilGeometry, 
-  fetchAirfoilMetadata,
-  fetchAirfoils,
   fetchRandomAirfoils 
 } = useAirfoils()
 
@@ -22,12 +20,6 @@ const airfoil = await fetchAirfoil('uuid-here')
 
 // Get geometry only (for plotting)
 const geometry = await fetchAirfoilGeometry('uuid-here')
-
-// Get metadata only (lightweight)
-const metadata = await fetchAirfoilMetadata('uuid-here')
-
-// Get paginated list
-const airfoils = await fetchAirfoils(1, 20) // page 1, 20 per page
 
 // Get random airfoils for featured section
 const featured = await fetchRandomAirfoils(3)
@@ -61,9 +53,6 @@ Submit and retrieve analysis jobs.
 ```typescript
 const { 
   submitAnalysis, 
-  submitComparisonAnalysis,
-  fetchJobStatus,
-  fetchAnalysisResults 
 } = useAnalysis()
 
 // Submit single analysis
@@ -73,18 +62,6 @@ const response = await submitAnalysis('airfoil-id', {
   alpha_range: [-4, 16, 0.5],
   n_crit: 9.0
 })
-
-// Submit comparison
-const compareJob = await submitComparisonAnalysis(
-  ['id1', 'id2'],
-  { Re: 3000000, alpha_range: [-4, 16, 0.5] }
-)
-
-// Check job status
-const status = await fetchJobStatus('job-id')
-
-// Get cached results
-const cached = await fetchAnalysisResults('airfoil-id', 'hash')
 ```
 
 ### `useBatchJobs`

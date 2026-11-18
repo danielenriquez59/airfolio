@@ -405,7 +405,6 @@ export const useSparCalculator = () => {
   return {
     generateNACA0012,
     processAirfoilCoordinates,
-    interpolateAirfoil,
     calculateSparProperties
   }
 }

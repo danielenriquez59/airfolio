@@ -462,7 +462,6 @@ export const useAirfoilUpload = () => {
   return {
     validateCoordinates,
     validateAirfoilName,
-    validateMonotonic,
     generateDataHash,
     storeTemporaryData,
     retrieveTemporaryData,

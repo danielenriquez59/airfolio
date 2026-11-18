@@ -50,7 +50,6 @@ pnpm lint:fix
 pnpm build          # Build for production
 pnpm generate       # Generate static site
 pnpm preview        # Preview production build
-pnpm storybook      # Run Storybook on port 6006
 ```
 
 ### Backend (FastAPI)
@@ -85,10 +84,8 @@ The frontend uses Nuxt's layer system for modular organization:
 **Key Directories:**
 - `components/` - Global Vue components
 - `composables/` - Reusable composition functions for airfoil operations
-- `stores/` - Pinia state management (currently only `auth.ts`)
 - `server/api/` - Nuxt server routes (currently only sitemap generation)
 - `layouts/` - Layout components
-- `content/` - Nuxt Content docs
 
 **Important Composables:**
 The composables handle most frontend logic:

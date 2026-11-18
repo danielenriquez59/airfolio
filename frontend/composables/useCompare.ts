@@ -633,12 +633,7 @@ export const useCompare = () => {
     getSummaryData,
     resetFilters,
     resetAnalysis,
-    applyFilters,
     getFilterRanges,
-    clearCache: () => {
-      ldCache.clear()
-      metricsCache.clear()
-    }
   }
 }
 
