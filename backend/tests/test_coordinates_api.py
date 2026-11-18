@@ -1,4 +1,4 @@
-"""Public coordinates endpoint, the daily upload cap and deleting own uploads, called directly (the pinned FastAPI test client does not work with the pinned httpx). Run from backend/: python -m pytest tests/test_coordinates_api.py"""
+"""Public coordinates endpoint, the daily upload cap, deleting own uploads, upload validation and /api/analyze, called directly (the pinned FastAPI test client does not work with the pinned httpx). Run from backend/: python -m pytest tests/test_coordinates_api.py"""
 import asyncio
 from types import SimpleNamespace
 
@@ -45,6 +45,13 @@ class FakeSupabase:
         return self
 
     def limit(self, _n):
+        return self
+
+    def in_(self, _column, _values):
+        return self
+
+    def upsert(self, rows, **_kwargs):
+        self.upserted = rows
         return self
 
     def execute(self):
@@ -116,6 +123,29 @@ def test_upload_limit_does_not_block_admin_or_under_limit(monkeypatch):
         req = main.AirfoilCreateRequest(name='newfoil', upper_surface=SURF, lower_surface=SURF)
         res = main.create_airfoil(req, user_id=UUID)
         assert 'limited uploads' not in (res.error or '')
+
+
+def test_validate_rejects_a_repeated_point(monkeypatch):
+    monkeypatch.setattr(main, 'supabase', FakeSupabase([]))  # name not taken
+    upper = [{'x': 1, 'y': 0}, {'x': 0.5, 'y': 0.1}, {'x': 0.5, 'y': 0.1}, {'x': 0, 'y': 0}]
+    res = main.validate_airfoil(main.AirfoilValidationRequest(name='dup', upper_surface=upper, lower_surface=SURF))
+    assert res.valid is False
+    assert res.errors == ['Upper surface: X-coordinates must be monotonic (either all increasing or all decreasing)']
+
+
+def test_analyze_returns_the_polar_for_one_id_and_polars_by_name_for_several(monkeypatch):
+    other = {**AIRFOIL, 'id': 'other-id', 'name': 'otherfoil'}
+    fake = FakeSupabase([AIRFOIL, other])  # the fake's cache rows lack cond_hash, so every airfoil is a miss
+    monkeypatch.setattr(main, 'supabase', fake)
+    monkeypatch.setattr(main, 'analyze_airfoil', lambda **kw: {'CL': [kw['airfoil_name']]})
+    cond = {'Re': 1e5, 'alpha_range': [0, 1, 1]}
+
+    one = main.analyze(main.AnalysisRequest(airfoil_ids=[UUID], conditions=cond))
+    assert one.results == {'CL': ['testfoil']}
+    assert [row['airfoil_id'] for row in fake.upserted] == [UUID]
+
+    two = main.analyze(main.AnalysisRequest(airfoil_ids=[UUID, 'other-id'], conditions=cond))
+    assert two.results == {'testfoil': {'CL': ['testfoil']}, 'otherfoil': {'CL': ['otherfoil']}}
 
 
 def test_cannot_delete_an_airfoil_someone_else_uploaded(monkeypatch):

@@ -4,7 +4,9 @@ Performs aerodynamics analysis using NeuralFoil.
 """
 import aerosandbox as asb
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
+
+from utils import orient_airfoil_surfaces
 
 
 def analyze_airfoil(
@@ -20,37 +22,10 @@ def analyze_airfoil(
     model_size: str = "xlarge"
 ) -> Dict[str, Any]:
     """
-    Analyze an airfoil using AeroSandbox NeuralFoil.
-    
-    Args:
-        upper_x_coords: Upper surface X coordinates (TE to LE, descending)
-        upper_y_coords: Upper surface Y coordinates (corresponding to upper_x)
-        lower_x_coords: Lower surface X coordinates (LE to TE, ascending)
-        lower_y_coords: Lower surface Y coordinates (corresponding to lower_x)
-        reynolds_number: Reynolds number for analysis
-        mach_number: Mach number (default: 0.0)
-        alpha_range: List [start, end, step] for angle of attack range in degrees
-        n_crit: Critical N-factor (default: 9.0)
-        airfoil_name: Name of the airfoil (default: "Airfoil")
-        model_size: NeuralFoil model size, "xxsmall" to "xxxlarge" (default: "xlarge")
-    
-    Returns:
-        Dictionary containing analysis results:
-        {
-            'CL': [...],  # Lift coefficients
-            'CD': [...],  # Drag coefficients
-            'CM': [...],  # Moment coefficients
-            'alpha': [...],  # Angle of attack values
-            'Cpmin': [...],  # Minimum pressure coefficients
-            'Top_Xtr': [...],  # Upper surface transition locations
-            'Bot_Xtr': [...],  # Lower surface transition locations
-            'top_xtr': [...],  # Alternative naming
-            'bot_xtr': [...],  # Alternative naming
-            ... (other NeuralFoil outputs)
-        }
-    
-    Raises:
-        ValueError: If inputs are invalid or analysis fails
+    Run NeuralFoil on an airfoil given as upper/lower surface arrays (either direction).
+    alpha_range is [start, end, step] in degrees, end included.
+    Returns alpha, CL, CD, CM lists, avg_confidence, smoothness_CM and, when present, Cpmin, Top_Xtr, Bot_Xtr.
+    Raises ValueError if the inputs are invalid or the analysis fails.
     """
     try:
         # Validate inputs
@@ -60,73 +35,28 @@ def analyze_airfoil(
             raise ValueError("Lower X and Y coordinate arrays must have the same length")
         if len(upper_x_coords) < 2 or len(lower_x_coords) < 2:
             raise ValueError("Need at least 2 points for upper and lower surfaces")
-        
-        # Convert lists to numpy arrays
-        upper_x = np.array(upper_x_coords)
-        upper_y = np.array(upper_y_coords)
-        lower_x = np.array(lower_x_coords)
-        lower_y = np.array(lower_y_coords)
-        # Ensure upper surface is sorted descending (TE -> LE)
-        # If first point has smaller X than last, reverse it
-        if upper_x[0] < upper_x[-1]:
-            upper_x = upper_x[::-1]
-            upper_y = upper_y[::-1]
-        
-        # Ensure lower surface is sorted ascending (LE -> TE)
-        # If first point has larger X than last, reverse it
-        if lower_x[0] > lower_x[-1]:
-            lower_x = lower_x[::-1]
-            lower_y = lower_y[::-1]
-        
-        # Combine coordinates: upper TE -> LE -> lower LE -> TE
-        # Upper surface (without trailing edge duplicate)
-        upper_coords = np.column_stack([upper_x, upper_y])
-        
-        # Lower surface (including leading edge)
-        lower_coords = np.column_stack([lower_x, lower_y])
-        
-        # Check if leading edge point is duplicated
-        # Leading edge is typically at x=0 or the point with minimum x
-        le_upper = upper_coords[-1]  # Last point of upper (should be LE)
-        le_lower = lower_coords[0]    # First point of lower (should be LE)
-        
-        # If leading edge points are very close (within tolerance), remove duplicate
-        tolerance = 1e-6
-        if np.linalg.norm(le_upper - le_lower) < tolerance:
-            # Remove duplicate LE from upper surface
-            coordinates = np.vstack([
-                upper_coords[:-1],  # Upper surface without LE
-                lower_coords        # Lower surface including LE
-            ])
-        else:
-            # Combine both surfaces
-            coordinates = np.vstack([
-                upper_coords,
-                lower_coords
-            ])
-        
-        # # Ensure trailing edge is closed (points should be close)
-        # te_upper = coordinates[0]
-        # te_lower = coordinates[-1]
-        # if np.linalg.norm(te_upper - te_lower) > tolerance:
-        #     # Add trailing edge closure point
-        #     te_point = (te_upper + te_lower) / 2
-        #     coordinates = np.vstack([coordinates, te_point])
-        
-        # Create Airfoil object
+
+        # Upper TE -> LE, lower LE -> TE
+        upper, lower = orient_airfoil_surfaces(
+            list(zip(upper_x_coords, upper_y_coords)), list(zip(lower_x_coords, lower_y_coords))
+        )
+        upper_coords = np.array(upper)
+        lower_coords = np.array(lower)
+
+        # Drop the upper copy of a leading-edge point both surfaces share
+        if np.linalg.norm(upper_coords[-1] - lower_coords[0]) < 1e-6:
+            upper_coords = upper_coords[:-1]
+        coordinates = np.vstack([upper_coords, lower_coords])
+
         airfoil = asb.Airfoil(
             name=airfoil_name,
             coordinates=coordinates
         )
-        
-        # Generate alpha schedule from range
-        if alpha_range is None:
-            raise ValueError("alpha_range is required")
-        
+
         # Generate actual alpha values from range [start, end, step]
         start, end, step = alpha_range
         alpha_values = np.arange(start, end + step, step)
-        
+
         # Run NeuralFoil analysis
         aero = airfoil.get_aero_from_neuralfoil(
             alpha=alpha_values,

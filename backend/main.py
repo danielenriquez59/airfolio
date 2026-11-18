@@ -1,6 +1,5 @@
 """
-FastAPI backend for airfoil analysis job submission.
-Handles analysis requests and job queuing.
+FastAPI backend: NeuralFoil analyses (cached in performance_cache), airfoil uploads and the public coordinates API.
 """
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +15,6 @@ from config import settings
 from utils import (
     generate_condition_hash,
     validate_monotonic,
-    extract_coordinates,
     calculate_properties,
     calculate_area_coefficient,
     orient_airfoil_surfaces,
@@ -107,16 +105,8 @@ class AnalysisRequest(BaseModel):
     conditions: AnalysisConditions
 
 
-class JobResponse(BaseModel):
-    """Response containing job information"""
-    job_id: str
-    status: str
-    created_at: datetime
-
-
 class AnalysisResponse(BaseModel):
-    """Response for immediate analysis (if cached)"""
-    job_id: Optional[str] = None
+    """Analysis results: one airfoil's polar, or polars keyed by airfoil name"""
     cached: bool
     results: Optional[Dict[str, Any]] = None
 
@@ -232,24 +222,18 @@ class BezierFitRequest(BaseModel):
     order: int = Field(default=6, ge=3, le=10, description="Bezier curve order (3-10)")
 
 
-class BezierControlPoints(BaseModel):
-    """Control points for a single surface"""
-    x: List[float] = Field(..., description="X coordinates of control points")
-    y: List[float] = Field(..., description="Y coordinates of control points")
-
-
-class BezierCurveData(BaseModel):
-    """Fitted curve data points for plotting"""
-    x: List[float] = Field(..., description="X coordinates of curve points")
-    y: List[float] = Field(..., description="Y coordinates of curve points")
+class BezierPoints(BaseModel):
+    """Control points or fitted curve points of one surface"""
+    x: List[float]
+    y: List[float]
 
 
 class BezierFitResponse(BaseModel):
     """Response containing Bezier fit results"""
-    upper_control_points: BezierControlPoints
-    lower_control_points: BezierControlPoints
-    upper_curve: BezierCurveData
-    lower_curve: BezierCurveData
+    upper_control_points: BezierPoints
+    lower_control_points: BezierPoints
+    upper_curve: BezierPoints
+    lower_curve: BezierPoints
     order: int
     upper_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, upper surface")
     lower_max_error_pct: float = Field(..., description="Max deviation from data as % of chord, lower surface")
@@ -304,301 +288,140 @@ def get_airfoil_coordinates(name_or_id: str):
 @app.post("/api/analyze", response_model=AnalysisResponse)
 def analyze(request: AnalysisRequest):
     """
-    Submit an airfoil analysis job (single or multiple airfoils).
-    
-    - Single airfoil (1 ID): Checks cache first, returns cached results if available
-    - Multiple airfoils (2+ IDs): Creates a comparison job
-    
-    Checks cache first for single airfoil cases, then creates a job if not cached.
+    Analyze 1..N airfoils: cached results are returned, the rest are run and cached.
+    One id returns its polar itself; 2+ ids return polars keyed by airfoil name.
     """
+    single = len(request.airfoil_ids) == 1
+    if not supabase:
+        raise HTTPException(
+            status_code=500,
+            detail="Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in environment variables."
+        )
+
     try:
-        num_airfoils = len(request.airfoil_ids)
-        
-        if num_airfoils == 1:
-            airfoil_id = request.airfoil_ids[0]
-            cond_hash = generate_condition_hash(request.conditions, airfoil_id)
+        # Names only here: coordinates are fetched below for cache misses alone
+        response = supabase.table('airfoils').select('id, name').in_('id', request.airfoil_ids).execute()
 
-            # Check performance_cache for existing results
-            if not supabase:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in environment variables."
-                )
-            
+        if not response.data:
+            # 500 for one id: the status the old single-airfoil path returned
+            raise HTTPException(status_code=500 if single else 404, detail="No airfoils found with the provided IDs")
+
+        airfoil_map = {airfoil['id']: airfoil for airfoil in response.data}
+        missing_ids = set(request.airfoil_ids) - set(airfoil_map)
+        if missing_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Airfoils with IDs {list(missing_ids)} not found"
+            )
+
+        # airfoil_id -> (airfoil_name, cond_hash)
+        airfoil_hash_map = {
+            airfoil_id: (
+                airfoil_map[airfoil_id].get('name', f'Airfoil_{airfoil_id[:8]}'),
+                generate_condition_hash(request.conditions, airfoil_id),
+            )
+            for airfoil_id in request.airfoil_ids
+        }
+
+        # One cache query for all airfoils
+        cache_lookup = {}  # airfoil_id -> cached_outputs
+        try:
+            # The hash includes the airfoil id, so querying by hash returns only this condition's rows
+            # (querying by airfoil_id pulled every cached condition and hit PostgREST's 1000-row cap)
+            cache_response = supabase.table('performance_cache').select(
+                'airfoil_id, cond_hash, outputs'
+            ).in_('cond_hash', [cond_hash for _, cond_hash in airfoil_hash_map.values()]).execute()
+
+            expected_pairs = {(airfoil_id, cond_hash) for airfoil_id, (_, cond_hash) in airfoil_hash_map.items()}
+            for cached_item in cache_response.data or []:
+                if (cached_item['airfoil_id'], cached_item['cond_hash']) in expected_pairs:
+                    cache_lookup[cached_item['airfoil_id']] = cached_item['outputs']
+        except Exception as cache_error:
+            print(f"Batch cache lookup failed: {cache_error}")
+            # Continue with empty cache_lookup - will run all analyses
+
+        missed_ids = [i for i in request.airfoil_ids if i not in cache_lookup]
+        if missed_ids:
+            coords_response = supabase.table('airfoils').select(
+                'id, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
+            ).in_('id', missed_ids).execute()
+            airfoil_map = {airfoil['id']: airfoil for airfoil in coords_response.data}
+
+        comparison_results = {}
+        cache_rows = []
+        n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
+
+        for airfoil_id in request.airfoil_ids:
+            airfoil_name, cond_hash = airfoil_hash_map[airfoil_id]
+            if airfoil_id in cache_lookup:
+                comparison_results[airfoil_name] = cache_lookup[airfoil_id]
+                continue
+
+            airfoil_data = airfoil_map[airfoil_id]
+            analysis_results = analyze_airfoil(
+                upper_x_coords=airfoil_data['upper_x_coordinates'],
+                upper_y_coords=airfoil_data['upper_y_coordinates'],
+                lower_x_coords=airfoil_data['lower_x_coordinates'],
+                lower_y_coords=airfoil_data['lower_y_coordinates'],
+                reynolds_number=request.conditions.Re,
+                mach_number=request.conditions.Mach,
+                alpha_range=request.conditions.alpha_range,
+                n_crit=n_crit,
+                airfoil_name=airfoil_name
+            )
+            comparison_results[airfoil_name] = analysis_results
+            cache_rows.append({
+                'airfoil_id': airfoil_id,
+                'cond_hash': cond_hash,
+                'inputs': request.conditions.model_dump(),
+                'outputs': analysis_results
+            })
+
+        # One write for all new results: a round trip per row cost ~0.1 s each.
+        # Skip rows another request saved meanwhile, so one conflict does not lose the batch.
+        if cache_rows:
             try:
-                cache_response = supabase.table('performance_cache').select('*').eq(
-                    'airfoil_id', airfoil_id
-                ).eq('cond_hash', cond_hash).single().execute()
-                
-                if cache_response.data:
-                    # Return cached results
-                    return AnalysisResponse(
-                        job_id=None,
-                        cached=True,
-                        results=cache_response.data['outputs']
-                    )
-            except Exception as cache_error:
-                # Cache miss or error, continue to run analysis
-                print(f"Cache lookup failed or miss: {cache_error}")
-            
-            try:
-                # Query airfoil coordinates
-                response = supabase.table('airfoils').select(
-                    'id, name, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
-                ).eq('id', airfoil_id).single().execute()
-                
-                if not response.data:
-                    raise HTTPException(status_code=404, detail=f"Airfoil with ID {airfoil_id} not found")
-                
-                airfoil_data = response.data
-                
-                # Extract coordinates
-                upper_x_coords = airfoil_data['upper_x_coordinates']
-                upper_y_coords = airfoil_data['upper_y_coordinates']
-                lower_x_coords = airfoil_data['lower_x_coordinates']
-                lower_y_coords = airfoil_data['lower_y_coordinates']
-                airfoil_name   = airfoil_data.get('name', 'Airfoil')
-                
-                # Run analysis
-                analysis_results = analyze_airfoil(
-                    upper_x_coords=upper_x_coords,
-                    upper_y_coords=upper_y_coords,
-                    lower_x_coords=lower_x_coords,
-                    lower_y_coords=lower_y_coords,
-                    reynolds_number=request.conditions.Re,
-                    mach_number=request.conditions.Mach,
-                    alpha_range=request.conditions.alpha_range,
-                    n_crit=request.conditions.n_crit if request.conditions.n_crit is not None else 9.0,
-                    airfoil_name=airfoil_name,
-                    model_size="xlarge"
-                )
-                # valid model_size: Valid model_size values: "xxsmall" "xsmall" "small" "medium" "large" "xlarge" "xxlarge" "xxxlarge"
-
-                # Store results in performance_cache
-                try:
-                    cache_data = {
-                        'airfoil_id': airfoil_id,
-                        'cond_hash': cond_hash,
-                        'inputs': request.conditions.model_dump(),
-                        'outputs': analysis_results
-                    }
-                    supabase.table('performance_cache').insert(cache_data).execute()
-                except Exception as cache_error:
-                    # Log but don't fail if cache storage fails
-                    print(f"Failed to cache results: {cache_error}")
-
-                # Return results immediately (no job queuing for now)
-                return AnalysisResponse(
-                    job_id=None,
-                    cached=False,
-                    results=analysis_results
-                )
-                
-            except HTTPException:
-                raise
+                supabase.table('performance_cache').upsert(
+                    cache_rows, on_conflict='airfoil_id,cond_hash', ignore_duplicates=True
+                ).execute()
             except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error running analysis: {str(e)}"
-                )
-        
-        else:
-            # Multiple airfoils - comparison analysis
-            # Fetch all airfoils and run analysis for each
-            if not supabase:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Supabase client not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in environment variables."
-                )
-            
-            try:
-                # Names only here: coordinates are fetched below for cache misses alone
-                response = supabase.table('airfoils').select('id, name').in_('id', request.airfoil_ids).execute()
-                
-                if not response.data:
-                    raise HTTPException(status_code=404, detail="No airfoils found with the provided IDs")
-                
-                airfoil_data_list = response.data
-                
-                # Check if we got all requested airfoils
-                fetched_ids = {airfoil['id'] for airfoil in airfoil_data_list}
-                requested_ids = set(request.airfoil_ids)
-                missing_ids = requested_ids - fetched_ids
-                
-                if missing_ids:
-                    raise HTTPException(
-                        status_code=404,
-                        detail=f"Airfoils with IDs {list(missing_ids)} not found"
-                    )
-                
-                # Create a map of airfoil_id -> airfoil_data for easy lookup
-                airfoil_map = {airfoil['id']: airfoil for airfoil in airfoil_data_list}
-                
-                # === OPTIMIZATION: Batch cache lookup ===
-                # Step 1: Pre-generate all condition hashes upfront
-                airfoil_hash_map = {}  # airfoil_id -> (airfoil_name, cond_hash)
-                for airfoil_id in request.airfoil_ids:
-                    airfoil_data = airfoil_map[airfoil_id]
-                    airfoil_name = airfoil_data.get('name', f'Airfoil_{airfoil_id[:8]}')
-                    cond_hash = generate_condition_hash(request.conditions, airfoil_id)
-                    airfoil_hash_map[airfoil_id] = (airfoil_name, cond_hash)
-                
-                # Step 2: Batch query for all cached results at once
-                cache_lookup = {}  # airfoil_id -> cached_outputs
-                try:
-                    # The hash includes the airfoil id, so querying by hash returns only this condition's rows
-                    # (querying by airfoil_id pulled every cached condition and hit PostgREST's 1000-row cap)
-                    cache_response = supabase.table('performance_cache').select(
-                        'airfoil_id, cond_hash, outputs'
-                    ).in_('cond_hash', [cond_hash for _, cond_hash in airfoil_hash_map.values()]).execute()
-                    
-                    if cache_response.data:
-                        # Build a set of expected (airfoil_id, cond_hash) pairs for fast lookup
-                        expected_pairs = {
-                            (airfoil_id, cond_hash) 
-                            for airfoil_id, (_, cond_hash) in airfoil_hash_map.items()
-                        }
-                        
-                        # Filter in-memory to match exact (airfoil_id, cond_hash) pairs
-                        for cached_item in cache_response.data:
-                            cached_airfoil_id = cached_item['airfoil_id']
-                            cached_cond_hash = cached_item['cond_hash']
-                            
-                            # Check if this matches our required condition hash
-                            if (cached_airfoil_id, cached_cond_hash) in expected_pairs:
-                                cache_lookup[cached_airfoil_id] = cached_item['outputs']
-                
-                except Exception as cache_error:
-                    print(f"Batch cache lookup failed: {cache_error}")
-                    # Continue with empty cache_lookup - will run all analyses
+                print(f"Failed to cache {len(cache_rows)} results: {e}")
 
-                missed_ids = [i for i in request.airfoil_ids if i not in cache_lookup]
-                if missed_ids:
-                    coords_response = supabase.table('airfoils').select(
-                        'id, upper_x_coordinates, upper_y_coordinates, lower_x_coordinates, lower_y_coordinates'
-                    ).in_('id', missed_ids).execute()
-                    airfoil_map = {airfoil['id']: airfoil for airfoil in coords_response.data}
+        return AnalysisResponse(
+            cached=False,
+            results=next(iter(comparison_results.values())) if single else comparison_results
+        )
 
-                # Step 3: Process each airfoil (now just a map lookup, no DB queries!)
-                comparison_results = {}
-                cache_rows = []
-                n_crit = request.conditions.n_crit if request.conditions.n_crit is not None else 9.0
-                
-                for airfoil_id in request.airfoil_ids:
-                    airfoil_name, cond_hash = airfoil_hash_map[airfoil_id]
-
-                    # Check batch cache lookup
-                    if airfoil_id in cache_lookup:
-                        # Cache hit!
-                        comparison_results[airfoil_name] = cache_lookup[airfoil_id]
-                    else:
-                        # Cache miss - need to run analysis
-                        airfoil_data = airfoil_map[airfoil_id]
-                        upper_x_coords = airfoil_data['upper_x_coordinates']
-                        upper_y_coords = airfoil_data['upper_y_coordinates']
-                        lower_x_coords = airfoil_data['lower_x_coordinates']
-                        lower_y_coords = airfoil_data['lower_y_coordinates']
-                        
-                        # Run analysis for this airfoil
-                        analysis_results = analyze_airfoil(
-                            upper_x_coords=upper_x_coords,
-                            upper_y_coords=upper_y_coords,
-                            lower_x_coords=lower_x_coords,
-                            lower_y_coords=lower_y_coords,
-                            reynolds_number=request.conditions.Re,
-                            mach_number=request.conditions.Mach,
-                            alpha_range=request.conditions.alpha_range,
-                            n_crit=n_crit,
-                            airfoil_name=airfoil_name
-                        )
-                        
-                        comparison_results[airfoil_name] = analysis_results
-                        
-                        cache_rows.append({
-                            'airfoil_id': airfoil_id,
-                            'cond_hash': cond_hash,
-                            'inputs': request.conditions.model_dump(),
-                            'outputs': analysis_results
-                        })
-                
-                # One write for all new results: a round trip per row cost ~0.1 s each.
-                # Skip rows another request saved meanwhile, so one conflict does not lose the batch.
-                if cache_rows:
-                    try:
-                        supabase.table('performance_cache').upsert(
-                            cache_rows, on_conflict='airfoil_id,cond_hash', ignore_duplicates=True
-                        ).execute()
-                    except Exception as e:
-                        print(f"Failed to cache {len(cache_rows)} results: {e}")
-
-                # Return combined results immediately
-                return AnalysisResponse(
-                    job_id=None,
-                    cached=False,
-                    results=comparison_results
-                )
-                
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error running comparison analysis: {str(e)}"
-                )
-    
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error submitting analysis: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error running {'' if single else 'comparison '}analysis: {str(e)}"
+        )
 
 
 # Airfoil Upload Helper Functions
 
 def calculate_airfoil_properties(upper_surface: List[CoordinatePair], lower_surface: List[CoordinatePair]) -> Dict[str, Any]:
-    """
-    Helper function to calculate and extract airfoil geometric properties.
-
-    Args:
-        upper_surface: List of CoordinatePair objects or dicts with x, y keys
-        lower_surface: List of CoordinatePair objects or dicts with x, y keys
-
-    Returns:
-        Dictionary containing calculated properties and extracted coordinates
-    """
-    # Convert to tuples (handle both CoordinatePair objects and dicts)
-    upper = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in upper_surface]
-    lower = [(p.x if hasattr(p, 'x') else p['x'], p.y if hasattr(p, 'y') else p['y']) for p in lower_surface]
-
+    """Geometric properties and coordinate arrays, keyed as the airfoils table columns."""
     # AeroSandbox expects a closed wrap: TE -> LE (upper) then LE -> TE (lower).
     # Uploads may store both surfaces LE -> TE (Lednicer); normalize before combining.
-    upper, lower = orient_airfoil_surfaces(upper, lower)
+    upper, lower = orient_airfoil_surfaces([(p.x, p.y) for p in upper_surface], [(p.x, p.y) for p in lower_surface])
 
-    # Extract coordinates (normalized order for DB consistency)
-    coords = extract_coordinates(upper, lower)
-
-    # Combine upper and lower surfaces into single x, y arrays
     all_x = [p[0] for p in upper] + [p[0] for p in lower]
     all_y = [p[1] for p in upper] + [p[1] for p in lower]
 
-    # Calculate geometric properties using AeroSandbox
-    properties = calculate_properties(all_x, all_y)
-
-    # Build calculated properties dictionary
-    calculated_properties = {
-        'thickness_pct': properties['max_thickness'],
-        'thickness_loc_pct': properties['max_thickness_location'],
-        'camber_pct': properties['max_camber'],
-        'camber_loc_pct': properties['max_camber_location'],
+    return {
+        **calculate_properties(all_x, all_y),
         'area_coefficient': calculate_area_coefficient(all_x, all_y),
-        'le_radius': properties['le_radius'],
-        'te_thickness': properties['te_thickness'],
-        'te_angle': properties['te_angle'],
         'upper_surface_nodes': len(upper),
         'lower_surface_nodes': len(lower),
-        **coords,
+        'upper_x_coordinates': [p[0] for p in upper],
+        'upper_y_coordinates': [p[1] for p in upper],
+        'lower_x_coordinates': [p[0] for p in lower],
+        'lower_y_coordinates': [p[1] for p in lower],
     }
-
-    return calculated_properties
 
 
 # Airfoil Upload Endpoints
@@ -634,22 +457,12 @@ def validate_airfoil(request: AirfoilValidationRequest):
         if len(request.lower_surface) > MAX_POINTS:
             errors.append(f"Lower surface cannot exceed {MAX_POINTS} points (currently {len(request.lower_surface)})")
         
-        # Validate monotonic x-coordinates
-        upper = [tuple(p) for p in request.upper_surface]
-        lower = [tuple(p) for p in request.lower_surface]
-        
-        if len(upper) > 0:
-            upper_x = [p[0] for p in upper]
-            is_valid, msg = validate_monotonic(upper_x)
+        # Validate monotonic x-coordinates (a repeated point fails too)
+        for label, surface in (("Upper", request.upper_surface), ("Lower", request.lower_surface)):
+            is_valid, msg = validate_monotonic([p.x for p in surface])
             if not is_valid:
-                errors.append(f"Upper surface: {msg}")
-        
-        if len(lower) > 0:
-            lower_x = [p[0] for p in lower]
-            is_valid, msg = validate_monotonic(lower_x)
-            if not is_valid:
-                errors.append(f"Lower surface: {msg}")
-        
+                errors.append(f"{label} surface: {msg}")
+
         if errors:
             return AirfoilValidationResponse(valid=False, errors=errors)
         
@@ -727,12 +540,6 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
     Create a new airfoil in the database.
     """
     try:
-        if not supabase:
-            return AirfoilCreateResponse(
-                success=False,
-                error="Database connection not available"
-            )
-
         # Daily cap per account, counted from the uploader records written below.
         # shortcut: count-then-insert, so uploads sent at the same instant can slip one past the cap;
         # move the check into the database if that is ever abused.
@@ -758,11 +565,7 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
                 success=False,
                 error="; ".join(validation.errors or ["Validation failed"])
             )
-        
-        print("Airfoil validation successful")
-        # Calculate geometric properties using helper function
-        calculated_properties = calculate_airfoil_properties(request.upper_surface, request.lower_surface)
-        
+
         # Prepare data for insertion
         airfoil_id = str(uuid.uuid4())
         # Normalized name is already alphanumeric only, so no need to replace spaces
@@ -775,10 +578,9 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
             try:
                 uuid.UUID(request.category)  # Validate UUID format
                 # Fetch category name from database
-                if supabase:
-                    category_response = supabase.table('categories').select('name').eq('id', request.category).single().execute()
-                    if category_response.data:
-                        category_value = category_response.data.get('name')
+                category_response = supabase.table('categories').select('name').eq('id', request.category).single().execute()
+                if category_response.data:
+                    category_value = category_response.data.get('name')
             except ValueError:
                 # Not a UUID, use as category name directly
                 category_value = request.category
@@ -790,7 +592,7 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
             'description': request.description,
             'source_url': request.source_url,
             'file_path': file_path,
-            **calculated_properties,
+            **validation.calculated_properties,
         }
         
         # Add category if provided
@@ -799,7 +601,6 @@ def create_airfoil(request: AirfoilCreateRequest, user_id: str = Depends(require
         
         # Insert into database
         response = supabase.table('airfoils').insert(airfoil_data).execute()
-        print("Airfoil created successfully")
         if response.data:
             # Record who uploaded it, for moderation. Never fail the upload over this.
             try:
@@ -1063,8 +864,7 @@ def analyze_transient(request: TransientAnalysisRequest):
             mach_number=request.mach,
             alpha_range=[request.alpha_start, request.alpha_end, request.alpha_step],
             n_crit=request.n_crit,
-            airfoil_name=request.airfoil_name,
-            model_size="xlarge"
+            airfoil_name=request.airfoil_name
         )
         
         return analysis_results
@@ -1120,22 +920,10 @@ def bezier_fit(request: BezierFitRequest):
 
         # Build response
         return BezierFitResponse(
-            upper_control_points=BezierControlPoints(
-                x=result['upper_control_points'][:, 0].tolist(),
-                y=result['upper_control_points'][:, 1].tolist()
-            ),
-            lower_control_points=BezierControlPoints(
-                x=result['lower_control_points'][:, 0].tolist(),
-                y=result['lower_control_points'][:, 1].tolist()
-            ),
-            upper_curve=BezierCurveData(
-                x=result['upper_curve'][:, 0].tolist(),
-                y=result['upper_curve'][:, 1].tolist()
-            ),
-            lower_curve=BezierCurveData(
-                x=result['lower_curve'][:, 0].tolist(),
-                y=result['lower_curve'][:, 1].tolist()
-            ),
+            **{
+                key: BezierPoints(x=result[key][:, 0].tolist(), y=result[key][:, 1].tolist())
+                for key in ('upper_control_points', 'lower_control_points', 'upper_curve', 'lower_curve')
+            },
             order=result['order'],
             upper_max_error_pct=result['upper_max_error_pct'],
             lower_max_error_pct=result['lower_max_error_pct']

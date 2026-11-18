@@ -36,13 +36,6 @@ class BezierFitter:
         """Calculate Bernstein basis polynomial B_{n,i}(t) = C(n,i) t^i (1-t)^(n-i)."""
         return comb(n, i) * (t ** i) * ((1 - t) ** (n - i))
 
-    def _bernstein_all(self, n: int, t: float) -> np.ndarray:
-        """Return all n+1 Bernstein basis values at scalar t."""
-        vals = np.zeros(n + 1)
-        for i in range(n + 1):
-            vals[i] = comb(n, i) * (t ** i) * ((1 - t) ** (n - i))
-        return vals
-
     def _blossom_x_positions(self, degree: int, num_cp: int) -> np.ndarray:
         """
         Compute normalized control-point x positions for x(u) = u^2.
@@ -107,8 +100,7 @@ class BezierFitter:
     def _fit_surface(
         self,
         surface_data: np.ndarray,
-        chord: float,
-        is_upper: bool
+        chord: float
     ) -> Tuple[np.ndarray, float]:
         """
         Fit a Bezier curve to one surface using linear least-squares.
@@ -116,7 +108,6 @@ class BezierFitter:
         Args:
             surface_data: Nx2 array of (x, y) coordinates
             chord: Chord length for x normalization and control-point scaling
-            is_upper: Unused; kept for API compatibility with fit()
 
         Returns:
             Tuple of (control_points, max_error_pct)
@@ -142,7 +133,7 @@ class BezierFitter:
         b_data = y_raw.copy()
 
         for i in range(m):
-            basis = self._bernstein_all(n, u[i])
+            basis = [self._bernstein_poly(n, k, u[i]) for k in range(num_cp)]
             for k, yv in known_y.items():
                 b_data[i] -= basis[k] * yv
             for k in free_idx:
@@ -217,12 +208,8 @@ class BezierFitter:
         if lower_coords[0, 0] > lower_coords[-1, 0]:
             lower_coords = lower_coords[::-1]
 
-        upper_cps, upper_max_error_pct = self._fit_surface(
-            upper_coords, chord, is_upper=True
-        )
-        lower_cps, lower_max_error_pct = self._fit_surface(
-            lower_coords, chord, is_upper=False
-        )
+        upper_cps, upper_max_error_pct = self._fit_surface(upper_coords, chord)
+        lower_cps, lower_max_error_pct = self._fit_surface(lower_coords, chord)
 
         upper_curve = self.generate_curve(upper_cps, num_points=200)
         lower_curve = self.generate_curve(lower_cps, num_points=200)

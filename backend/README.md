@@ -1,134 +1,35 @@
-# Airfoil Analysis Backend
+# Airfolio Backend
 
-FastAPI backend service for submitting airfoil analysis jobs.
+FastAPI service that runs NeuralFoil analyses (via AeroSandbox), handles airfoil uploads and serves the public coordinates API. Results for catalog airfoils are cached in the Supabase `performance_cache` table; catalog browsing goes straight to Supabase from the frontend.
 
-## Overview
-
-This backend handles:
-- Single airfoil analysis requests (`POST /api/analyze`)
-- Multi-airfoil comparison requests (`POST /api/analyze/compare`)
-- Job status queries (`GET /api/jobs/{job_id}`)
-
-The backend uses **AeroSandbox** for aerodynamic analysis calculations.
-
-## Setup
-
-### 1. Install Dependencies
+## Run
 
 ```bash
 pip install -r requirements.txt
+cp .env.example .env            # then fill in the values
+uvicorn main:app --reload --port 8000              # development
+uvicorn main:app --host 0.0.0.0 --port 8000        # production
+python -m pytest tests                              # tests
 ```
 
-This will install:
-- FastAPI and Uvicorn (web framework)
-- AeroSandbox[full] (aerodynamic analysis)
-- Supabase client (database access)
-- Other required dependencies
+Environment variables (`.env`):
+- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`: Supabase project URL and service-role key.
+- `CORS_ORIGINS`: optional JSON list of allowed origins.
 
-### 2. Configure Environment Variables
+## Endpoints
 
-Copy `.env.example` to `.env` and fill in your values:
+| Method | Path | Purpose |
+|---|---|---|
+| GET/HEAD | `/health` | Health check (also `GET /`) |
+| GET | `/api/v1/airfoils/{name_or_id}/coordinates` | Public: `[x, y]` points in Selig order; 60 requests/min per IP |
+| POST | `/api/analyze` | Catalog airfoils: `{"airfoil_ids": [...], "conditions": {"Re", "Mach", "alpha_range": [start, end, step], "n_crit"}}`. One id returns its polar in `results`; 2+ ids return polars keyed by airfoil name. Cached first, misses are run and cached |
+| POST | `/api/control-surface/analyze` | One airfoil with 1-3 trailing-edge flap configs (`deflection`, `hinge_point`); returns geometry and polar per config, cached |
+| POST | `/api/analyze-transient` | Uncached analysis of raw coordinates (NACA, CST, designer); at most 1000 points per surface and 200 angles; rate limited |
+| POST | `/api/airfoils/validate` | Check upload coordinates and name, return geometric properties |
+| POST | `/api/airfoils/recalculate-geometry` | Geometric properties for existing coordinates |
+| POST | `/api/airfoils/create` | Signed-in upload (`Authorization: Bearer <token>`), 4 per day unless admin |
+| DELETE | `/api/airfoils/{airfoil_id}` | Signed-in: delete an airfoil you uploaded |
+| DELETE | `/api/account` | Signed-in: delete your account |
+| POST | `/api/bezier-fit` | Fit Bezier curves (order 3-10) to upper and lower surfaces |
 
-```bash
-cp .env.example .env
-```
-
-Required variables:
-- `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_KEY`: Your Supabase anon key (for client operations)
-- `SUPABASE_SERVICE_KEY`: Your Supabase service role key (for server operations)
-- `REDIS_URL`: Redis connection URL (for job queue)
-
-### Running the Backend
-
-To run the backend, navigate to the `backend` directory and execute the appropriate command:
-
-**Development Mode:**
-```bash
-uvicorn main:app --reload --port 8000
-```
-This will start the server with auto-reloading enabled, useful for development.
-
-**Production Mode:**
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-This command runs the server in production mode, listening on all available network interfaces.
-
-## API Endpoints
-
-### POST /api/analyze
-Submit a single airfoil analysis job.
-
-**Request:**
-```json
-{
-  "airfoil_id": "uuid-here",
-  "conditions": {
-    "Re": 3000000,
-    "Mach": 0.1,
-    "alpha_range": [-4, 16, 0.5],
-    "n_crit": 9.0
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "job_id": "job-uuid",
-  "cached": false,
-  "results": null
-}
-```
-
-### POST /api/analyze/compare
-Submit a comparison analysis for multiple airfoils.
-
-**Request:**
-```json
-{
-  "airfoil_ids": ["uuid-1", "uuid-2"],
-  "conditions": {
-    "Re": 3000000,
-    "Mach": 0.1,
-    "alpha_range": [-4, 16, 0.5]
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "job_id": "job-uuid",
-  "status": "queued",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-### GET /api/jobs/{job_id}
-Get the status of an analysis job.
-
-**Response:**
-```json
-{
-  "job_id": "job-uuid",
-  "status": "running",
-  "progress": 45,
-  "result_location": null
-}
-```
-
-## Architecture
-
-- **FastAPI**: Web framework for API endpoints
-- **AeroSandbox**: Performs aerodynamic analysis calculations
-- **Supabase**: Database for storing jobs and cached results
-- **Redis**: Job queue for asynchronous processing (TODO)
-
-## Development Notes
-
-- The backend focuses solely on analysis job submission
-- Catalogue queries (GET /api/airfoils) should be handled by Nuxt server routes or Cloudflare Workers
-- Analysis results are cached in the `performance_cache` table to avoid recomputation
-
+Interactive docs: `/docs` when the server runs.
