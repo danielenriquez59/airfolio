@@ -1,21 +1,26 @@
 <script setup lang="ts">
+interface Conditions {
+  reynolds: number
+  mach: number
+  alphaStart: number
+  alphaEnd: number
+  alphaStep: number
+  nCrit: number
+}
+
 interface Props {
   isLoading?: boolean
+  description?: string
+  initialConditions?: Conditions
 }
 
 interface Emits {
-  (e: 'analyze', conditions: {
-    reynolds: number
-    mach: number
-    alphaStart: number
-    alphaEnd: number
-    alphaStep: number
-    nCrit: number
-  }): void
+  (e: 'analyze', conditions: Conditions): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isLoading: false,
+  description: 'NeuralFoil analysis of the generated section. Results are not cached.',
 })
 
 const emit = defineEmits<Emits>()
@@ -26,6 +31,19 @@ const alphaStart = ref<number>(-5)
 const alphaEnd = ref<number>(20)
 const alphaStep = ref<number>(0.5)
 const nCrit = ref<number>(9)
+const error = ref('')
+
+// The parent may only know them after mount (e.g. read from localStorage)
+watch(() => props.initialConditions, (c) => {
+  if (!c)
+    return
+  reynolds.value = c.reynolds
+  mach.value = c.mach
+  alphaStart.value = c.alphaStart
+  alphaEnd.value = c.alphaEnd
+  alphaStep.value = c.alphaStep
+  nCrit.value = c.nCrit
+}, { immediate: true })
 
 const fields = [
   { id: 'naca-re', label: 'Reynolds (thousands)', model: reynolds, min: 10, step: 10, help: 'e.g. 100 = Re 100,000', wide: true },
@@ -36,22 +54,25 @@ const fields = [
   { id: 'naca-alpha-step', label: 'Alpha step (deg)', model: alphaStep, min: 0.1, step: 0.1 },
 ]
 
-const handleSubmit = () => {
-  if (props.isLoading) return
+function validationError() {
+  // v-model.number leaves '' in an emptied field
+  if (fields.some(f => typeof f.model.value !== 'number' || !Number.isFinite(f.model.value)))
+    return 'Fill in every flow condition.'
+  if (reynolds.value <= 0)
+    return 'Reynolds number must be positive.'
+  if (alphaStart.value >= alphaEnd.value)
+    return 'Alpha start must be less than alpha end.'
+  if (alphaStep.value <= 0)
+    return 'Alpha step must be positive.'
+  return ''
+}
 
-  // Validate inputs
-  if (reynolds.value <= 0) {
-    alert('Reynolds number must be positive')
+function handleSubmit() {
+  if (props.isLoading)
     return
-  }
-  if (alphaStart.value >= alphaEnd.value) {
-    alert('Alpha start must be less than alpha end')
+  error.value = validationError()
+  if (error.value)
     return
-  }
-  if (alphaStep.value <= 0) {
-    alert('Alpha step must be positive')
-    return
-  }
 
   emit('analyze', {
     reynolds: reynolds.value,
@@ -65,7 +86,9 @@ const handleSubmit = () => {
 </script>
 
 <template>
-  <VPanel title="Performance analysis" description="NeuralFoil analysis of the generated section. Results are not cached.">
+  <VPanel title="Performance analysis" :description="description">
+    <!-- Extra controls above the flow conditions, e.g. a solver choice -->
+    <slot />
     <div class="grid grid-cols-2 gap-x-3 gap-y-4">
       <div v-for="field in fields" :key="field.id" :class="field.wide ? 'col-span-2' : ''">
         <label :for="field.id" class="mb-1 block text-sm font-medium text-gray-700">
@@ -87,6 +110,9 @@ const handleSubmit = () => {
     </div>
 
     <div class="mt-5">
+      <p v-if="error" class="mb-3 text-sm text-error-700" role="alert">
+        {{ error }}
+      </p>
       <VButton
         type="button"
         color="primary"

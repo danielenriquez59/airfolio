@@ -62,6 +62,8 @@ def require_user(authorization: str = Header(default="")) -> str:
 
 PUBLIC_API_LIMIT = 60  # requests per minute, per client IP
 UPLOADS_PER_DAY = 4  # airfoils per account per rolling 24 hours (admins are exempt)
+TRANSIENT_MAX_ANGLES = 200  # angles of attack per transient analysis request
+TRANSIENT_MAX_POINTS = 1000  # coordinate points per surface per transient analysis request
 _rate_window = 0
 _rate_hits: Counter = Counter()
 
@@ -181,35 +183,6 @@ class FlapConfiguration(BaseModel):
     """Configuration for a trailing edge flap"""
     deflection: float = Field(..., description="Deflection angle in degrees (downwards-positive)")
     hinge_point: float = Field(default=0.75, ge=0.5, le=0.9, description="Hinge location as fraction of chord")
-
-
-class CSTAnalysisRequest(BaseModel):
-    """Request for CST-generated airfoil analysis (no caching)"""
-    upper_x: List[float] = Field(..., description="Upper surface X coordinates")
-    upper_y: List[float] = Field(..., description="Upper surface Y coordinates")
-    lower_x: List[float] = Field(..., description="Lower surface X coordinates")
-    lower_y: List[float] = Field(..., description="Lower surface Y coordinates")
-    reynolds: float = Field(..., description="Reynolds number")
-    mach: float = Field(default=0.0, description="Mach number")
-    alpha_start: float = Field(..., description="Alpha start (degrees)")
-    alpha_end: float = Field(..., description="Alpha end (degrees)")
-    alpha_step: float = Field(..., description="Alpha step (degrees)")
-    n_crit: float = Field(default=9.0, description="Critical N-factor")
-
-
-class NACAAnalysisRequest(BaseModel):
-    """Request for NACA-generated airfoil analysis (no caching)"""
-    upper_x: List[float] = Field(..., description="Upper surface X coordinates")
-    upper_y: List[float] = Field(..., description="Upper surface Y coordinates")
-    lower_x: List[float] = Field(..., description="Lower surface X coordinates")
-    lower_y: List[float] = Field(..., description="Lower surface Y coordinates")
-    reynolds: float = Field(..., description="Reynolds number")
-    mach: float = Field(default=0.0, description="Mach number")
-    alpha_start: float = Field(..., description="Alpha start (degrees)")
-    alpha_end: float = Field(..., description="Alpha end (degrees)")
-    alpha_step: float = Field(..., description="Alpha step (degrees)")
-    n_crit: float = Field(default=9.0, description="Critical N-factor")
-    naca_designation: str = Field(..., description="NACA designation (e.g., 'NACA 2412')")
 
 
 class TransientAnalysisRequest(BaseModel):
@@ -1032,7 +1005,7 @@ def analyze_control_surface(request: ControlSurfaceAnalysisRequest):
         )
 
 
-@app.post("/api/analyze-transient")
+@app.post("/api/analyze-transient", dependencies=[Depends(rate_limit)])
 def analyze_transient(request: TransientAnalysisRequest):
     """
     Analyze transient airfoil coordinates directly (no caching, no database lookup).
@@ -1055,7 +1028,12 @@ def analyze_transient(request: TransientAnalysisRequest):
                 status_code=400,
                 detail="Need at least 2 points for upper and lower surfaces"
             )
-        
+        if len(request.upper_x) > TRANSIENT_MAX_POINTS or len(request.lower_x) > TRANSIENT_MAX_POINTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"At most {TRANSIENT_MAX_POINTS} points per surface"
+            )
+
         # Validate alpha range
         if request.alpha_start >= request.alpha_end:
             raise HTTPException(
@@ -1067,7 +1045,14 @@ def analyze_transient(request: TransientAnalysisRequest):
                 status_code=400,
                 detail="alpha_step must be positive"
             )
-        
+        # same count as angleCount in frontend/utils/airfoilDesigner.ts
+        angles = int((request.alpha_end - request.alpha_start) / request.alpha_step + 1e-9) + 1
+        if angles > TRANSIENT_MAX_ANGLES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"That is {angles} angles of attack; at most {TRANSIENT_MAX_ANGLES} per request"
+            )
+
         # Run analysis directly (no caching)
         analysis_results = analyze_airfoil(
             upper_x_coords=request.upper_x,
@@ -1096,50 +1081,6 @@ def analyze_transient(request: TransientAnalysisRequest):
             status_code=500,
             detail=f"Error analyzing airfoil: {str(e)}"
         )
-
-
-@app.post("/api/analyze-cst")
-def analyze_cst(request: CSTAnalysisRequest):
-    """
-    Analyze CST-generated airfoil coordinates directly (no caching, no database lookup).
-    Legacy endpoint - redirects to analyze-transient for backward compatibility.
-    """
-    transient_request = TransientAnalysisRequest(
-        upper_x=request.upper_x,
-        upper_y=request.upper_y,
-        lower_x=request.lower_x,
-        lower_y=request.lower_y,
-        reynolds=request.reynolds,
-        mach=request.mach,
-        alpha_start=request.alpha_start,
-        alpha_end=request.alpha_end,
-        alpha_step=request.alpha_step,
-        n_crit=request.n_crit,
-        airfoil_name="CST Airfoil"
-    )
-    return analyze_transient(transient_request)
-
-
-@app.post("/api/analyze-naca")
-def analyze_naca(request: NACAAnalysisRequest):
-    """
-    Analyze NACA-generated airfoil coordinates directly (no caching, no database lookup).
-    Legacy endpoint - redirects to analyze-transient for backward compatibility.
-    """
-    transient_request = TransientAnalysisRequest(
-        upper_x=request.upper_x,
-        upper_y=request.upper_y,
-        lower_x=request.lower_x,
-        lower_y=request.lower_y,
-        reynolds=request.reynolds,
-        mach=request.mach,
-        alpha_start=request.alpha_start,
-        alpha_end=request.alpha_end,
-        alpha_step=request.alpha_step,
-        n_crit=request.n_crit,
-        airfoil_name=request.naca_designation
-    )
-    return analyze_transient(transient_request)
 
 
 @app.post("/api/bezier-fit", response_model=BezierFitResponse)

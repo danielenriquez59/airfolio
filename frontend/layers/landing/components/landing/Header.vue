@@ -34,6 +34,7 @@ const navigation = computed<NavigationItem[]>(() => [
       { header: 'Generate' },
       { title: 'Upload', to: '/upload' },
       { title: 'Airfoil Generator', to: '/tools/airfoil-generator' },
+      { title: 'Airfoil Designer', to: '/tools/airfoil-designer' },
       { title: 'Bezier Fit', to: '/tools/bezier-fit' },
       { divider: true },
       { header: 'Structures' },

@@ -71,7 +71,7 @@ const clearAirfoilSelection = () => {
   showDropdown.value = false
 }
 
-const handleFitToAirfoil = async () => {
+const handleFitToAirfoil = async (weights = props.parameters.order + 1) => {
   if (!selectedAirfoil.value) return
 
   isFitting.value = true
@@ -88,7 +88,7 @@ const handleFitToAirfoil = async () => {
       geometry.upper_y_coordinates,
       geometry.lower_x_coordinates,
       geometry.lower_y_coordinates,
-      props.parameters.order + 1,
+      weights,
     )
     emit('update:parameters', params)
   } catch (err) {
@@ -114,6 +114,9 @@ watch(inputOrder, (newValue) => {
   const newOrder = count - 1
   if (newOrder !== props.parameters.order) {
     emit('update-order', newOrder)
+    // Re-fit instead of keeping the parent's default weights; the fit awaits a fetch, so it lands after that reset
+    if (selectedAirfoil.value)
+      handleFitToAirfoil(count)
   }
 })
 
@@ -226,7 +229,7 @@ const handleTEThicknessChange = (value: string | number) => {
           type="button"
           color="light"
           :disabled="!selectedAirfoil || isFitting"
-          @click="handleFitToAirfoil"
+          @click="handleFitToAirfoil()"
         >
           <Icon :name="isFitting ? 'heroicons:arrow-path' : 'heroicons:sparkles'"  class="h-4 w-4" :class="{ 'animate-spin': isFitting }" aria-hidden="true" />
           <span class="whitespace-nowrap">{{ isFitting ? 'Fitting...' : 'Fit' }}</span>

@@ -127,6 +127,19 @@ def test_cannot_delete_an_airfoil_someone_else_uploaded(monkeypatch):
     assert fake.tables == ['airfoil_uploads'] and not fake.deleted
 
 
+@pytest.mark.parametrize('overrides', [
+    {'alpha_start': -10, 'alpha_end': 10, 'alpha_step': 0.1},  # 201 angles
+    {'upper_x': [0.0] * 1001, 'upper_y': [0.0] * 1001},
+])
+def test_transient_analysis_refuses_oversized_requests(monkeypatch, overrides):
+    monkeypatch.setattr(main, 'analyze_airfoil', lambda **_: pytest.fail('analysis ran'))
+    body = {'upper_x': [1.0, 0.0], 'upper_y': [0.0, 0.0], 'lower_x': [0.0, 1.0], 'lower_y': [0.0, 0.0],
+            'reynolds': 1e5, 'alpha_start': -5, 'alpha_end': 20, 'alpha_step': 0.5, **overrides}
+    with pytest.raises(HTTPException) as err:
+        main.analyze_transient(main.TransientAnalysisRequest(**body))
+    assert err.value.status_code == 400 and 'at most' in err.value.detail.lower()
+
+
 def test_uploader_can_delete_their_airfoil(monkeypatch):
     fake = FakeSupabase([{'airfoil_id': UUID}])
     monkeypatch.setattr(main, 'supabase', fake)
