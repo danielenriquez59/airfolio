@@ -15,7 +15,7 @@ import CompareNotesTab from '~/layers/landing/components/compare/CompareNotesTab
 
 // State
 const selectedAirfoilIds = ref<string[]>([])
-const activeTab = ref<'chart' | 'table' | 'notes'>('chart')
+const activeTab = ref<'chart' | 'notes'>('chart')
 const isLoadingList = ref(false)
 const isLoadingSelected = ref(false)
 const error = ref<string | null>(null)
@@ -151,15 +151,6 @@ onMounted(() => {
           <button
             type="button"
             role="tab"
-            :aria-selected="activeTab === 'table'"
-            :class="navTabButtonClasses(activeTab === 'table')"
-            @click="activeTab = 'table'"
-          >
-            Summary Table
-          </button>
-          <button
-            type="button"
-            role="tab"
             :aria-selected="activeTab === 'notes'"
             :class="navTabButtonClasses(activeTab === 'notes')"
             @click="activeTab = 'notes'"
@@ -215,9 +206,8 @@ onMounted(() => {
               :show-ticks="true"
               :tick-step="0.1"
             />
+            <GeometryCompareGeometrySummaryTable :airfoils="selectedAirfoils" />
           </div>
-
-          <GeometryCompareGeometrySummaryTable v-else-if="activeTab === 'table'" :airfoils="selectedAirfoils" />
         </div>
       </VPanel>
     </div>
